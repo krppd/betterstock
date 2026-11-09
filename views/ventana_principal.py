@@ -348,7 +348,7 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         self.ui.btnEstadisticas = BotonSidebar("estadisticas", "Estadísticas (F4)", "estadisticas.png", contenedor_nav)
 
         self.ui.btnVentas = BotonSidebar("ventas", "Ventas (F5)", "ventas.png", contenedor_nav)
-        self.ui.btnCierre = BotonSidebar("cierre", "Caja", "cierre.png", contenedor_nav)
+        self.ui.btnCierre = BotonSidebar("cierre", "Caja (F6)", "cierre.png", contenedor_nav)
         self.ui.btnConsulta = BotonSidebar("consulta", "Consulta precio (F7)", "consulta.png", contenedor_nav)
         self.ui.btnAjustes = BotonSidebar("ajustes", "Ajustes", "ajustes.png", contenedor_nav)
 
@@ -404,7 +404,7 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
             "btnAlertas": "Alertas (F3)",
             "btnEstadisticas": "Estadísticas (F4)",
             "btnVentas": "Ventas (F5)",
-            "btnCierre": "Caja",
+            "btnCierre": "Caja (F6)",
             "btnConsulta": "Consulta precio (F7)",
             "btnAjustes": "Ajustes",
         }
@@ -414,8 +414,9 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         self.ui.btnMovimientos.setText("Movimientos (F2)")
         self.ui.btnEstadisticas.setText("Estadísticas (F4)")
         self.ui.btnVentas.setText("Ventas (F5)")
-        self.ui.btnCierre.setText("Caja")
+        self.ui.btnCierre.setText("Caja (F6)")
         self.ui.btnConsulta.setText("Consulta precio (F7)")
+        self.ui.btnAlertas.setText("Alertas (F3)")
         self.ui.btnAlertas.setVisible(True)
         self.ui.btnReportes.setVisible(False)
 

@@ -75,7 +75,7 @@ What the free edition includes:
 
 - Inventory control with products, movements and sales
 - Customer and store credit (fiados) management
-- CSV import/export
+- CSV import
 - Statistics for the last 12 months
 - Cash register closing with automatic backup on your computer
 - Split payments on sales

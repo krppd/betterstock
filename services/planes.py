@@ -8,7 +8,7 @@ PLAN_GRATIS: dict[str, Any] = {
     "limites": {
         "productos": 50,
         "dias_estadisticas": 365,
-        "importaciones": 1,
+        "importaciones": None,
     },
 }
 

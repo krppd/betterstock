@@ -20,6 +20,8 @@ class VentanaAlertas(QWidget, VentanaBase):
         self.ui.verticalLayout.setStretch(1, 1)
         self.ui.verticalLayout.setStretch(4, 2)
         self.setMinimumSize(480, 420)
+        self.ui.btnExportar.setVisible(False)
+        self.ui.btnExportarVencimientos.setVisible(False)
 
         self.cargar_alertas()
 

@@ -34,6 +34,8 @@ class VentanaReportes(QWidget, VentanaBase):
         self.ui.dateDesde.setDate(QtCore.QDate.currentDate().addDays(-30))
         self.ui.dateHasta.setDate(QtCore.QDate.currentDate())
         self.ui.btnFiltrar.clicked.connect(self.filtrar_reportes)
+        self.ui.btnExportarCSV.setVisible(False)
+        self.ui.btnExportarPDF.setVisible(False)
 
         self.ui.lblTotal.setFont(fuente(TAMANO_SMALL, negrita=True, tabular=True))
         self.ui.lblTotal.setVisible(self._admin)

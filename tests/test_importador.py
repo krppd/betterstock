@@ -523,14 +523,14 @@ def test_deshacer_sin_importaciones_no_hace_nada(servicio):
     assert servicio.deshacer() is False
 
 
-def test_el_plan_gratis_limita_las_importaciones(tmp_path, servicio):
+def test_el_plan_gratis_no_limita_las_importaciones(tmp_path, servicio):
     ruta = _csv(tmp_path, ["Codigo;Nombre", "A1;Gaseosa"])
     opciones = _opciones({"codigo": 0, "nombre": 1})
 
     assert servicio.limite_alcanzado() is False
     servicio.importar(ruta, opciones)
-    assert servicio.limite_alcanzado() is True
-    assert PLAN_GRATIS["limites"]["importaciones"] == 1
+    assert servicio.limite_alcanzado() is False
+    assert PLAN_GRATIS["limites"]["importaciones"] is None
 
 
 def test_el_plan_gratis_recorta_las_filas_nuevas_sobre_el_limite(tmp_path, servicio, base):
@@ -554,19 +554,6 @@ def test_el_plan_gratis_recorta_las_filas_nuevas_sobre_el_limite(tmp_path, servi
     assert repositorio.buscar("N1") is None
     assert repositorio.buscar("N3") is None
     assert repositorio.buscar("A1").nombre == "Actualizada"
-
-
-def test_el_asistente_no_arranca_cuando_se_alcanzo_el_limite(tmp_path, servicio, aplicacion, monkeypatch):
-    ruta = _csv(tmp_path, ["Codigo;Nombre", "A1;Gaseosa"])
-    servicio.importar(ruta, _opciones({"codigo": 0, "nombre": 1}))
-    avisos: list[str] = []
-    monkeypatch.setattr(AvisoPlanGratis, "exec", lambda self: avisos.append("mostrado"))
-
-    asistente = ImportadorProductos(servicio)
-
-    assert asistente.exec() == QDialog.DialogCode.Rejected
-    assert avisos == ["mostrado"]
-    _cerrar(asistente)
 
 
 def test_el_asistente_importa_de_punta_a_punta(tmp_path, servicio, base, aplicacion):
