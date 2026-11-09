@@ -37,15 +37,39 @@ def _version() -> str:
 
 
 VERSION = _version()
+VERSION_TUPLE = tuple(int(x) for x in VERSION.split("."))
 
-VERSIONINFO = versioninfo.VersionInfo(
-    VERSION,
-    fileDescription="BetterStock Free",
-    productName="BetterStock",
-    internalName="BetterStock",
-    originalFilename="BetterStock.exe",
-    companyName="BetterStock",
-    legalCopyright="MIT License",
+VERSIONINFO = versioninfo.VSVersionInfo(
+    ffi=versioninfo.FixedFileInfo(
+        filevers=VERSION_TUPLE,
+        prodvers=VERSION_TUPLE,
+        mask=0x3F,
+        flags=0x0,
+        OS=0x40004,
+        fileType=0x1,
+        subtype=0x0,
+        date=(0, 0),
+    ),
+    kids=[
+        versioninfo.StringFileInfo(
+            [
+                versioninfo.StringTable(
+                    u"040904B0",
+                    [
+                        versioninfo.StringStruct(u"CompanyName", "BetterStock"),
+                        versioninfo.StringStruct(u"FileDescription", "BetterStock Free"),
+                        versioninfo.StringStruct(u"FileVersion", VERSION),
+                        versioninfo.StringStruct(u"InternalName", "BetterStock"),
+                        versioninfo.StringStruct(u"LegalCopyright", "MIT License"),
+                        versioninfo.StringStruct(u"OriginalFilename", "BetterStock.exe"),
+                        versioninfo.StringStruct(u"ProductName", "BetterStock"),
+                        versioninfo.StringStruct(u"ProductVersion", VERSION),
+                    ],
+                )
+            ]
+        ),
+        versioninfo.VarFileInfo([versioninfo.VarStruct(u"Translation", [1033, 1200])]),
+    ],
 )
 
 datas = [
