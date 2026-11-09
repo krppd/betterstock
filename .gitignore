@@ -1,0 +1,81 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+entorno/
+pyvenv.cfg
+Scripts/
+Lib/
+Include/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Archivos generados por la aplicación (tickets, reportes y exportaciones)
+output/
+*.pdf
+
+# Datos de cada instalación (productos, movimientos, usuarios, categorías, ventas,
+# cierres y comercio): no van al repositorio. La aplicación crea al iniciar los
+# archivos que falten, con el usuario admin por defecto.
+data/
+!data/.gitkeep
+
+# Token de MercadoPago: secreto de cada instalación, nunca se sube.
+data/mp_token.txt
+data/preferencias.json
+
+# Claves de firma y licencias: nunca al repositorio.
+keys/
+*.key
+licencia*.bin
+data/licencia*.bin
+
+# Plugins instalados (el premium se descarga y queda acá)
+data/plugins/
+
+# Build del núcleo premium en Rust (crate premium/core) y paquete firmado.
+premium/core/target/
+premium/core/dist/
+dist/
+
+# La carpeta native/ se borró: lo nativo quedó en Python con ctypes. Si vuelve a
+# aparecer, no entra al repositorio.
+native/
+
+# Fotos de producto que genera la app en cada instalación.
+Recursos/productos/
+
+# Informes sueltos y carpetas temporales de trabajo.
+*.db
+asd informe.md
+mejoras.md
+--help/
+
+# Scripts de despliegue del local: nunca al repositorio.
+scripts/*.sh
+
+# Cache de pytest y herramientas de desarrollo.
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Editores y sistema operativo.
+.vscode/
+.idea/
+.vs/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Notas e ideas de trabajo del redactor (no publicar).
+ideas.md
+
+# Plugins de prueba por instalación.
+data/plugins-desactivado/
+
+docs/capturas/
+docs/superpowers/

@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Dialog</class>
+ <widget class="QDialog" name="Dialog">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>400</width>
+    <height>500</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Producto</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="8" column="0">
+    <widget class="QLabel" name="lblStock_Actual">
+     <property name="text">
+      <string>Stock Actual:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="8" column="1">
+    <widget class="CampoCantidad" name="spnStock"/>
+   </item>
+   <item row="0" column="0">
+    <widget class="QLabel" name="lblCodigo">
+     <property name="text">
+      <string>Código:</string>
+     </property>
+     <property name="margin">
+      <number>1</number>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="0">
+    <widget class="QLabel" name="lblCategoria">
+     <property name="text">
+      <string>Categoria:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="2" column="1">
+    <widget class="QComboBox" name="cmbCategoria"/>
+   </item>
+   <item row="3" column="1">
+    <widget class="QLineEdit" name="txtUnidad"/>
+   </item>
+   <item row="0" column="1">
+    <widget class="QLineEdit" name="txtCodigo"/>
+   </item>
+   <item row="1" column="0">
+    <widget class="QLabel" name="lblNombre">
+     <property name="text">
+      <string>Nombre:</string>
+     </property>
+     <property name="margin">
+      <number>1</number>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QLineEdit" name="txtNombre"/>
+   </item>
+   <item row="4" column="0">
+    <widget class="QLabel" name="lblCosto">
+     <property name="text">
+      <string>Precio de Costo:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="4" column="1">
+    <widget class="QDoubleSpinBox" name="spnPrecioCosto">
+     <property name="maximum">
+      <double>999999999.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="0">
+    <widget class="QLabel" name="lblVenta">
+     <property name="text">
+      <string>Precio de Venta:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="5" column="1">
+    <widget class="QDoubleSpinBox" name="spnPrecioVenta">
+     <property name="maximum">
+      <double>999999999.000000000000000</double>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="0">
+    <widget class="QLabel" name="lblOferta">
+     <property name="text">
+      <string>Precio de Oferta:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="6" column="1">
+    <widget class="QDoubleSpinBox" name="spnPrecioOferta">
+     <property name="maximum">
+      <double>999999999.000000000000000</double>
+     </property>
+     <property name="specialValueText">
+      <string>sin oferta</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="0">
+    <widget class="QLabel" name="lblIva">
+     <property name="text">
+      <string>IVA:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="7" column="1">
+    <widget class="QComboBox" name="cmbIva">
+     <property name="currentIndex">
+      <number>2</number>
+     </property>
+     <item>
+      <property name="text">
+       <string>Exento (0%)</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>10,5%</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>21%</string>
+      </property>
+     </item>
+     <item>
+      <property name="text">
+       <string>27%</string>
+      </property>
+     </item>
+    </widget>
+   </item>
+   <item row="3" column="0">
+    <widget class="QLabel" name="lblUnidad_de_Medida">
+     <property name="text">
+      <string>Unidad de Medida:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="0">
+    <widget class="QLabel" name="lblVencimiento">
+     <property name="text">
+      <string>Vencimiento:</string>
+     </property>
+    </widget>
+   </item>
+   <item row="12" column="1">
+    <widget class="QDateEdit" name="dateVencimiento">
+     <property name="calendarPopup">
+      <bool>true</bool>
+     </property>
+     <property name="displayFormat">
+      <string>dd/MM/yyyy</string>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="0">
+    <widget class="QPushButton" name="btnFoto">
+     <property name="text">
+      <string>Buscar foto</string>
+     </property>
+    </widget>
+   </item>
+   <item row="13" column="1">
+    <widget class="QLabel" name="lblFotoMini">
+     <property name="text">
+      <string>Sin foto</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignCenter</set>
+     </property>
+    </widget>
+   </item>
+   <item row="14" column="0">
+    <widget class="QPushButton" name="btnCancelar">
+     <property name="text">
+      <string>Cancelar</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="1">
+    <widget class="CampoCantidad" name="spnStockMinimo"/>
+   </item>
+   <item row="14" column="1">
+    <widget class="QPushButton" name="btnGuardar">
+     <property name="text">
+      <string>Guardar</string>
+     </property>
+    </widget>
+   </item>
+   <item row="9" column="0">
+    <widget class="QLabel" name="lblSock_minimo">
+     <property name="text">
+      <string>Stock Mínimo:</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>CampoCantidad</class>
+   <extends>QLineEdit</extends>
+   <header>ui.manual.campo_cantidad</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources/>
+ <connections/>
+</ui>

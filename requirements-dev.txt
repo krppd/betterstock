@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Suite de tests
+pytest==9.0.2

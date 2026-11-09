@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="Imagenes">
+    <file>logo_sf.png</file>
+    <file>anim_logo_tira.png</file>
+  </qresource>
+</RCC>

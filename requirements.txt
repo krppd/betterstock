@@ -1,0 +1,13 @@
+# Interfaz gráfica (incluye QtPrintSupport, que se usa para generar los PDF)
+PyQt6==6.11.0
+
+# Gráfico de ventas por día (el dibujo lo hace matplotlib; QtCharts sólo lo usa un test)
+PyQt6-Charts==6.11.0
+matplotlib==3.11.2
+
+# Fotos y miniaturas de productos (services/fotos.py importa PIL al cargar)
+Pillow==12.1.1
+
+# Hash de contraseñas (SHA-256 es demasiado rápido y no frena la fuerza bruta)
+bcrypt==5.0.0
+
