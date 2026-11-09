@@ -385,7 +385,7 @@ class VentanaEstadisticas(QWidget, VentanaBase):
             self.ui.lblRango.setText(self._descripcion_periodo_html(comparacion.actual))
             if sin_licencia:
                 self.ui.lblRango.setToolTip(
-                    "La comparación con el período anterior es una función de la edición paga.")
+                    "La comparación con el período anterior es una función de BetterStock Pro.")
             series = self._series_diarias(desde, hasta)
             self._pintar_tarjetas(comparacion, series)
             self._puente.actualizar_series(*series)

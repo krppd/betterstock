@@ -175,7 +175,7 @@ class EstadisticasVentas:
 
     def comparar(self, desde: date, hasta: date) -> Comparacion:
         raise PermissionError(
-            "La comparación con el período anterior es una función de la edición paga."
+            "La comparación con el período anterior es una función de BetterStock Pro."
         )
 
     def mas_vendidos(self, desde: date, hasta: date, limite: int = 10) -> list[ProductoVendido]:
@@ -224,7 +224,7 @@ class EstadisticasVentas:
 
     def total_por_mes(self, desde: date, hasta: date) -> list[tuple[date, float]]:
         raise PermissionError(
-            "Las estadísticas por mes son una función de la edición paga."
+            "Las estadísticas por mes son una función de BetterStock Pro."
         )
 
     def registrar(self, venta: VentaRegistrada) -> None:

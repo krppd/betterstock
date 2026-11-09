@@ -71,12 +71,12 @@ class GestorFiado:
             m.signo * m.importe for m in self._cuenta.por_cliente(codigo)), 2)
 
     def deudores(self) -> list[tuple[Cliente, float]]:
-        # Edición libre: el consolidado de deudores es función de la edición paga.
-        raise PermissionError("Funciones de fiado avanzado requieren la edición paga.")
+        
+        raise PermissionError("Funciones de fiado avanzado requieren BetterStock Pro.")
 
     def total_por_cobrar(self) -> float:
-        # Edición libre: el total por cobrar es función de la edición paga.
-        raise PermissionError("Funciones de fiado avanzado requieren la edición paga.")
+        
+        raise PermissionError("Funciones de fiado avanzado requieren BetterStock Pro.")
 
     def movimientos_de(self, codigo: str) -> list[MovimientoCuenta]:
         return self._cuenta.por_cliente(codigo)

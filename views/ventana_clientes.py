@@ -54,9 +54,9 @@ class VentanaClientes(QWidget, VentanaBase):
             else:
                 colores.append(None)
         self.llenar_tabla(self.ui.tblClientes, filas, colores)
-        self.ui.lblDeudaTotal.mostrar("Por cobrar: función de la edición paga")
+        self.ui.lblDeudaTotal.mostrar("Por cobrar: disponible en BetterStock Pro")
         self.ui.lblDeudaTotal.setToolTip(
-            "El total consolidado por cobrar está disponible en la edición paga.")
+            "El total consolidado por cobrar está disponible en BetterStock Pro.")
         self._cuenta_del_seleccionado()
 
     def _codigo_seleccionado(self, mensaje: str) -> str | None:

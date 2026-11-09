@@ -198,7 +198,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -264,8 +263,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: no hay activación de licencia ni módulos premium.
-        # (Los planes pagos se gestionan desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)
@@ -294,7 +291,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -360,8 +356,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: no hay activación de licencia ni módulos premium.
-        # (La edición paga se gestiona desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)
@@ -390,7 +384,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -456,8 +449,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: no hay activación de licencia ni módulos premium.
-        # (Los planes pagos se gestionan desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)
@@ -486,7 +477,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -552,8 +542,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: sin activación de licencia ni módulos premium.
-        # (La edición paga se gestiona desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)
@@ -582,7 +570,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -648,8 +635,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: no hay activación de licencia ni módulos premium.
-        # (Los planes pagos se gestionan desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)
@@ -678,7 +663,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -744,8 +728,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: no hay activación de licencia ni módulos premium.
-        # (La edición paga se gestiona desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)
@@ -774,7 +756,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -840,8 +821,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: no hay activación de licencia ni módulos premium.
-        # (Los planes pagos se gestionan desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)
@@ -870,7 +849,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         layout.insertWidget(layout.count() - 1, grupo)
 
     def _armar_seccion_fiado(self) -> None:
-        # Edición libre: el recargo por atraso es función de la edición paga.
         return
 
     def _armar_seccion_cuenta(self) -> None:
@@ -936,8 +914,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-        # Edición libre: sin activación de licencia ni módulos premium.
-        # (La edición paga se gestiona desde BetterStock Pro.)
 
         layout = self.ui.verticalLayout
         layout.insertWidget(layout.count() - 1, grupo)

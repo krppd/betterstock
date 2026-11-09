@@ -78,7 +78,6 @@ class ServicioImportacion:
         return self.importaciones_realizadas() >= maximo
 
     def importadores_disponibles(self) -> list[dict]:
-        # Edición libre: no hay plugins premium externos.
         return []
 
     def usar_importador(self, clase) -> None:

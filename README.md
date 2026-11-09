@@ -57,22 +57,19 @@ There are no default users: the administrator is created on the first run.
 
 At checkout, the ticket is printed with **the system printer** (the one configured
 on the computer) or saved as a PDF. No setup is required: after the sale, a dialog
-appears with the sale result and the buttons "Print ticket", "Save PDF" and
-"Close".
+appears with the sale result and the buttons "Print ticket" and "Close".
 
-If printing fails, the sale is still recorded and the ticket can be saved as a PDF.
+If printing fails, the sale is still recorded and the ticket can be reprinted later.
 
 The thermal printer (ESC/POS) code is not in this repository: the app prints with
 the system printer or saves a PDF.
 
-## Free edition and premium
+## Free edition
 
 **BetterStock is open source and free.**
 
-This repository contains the complete free edition and works without a license or
-a server. Premium features are optional: they are delivered as a plugin that is
-downloaded and verified when a license is activated from **Settings**. The
-**Premium** menu entry opens that panel; without a license it takes you to Settings.
+This repository contains the complete free edition. It works fully offline and
+does not require a license, a server or any external service.
 
 What the free edition includes:
 
@@ -82,17 +79,13 @@ What the free edition includes:
 - Statistics for the last 12 months
 - Cash register closing with automatic backup on your computer
 - Split payments on sales
-- Mercado Pago with your own token
 - Cancellations with a supervisor code
 - No limit on products or imports
 - A single administrator user, who can change their own password
 
-Premium plans, current pricing and the full feature list are on
+A paid edition with advanced features (advanced store credit, advanced
+statistics, cloud backup and more) is available on
 [betterstock.tech](https://betterstock.tech).
-
-The only licensing code in this repository is the Ed25519 verifier
-(`services/plan_motor.py`) and the activation code (`services/licencia_remota.py`).
-The private signing key is not in this repository.
 
 ## Regenerating an interface
 
