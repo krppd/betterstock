@@ -9,6 +9,7 @@ from PyQt6.QtWidgets import (
     QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -83,7 +84,7 @@ class Notificacion(QWidget):
 
     DURACION_MS = 10000
     MARGEN = 16
-    ANCHO_MINIMO = 320
+    ANCHO_MINIMO = 390
     DESPLAZAMIENTO_ENTRADA = 24
     MILISEGUNDOS_MOVIMIENTO = 280
 
@@ -106,18 +107,24 @@ class Notificacion(QWidget):
         self._tarjeta = QFrame(self)
         self._tarjeta.setObjectName("tarjeta")
         self._sombra = QGraphicsDropShadowEffect(self._tarjeta)
-        self._sombra.setBlurRadius(16)
+        self._sombra.setBlurRadius(20)
         self._sombra.setOffset(0, 4)
-        self._sombra.setColor(QColor(0, 0, 0, 48))
+        self._sombra.setColor(QColor(0, 0, 0, 28))
         self._tarjeta.setGraphicsEffect(self._sombra)
         layout_exterior.addWidget(self._tarjeta)
 
         self._layout_interior = QHBoxLayout(self._tarjeta)
-        self._layout_interior.setContentsMargins(10, 10, 10, 10)
+        self._layout_interior.setContentsMargins(10, 8, 12, 8)
         self._layout_interior.setSpacing(10)
 
+        self._barra_acento = QFrame(self._tarjeta)
+        self._barra_acento.setObjectName("barraAcento")
+        self._barra_acento.setFixedWidth(4)
+        self._barra_acento.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding)
+        self._layout_interior.addWidget(self._barra_acento)
+
         self._icono = IconoCapsula("aviso", color("pastilla_positiva"), color("verde_profundo"), self._tarjeta)
-        self._layout_interior.addWidget(self._icono, 0, Qt.AlignmentFlag.AlignTop)
+        self._layout_interior.addWidget(self._icono, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self._columna = QVBoxLayout()
         self._columna.setContentsMargins(0, 0, 0, 0)
@@ -197,24 +204,27 @@ class Notificacion(QWidget):
         esc = min(escala_activa(), 1.4)
         tam = round(11 * esc)
         tam_cerrar = round(10 * esc)
-        pad = round(10 * esc)
+        pad_h = round(10 * esc)
+        pad_v = round(8 * esc)
         rad = round(12 * min(esc, 1.25))
-        borde_izq = round(4 * esc)
+        ancho_barra = max(3, round(3.5 * esc))
+        rad_barra = round(2 * esc)
 
+        self._barra_acento.setFixedWidth(ancho_barra)
         self._tarjeta.setStyleSheet(
             f"QFrame#tarjeta {{ background-color: {color('blanco')};"
             f" border: 1px solid {borde_tarjeta};"
-            f" border-left: {borde_izq}px solid {acento};"
             f" border-radius: {rad}px; }}"
+            f"QFrame#barraAcento {{ background-color: {acento}; border-radius: {rad_barra}px; border: none; margin: {round(3 * esc)}px 0px; }}"
             f"QLabel#titulo {{ color: {acento}; font-size: {tam}pt; font-weight: bold; font-family: '{familia()}'; }}"
             f"QLabel#cuerpo {{ color: {color('gris_linea')}; font-size: {tam}pt; font-family: '{familia()}'; }}"
         )
         self._btn_cerrar.setStyleSheet(
             f"color: {color('gris_apagado')}; font-size: {tam_cerrar}pt; font-family: '{familia()}';"
         )
-        self._layout_interior.setContentsMargins(pad, pad, pad, pad)
-        self._layout_interior.setSpacing(pad)
-        self._columna.setSpacing(round(2 * esc))
+        self._layout_interior.setContentsMargins(pad_h, pad_v, pad_h, pad_v)
+        self._layout_interior.setSpacing(round(10 * esc))
+        self._columna.setSpacing(round(3 * esc))
 
     def _calcular_ancho_tarjeta(self) -> int:
         escala_geom = min(escala_activa(), 1.5)
@@ -290,13 +300,13 @@ class Notificacion(QWidget):
             self._cuerpo.setVisible(bool(cuerpo))
             self._contenedor_filas.setVisible(True)
             esc = min(escala_activa(), 1.4)
-            tam_filas = round(11 * esc)
+            tam_filas = round(10.5 * esc)
             tam_badge = round(9 * esc)
-            pad_v = round(2 * esc)
+            pad_v = round(2.5 * esc)
             pad_h = round(6 * esc)
-            rad_badge = round(3 * esc)
+            rad_badge = round(4 * esc)
 
-            self._layout_filas.setSpacing(round(3 * esc))
+            self._layout_filas.setSpacing(round(4 * esc))
             for item in filas:
                 r = QHBoxLayout()
                 r.setContentsMargins(0, 0, 0, 0)
@@ -306,6 +316,7 @@ class Notificacion(QWidget):
                 r.addWidget(dot)
                 lbl_n = QLabel(item["nombre"])
                 lbl_n.setStyleSheet(f"color: {color('panel_borde')}; font-size: {tam_filas}pt; font-family: '{familia()}';")
+                lbl_n.setToolTip(item["nombre"])
                 r.addWidget(lbl_n, 1)
 
                 if item.get("badge"):

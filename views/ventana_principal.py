@@ -232,8 +232,8 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         frame.setObjectName("frameSidebar")
         frame.setStyleSheet(
             "QFrame#frameSidebar { "
-            f"background: qlineargradient(spread:pad, x1:0, y1:0, x2:0.35, y2:1, stop:0 {color('verde_lateral_inicio')}, stop:0.5 {color('verde_lateral_oscuro')}, stop:1 {color('verde_lateral_fin')}); "
-            "border: 1px solid rgba(0, 0, 0, 0.15); "
+            f"background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 {color('verde_lateral_inicio')}, stop:1 {color('verde_lateral_fin')}); "
+            "border: 1px solid rgba(0, 0, 0, 0.08); "
             "border-radius: 14px; "
             "}"
         )
@@ -267,12 +267,12 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         self._card_tienda = QFrame(frame)
         self._card_tienda.setObjectName("btnSwitcherTienda")
         self._card_tienda.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._card_tienda.setFixedHeight(_px(50))
+        self._card_tienda.setFixedHeight(_px(46))
         self._card_tienda.setStyleSheet(
             "QFrame#btnSwitcherTienda { "
             f"background-color: {color('sidebar_btn_inactivo_fondo')}; "
             f"border: 1px solid {color('sidebar_btn_inactivo_borde')}; "
-            "border-radius: 10px; "
+            f"border-radius: {_px(10)}px; "
             "} "
             "QFrame#btnSwitcherTienda:hover { "
             f"background-color: {color('sidebar_btn_hover_fondo')}; "
@@ -280,21 +280,20 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
             "}"
         )
         lay_tienda = QHBoxLayout(self._card_tienda)
-        lay_tienda.setContentsMargins(_px(10), _px(6), _px(10), _px(6))
+        lay_tienda.setContentsMargins(_px(12), _px(2), _px(12), _px(6))
         lay_tienda.setSpacing(_px(10))
         lay_tienda.setAlignment(Qt.AlignmentFlag.AlignVCenter)
 
         ico_box = QLabel(self._card_tienda)
-        ico_box.setFixedSize(_px(34), _px(34))
-        ico_box.setStyleSheet(f"background-color: {color('sidebar_btn_hover_fondo')}; border-radius: 8px; border: none;")
+        ico_box.setFixedSize(_px(20), _px(20))
+        ico_box.setStyleSheet("background: transparent; border: none;")
         ico_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
         ico_box.setPixmap(_icono_tintado("tienda.png", color("blanco"), 20).pixmap(_px(20), _px(20)))
-        lay_tienda.addStretch(1)
         lay_tienda.addWidget(ico_box, 0, Qt.AlignmentFlag.AlignVCenter)
 
         col_t = QVBoxLayout()
-        col_t.setContentsMargins(0, 0, 0, 0)
-        col_t.setSpacing(_px(2))
+        col_t.setContentsMargins(0, 0, 0, _px(2))
+        col_t.setSpacing(_px(1))
         col_t.addStretch(1)
         lbl_t_nom = QLabel(nombre_tienda, self._card_tienda)
         lbl_t_nom.setStyleSheet(f"color: {color('blanco')}; font-weight: 700; font-size: {_px(13)}px; background: transparent; border: none;")
@@ -342,10 +341,10 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
 
         self.ui.btnProductos = BotonSidebar("productos", "Productos (F1)", "productos.png", contenedor_nav)
         self.ui.btnMovimientos = BotonSidebar("movimientos", "Movimientos (F2)", "movimientos.png", contenedor_nav)
-        self.ui.btnAlertas = BotonSidebar("alertas", "Alertas (F3)", "alertas.png", contenedor_nav)
+        self.ui.btnAlertas = BotonSidebar("alertas", "Alertas (F4)", "alertas.png", contenedor_nav)
         self.ui.btnReportes = BotonSidebar("reportes", "Reportes", "estadisticas.png", contenedor_nav)
 
-        self.ui.btnEstadisticas = BotonSidebar("estadisticas", "Estadísticas (F4)", "estadisticas.png", contenedor_nav)
+        self.ui.btnEstadisticas = BotonSidebar("estadisticas", "Estadísticas (F8)", "estadisticas.png", contenedor_nav)
 
         self.ui.btnVentas = BotonSidebar("ventas", "Ventas (F5)", "ventas.png", contenedor_nav)
         self.ui.btnCierre = BotonSidebar("cierre", "Caja (F6)", "cierre.png", contenedor_nav)
@@ -401,8 +400,8 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         self._titulos_sidebar = {
             "btnProductos": "Productos (F1)",
             "btnMovimientos": "Movimientos (F2)",
-            "btnAlertas": "Alertas (F3)",
-            "btnEstadisticas": "Estadísticas (F4)",
+            "btnAlertas": "Alertas (F4)",
+            "btnEstadisticas": "Estadísticas (F8)",
             "btnVentas": "Ventas (F5)",
             "btnCierre": "Caja (F6)",
             "btnConsulta": "Consulta precio (F7)",
@@ -412,11 +411,11 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
     def _conectar_botones(self) -> None:
         self.ui.btnProductos.setText("Productos (F1)")
         self.ui.btnMovimientos.setText("Movimientos (F2)")
-        self.ui.btnEstadisticas.setText("Estadísticas (F4)")
+        self.ui.btnAlertas.setText("Alertas (F4)")
+        self.ui.btnEstadisticas.setText("Estadísticas (F8)")
         self.ui.btnVentas.setText("Ventas (F5)")
         self.ui.btnCierre.setText("Caja (F6)")
         self.ui.btnConsulta.setText("Consulta precio (F7)")
-        self.ui.btnAlertas.setText("Alertas (F3)")
         self.ui.btnAlertas.setVisible(True)
         self.ui.btnReportes.setVisible(False)
 
@@ -439,8 +438,8 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         atajos = (
             (Qt.Key.Key_F1, self.abrir_productos),
             (Qt.Key.Key_F2, self.abrir_movimientos),
-            (Qt.Key.Key_F3, self.abrir_alertas),
-            (Qt.Key.Key_F4, self.abrir_estadisticas),
+            (Qt.Key.Key_F4, self.abrir_alertas),
+            (Qt.Key.Key_F8, self.abrir_estadisticas),
             (Qt.Key.Key_F5, self.abrir_ventas),
             (Qt.Key.Key_F6, self.abrir_cierre),
             (Qt.Key.Key_F7, self.abrir_consulta),
@@ -460,7 +459,7 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         texto = f"{nombre}\n{aire}{etiqueta}" if etiqueta else nombre
         self.ui.btnUsuario.setText(texto)
 
-        pad_u = 0 if self._barra_colapsada else _px(10)
+        pad_u = 0 if self._barra_colapsada else _px(12)
         self.ui.btnUsuario.setFixedHeight(_px(46))
         self.ui.btnUsuario.setStyleSheet(
             "QPushButton { "
@@ -471,15 +470,15 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
             f"font-size: {_px(12)}px; "
             "font-weight: 600; "
             f"text-align: {'center' if self._barra_colapsada else 'left'}; "
-            f"padding: {_px(6)}px {pad_u}px; "
+            f"padding: {_px(4)}px {pad_u}px; "
             "} "
             "QPushButton:hover { "
             f"background-color: {color('sidebar_btn_hover_fondo')}; "
             f"border-color: {color('sidebar_btn_hover_borde')}; "
             "}"
         )
-        self.ui.btnUsuario.setIcon(_icono_tintado("user.png", color("sidebar_btn_inactivo_texto"), 24))
-        self.ui.btnUsuario.setIconSize(QSize(_px(24), _px(24)))
+        self.ui.btnUsuario.setIcon(_icono_tintado("user.png", color("sidebar_btn_inactivo_texto"), 20))
+        self.ui.btnUsuario.setIconSize(QSize(_px(20), _px(20)))
 
     def _alternar_barra(self) -> None:
         self._barra_colapsada = not self._barra_colapsada

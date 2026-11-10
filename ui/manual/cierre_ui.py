@@ -192,6 +192,8 @@ class Ui_CierreForm(object):
             QtWidgets.QSizePolicy.Policy.Expanding,
             QtWidgets.QSizePolicy.Policy.Expanding)
         self.scrollMovimientos.setWidgetResizable(True)
+        self.scrollMovimientos.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scrollMovimientos.setStyleSheet(
             "QScrollArea#scrollMovimientosCaja { border: none; background: transparent; }"
         )
@@ -236,12 +238,21 @@ class Ui_CierreForm(object):
             QtWidgets.QSizePolicy.Policy.Expanding,
             QtWidgets.QSizePolicy.Policy.Expanding)
         self.scrollHistorial.setWidgetResizable(True)
+        self.scrollHistorial.setFrameShape(QtWidgets.QFrame.Shape.NoFrame)
+        self.scrollHistorial.setHorizontalScrollBarPolicy(
+            QtCore.Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.scrollHistorial.setStyleSheet(
-            "QScrollArea#scrollHistorialCaja { border: none; background: transparent; }"
+            "QScrollArea#scrollHistorialCaja { border: none; background: transparent; } "
+            "QScrollBar:vertical { width: 5px; background: transparent; border: none; margin: 0px; } "
+            "QScrollBar::handle:vertical { background: #CBD5E1; border-radius: 2px; min-height: 20px; } "
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; } "
+            "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: transparent; }"
         )
+        self.scrollHistorial.viewport().setStyleSheet("background: transparent; border: none;")
 
         self.contenedorHistorial = QtWidgets.QWidget()
         self.contenedorHistorial.setObjectName("contenedorHistorialCaja")
+        self.contenedorHistorial.setStyleSheet("QWidget#contenedorHistorialCaja { background: transparent; border: none; }")
         self.gridHistorial = QtWidgets.QGridLayout(self.contenedorHistorial)
         self.gridHistorial.setContentsMargins(0, 0, 0, 0)
         self.gridHistorial.setSpacing(8)

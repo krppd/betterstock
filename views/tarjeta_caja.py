@@ -7,6 +7,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
@@ -163,24 +164,26 @@ class TarjetaHistorialCierre(QFrame):
         super().__init__(parent)
         self.cierre = cierre
         self.setObjectName("tarjetaHistorialCierre")
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+        from utils.formato import formatear_dinero
 
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(_px(12), _px(8), _px(12), _px(8))
-        lay.setSpacing(_px(8))
+        lay.setContentsMargins(_px(14), _px(10), _px(14), _px(10))
+        lay.setSpacing(_px(12))
 
         col_izq = QVBoxLayout()
         col_izq.setContentsMargins(0, 0, 0, 0)
-        col_izq.setSpacing(_px(2))
+        col_izq.setSpacing(_px(3))
 
-        dia_mes = cierre.fecha.strftime("%d/%m")
+        hora_txt = f" {cierre.hora}" if getattr(cierre, "hora", None) else ""
         usuario = cierre.usuario or "—"
-        lbl_arr = QLabel(f"{dia_mes} · {cierre.fecha_texto} {usuario}", self)
-        lbl_arr.setFont(fuente(TAMANO_SMALL, negrita=True))
+        lbl_arr = QLabel(f"{cierre.fecha_texto}{hora_txt} · {usuario}", self)
+        lbl_arr.setFont(fuente(TAMANO_BODY, negrita=True))
         lbl_arr.setStyleSheet(f"color: {color('texto_oscuro')}; background: transparent; border: none;")
         col_izq.addWidget(lbl_arr)
 
         ventas_txt = f"{cierre.cantidad_ventas} {'venta' if cierre.cantidad_ventas == 1 else 'ventas'}"
-        from utils.formato import formatear_dinero
         if ciego:
             sub = f"{ventas_txt} · Declarado {formatear_dinero(cierre.declarado)}"
         else:
@@ -192,24 +195,35 @@ class TarjetaHistorialCierre(QFrame):
 
         lay.addLayout(col_izq, 1)
 
-        from utils.formato import formatear_dinero
+        col_der = QVBoxLayout()
+        col_der.setContentsMargins(0, 0, 0, 0)
+        col_der.setSpacing(_px(2))
+
+        lbl_monto = QLabel(formatear_dinero(cierre.declarado), self)
+        lbl_monto.setFont(fuente(TAMANO_BODY, negrita=True, tabular=True))
+        lbl_monto.setStyleSheet(f"color: {color('texto_oscuro')}; background: transparent; border: none;")
+        lbl_monto.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        col_der.addWidget(lbl_monto)
+
         if cierre.cuadra:
-            txt_der = f"{formatear_dinero(cierre.declarado)} · cuadra"
-            col_der = color("verde_acento")
+            txt_estado = "Cuadra"
+            col_estado = color("verde_acento")
         elif cierre.sobrante > 0:
-            txt_der = f"sobrante {formatear_dinero(cierre.sobrante)}"
-            col_der = color("verde_acento")
+            txt_estado = f"+{formatear_dinero(cierre.sobrante)} sobrante"
+            col_estado = color("verde_acento")
         else:
-            txt_der = f"faltante {formatear_dinero(cierre.faltante)}"
-            col_der = color("rojo_oscuro")
+            txt_estado = f"-{formatear_dinero(cierre.faltante)} faltante"
+            col_estado = color("rojo_oscuro")
 
-        lbl_der = QLabel(txt_der, self)
-        lbl_der.setFont(fuente(TAMANO_BODY, negrita=True, tabular=True))
-        lbl_der.setStyleSheet(f"color: {col_der}; background: transparent; border: none;")
-        lbl_der.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        lay.addWidget(lbl_der)
+        lbl_estado = QLabel(txt_estado, self)
+        lbl_estado.setFont(fuente(TAMANO_SMALL, negrita=True))
+        lbl_estado.setStyleSheet(f"color: {col_estado}; background: transparent; border: none;")
+        lbl_estado.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        col_der.addWidget(lbl_estado)
 
-        radio = _px(12)
+        lay.addLayout(col_der)
+
+        radio = _px(8)
         self.setStyleSheet(
             f"QFrame#tarjetaHistorialCierre {{ "
             f"background-color: {color('blanco')}; "
