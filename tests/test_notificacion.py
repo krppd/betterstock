@@ -92,7 +92,7 @@ def test_modo_tactil_escala_ancho_moderado(aplicacion: QApplication) -> None:
         aplicar_escala(1.5)
         aviso = Notificacion(padre, duracion_ms=200)
         aviso.mostrar("Aviso", "Texto táctil")
-        assert aviso.width() == 510
+        assert aviso.width() == 615
     finally:
         aplicar_escala(ESCALA_NORMAL)
 

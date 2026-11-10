@@ -37,10 +37,10 @@ class Ui_VentasForm(object):
         self.btnQuitar.setObjectName("btnQuitar")
         self.horizontalLayout.addWidget(self.btnQuitar)
         
-        self.btnComodin = QtWidgets.QPushButton("Comodín (F8)", parent=Form)
+        self.btnComodin = QtWidgets.QPushButton("Comodín", parent=Form)
         self.btnComodin.setFont(font)
         self.btnComodin.setObjectName("btnComodin")
-        self.btnComodin.setToolTip("Vender algo que no está en el catálogo")
+        self.btnComodin.setToolTip("Vender algo que no está en el catálogo (Alt+O)")
         self.horizontalLayout.addWidget(self.btnComodin)
         
         self.verticalLayout.addLayout(self.horizontalLayout)

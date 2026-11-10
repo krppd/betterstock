@@ -235,18 +235,18 @@ class Sidebar(QFrame):
         self.scroll.setWidget(contenido)
         self._raiz.addWidget(self.scroll, 1)
 
-        self.lblSeccionAnalisis = self._grupo("ANÁLISIS", (
-            ("estadisticas", "Estadísticas (F4)", "estadisticas.png"),
-        ))
         self.lblSeccionStock = self._grupo("STOCK", (
             ("productos", "Productos (F1)", "productos.png"),
             ("movimientos", "Movimientos (F2)", "movimientos.png"),
-            ("alertas", "Alertas (F3)", "alertas.png"),
+            ("alertas", "Alertas (F4)", "alertas.png"),
         ))
         self.lblSeccionCaja = self._grupo("CAJA", (
             ("ventas", "Ventas (F5)", "ventas.png"),
-            ("cierre", "Caja", "cierre.png"),
+            ("cierre", "Caja (F6)", "cierre.png"),
             ("consulta", "Consulta precio (F7)", "consulta.png"),
+        ))
+        self.lblSeccionAnalisis = self._grupo("ANÁLISIS", (
+            ("estadisticas", "Estadísticas (F8)", "estadisticas.png"),
         ))
         self._navegacion.addStretch(1)
 

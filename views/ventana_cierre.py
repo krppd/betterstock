@@ -203,8 +203,7 @@ class VentanaCaja(QWidget, VentanaBase):
         alto_mov = 70 if movs == 0 else min(86 + (movs - 1) * 66, 300)
 
         n_hist = len(getattr(self, "_tarjetas_historial", []) or [])
-        filas_hist = max((n_hist + 1) // 2, 1)
-        alto_hist = 70 if n_hist == 0 else min(88 + (filas_hist - 1) * 82, 300)
+        alto_hist = 70 if n_hist == 0 else min(74 + (n_hist - 1) * 74, 300)
 
         self.ui.scrollMovimientos.setMinimumHeight(alto_mov)
         self.ui.scrollHistorial.setMinimumHeight(alto_hist)
@@ -535,15 +534,15 @@ class VentanaCaja(QWidget, VentanaBase):
             lbl_vacio.setFont(fuente(TAMANO_SMALL))
             lbl_vacio.setStyleSheet(f"color: {color('gris_apagado')}; padding: 12px 0px; background: transparent;")
             lbl_vacio.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            self.ui.gridHistorial.addWidget(lbl_vacio, 0, 0, 1, 2)
+            self.ui.gridHistorial.addWidget(lbl_vacio, 0, 0)
             return
 
         for idx, cierre in enumerate(cierres[:4]):
-            fila = idx // 2
-            col = idx % 2
             tarjeta = TarjetaHistorialCierre(cierre, ciego=getattr(self, "_ciego", False), parent=self.ui.contenedorHistorial)
-            self.ui.gridHistorial.addWidget(tarjeta, fila, col)
+            self.ui.gridHistorial.addWidget(tarjeta, idx, 0)
             self._tarjetas_historial.append(tarjeta)
+
+        self.ui.gridHistorial.setColumnStretch(0, 1)
 
 
 VentanaCierre = VentanaCaja

@@ -102,7 +102,7 @@ class VentanaVentas(QWidget, VentanaBase):
         for secuencia in ("Ctrl+Return", "Ctrl+Enter"):
             atajo = QShortcut(QKeySequence(secuencia), self)
             atajo.activated.connect(lambda: self._disparar_accion(self.cobrar_venta, "accionCobrar"))
-        atajo_comodin = QShortcut(QKeySequence(Qt.Key.Key_F8), self)
+        atajo_comodin = QShortcut(QKeySequence("Alt+O"), self)
         atajo_comodin.activated.connect(self.agregar_comodin)
 
     def al_mostrar(self) -> None:
