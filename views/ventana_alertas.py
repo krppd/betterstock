@@ -2,15 +2,17 @@ from __future__ import annotations
 
 from PyQt6 import QtCore
 from PyQt6.QtWidgets import QHeaderView, QWidget
+from qfluentwidgets import qconfig
 
 from services.gestor_stock import GestorStock
-from ui.estilos import AMBAR_TEXTO, ROJO_TEXTO
 from ui.generated.alertas_ui import Ui_Form as Ui_AlertasForm
 from utils.formato import formatear_cantidad
 from views.ventana_base import VentanaBase
 
 
 class VentanaAlertas(QWidget, VentanaBase):
+    """Muestra los productos bajo stock mínimo."""
+
     def __init__(self, gestor_stock: GestorStock) -> None:
         super().__init__()
         self._gestor_stock = gestor_stock
@@ -18,10 +20,14 @@ class VentanaAlertas(QWidget, VentanaBase):
         self.ui.setupUi(self)
         self._acomodar(self.ui.tblAlertas, (0, 2, 3))
         self.ui.verticalLayout.setStretch(1, 1)
-        self.ui.verticalLayout.setStretch(4, 2)
         self.setMinimumSize(480, 420)
         self.ui.btnExportar.setVisible(False)
         self.ui.btnExportarVencimientos.setVisible(False)
+        self.ui.lblVencimientos.setVisible(False)
+        self.ui.tblVencimientos.setVisible(False)
+
+        if hasattr(qconfig, "themeChanged"):
+            qconfig.themeChanged.connect(self.cargar_alertas)
 
         self.cargar_alertas()
 
@@ -51,4 +57,3 @@ class VentanaAlertas(QWidget, VentanaBase):
             for p in self._gestor_stock.productos_criticos()
         ]
         self.llenar_tabla(self.ui.tblAlertas, filas)
-

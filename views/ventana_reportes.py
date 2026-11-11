@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import pyqtSignal
-from PyQt6.QtWidgets import QPushButton, QWidget
+from PyQt6.QtWidgets import QWidget
 
 from models.usuario import Usuario
 from services.estadisticas_ventas import EstadisticasVentas
@@ -14,6 +13,8 @@ from views.ventana_base import VentanaBase
 
 
 class VentanaReportes(QWidget, VentanaBase):
+    """Reportes de movimientos por rango de fechas."""
+
     TITULO_PDF = "Reporte de Movimientos"
 
     def __init__(
@@ -65,4 +66,3 @@ class VentanaReportes(QWidget, VentanaBase):
         total = self._gestor_stock.stock_valorizado()
         self.ui.lblTotal.setText(
             f"Stock total valorizado: {formatear_dinero(total)}" if self._admin else "")
-

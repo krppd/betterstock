@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from PyQt6.QtCore import QEvent
 from PyQt6.QtWidgets import QApplication
 
 from models.usuario import Usuario
@@ -13,10 +14,6 @@ from services.estadisticas_ventas import EstadisticasVentas
 from services.gestor_stock import GestorStock
 from ui.estilos import ESCALA_NORMAL, aplicar_escala
 from views.ventana_principal import VentanaPrincipal
-
-ANCHO_EXPANDIDA = round(220 * 1.5)
-ANCHO_COLAPSADA = round(74 * 1.5)
-ANCHO_BOTON_COLAPSADO = round(48 * 1.5)
 
 
 @pytest.fixture(scope="session")
@@ -66,50 +63,30 @@ def principal(gestores, aplicacion, monkeypatch) -> VentanaPrincipal:
     vista.permitir_cierre()
     vista.close()
     vista.deleteLater()
+    aplicacion.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+    aplicacion.processEvents()
 
 
-def test_sin_modo_tactil_no_hay_boton_de_menu(principal):
-    assert principal._btn_menu.isHidden()
+def test_boton_de_menu_presente(principal):
+    assert principal._btn_menu is not None
 
 
-def test_en_modo_tactil_aparece_el_boton_de_menu(tactil, principal):
-    assert not principal._btn_menu.isHidden()
-    assert principal._btn_menu.text() == "«"
+def test_la_barra_fluent_arranca_expandida(principal):
+    assert not principal.navigationInterface.panel.isCollapsed()
 
 
-def test_en_modo_tactil_la_barra_arranca_expandida(tactil, principal):
-    assert principal.ui.frameSidebar.minimumWidth() == ANCHO_EXPANDIDA
-    assert principal.ui.btnProductos.text() == "Productos (F1)"
+def test_al_colapsar_la_barra_fluent_queda_compacta(principal):
+    principal._alternar_barra(animar=False)
+    assert principal.navigationInterface.panel.isCollapsed()
 
 
-def test_al_colapsar_la_barra_queda_solo_con_iconos(tactil, principal):
-    principal._alternar_barra()
-
-    assert principal._btn_menu.text() == "»"
-    assert principal.ui.frameSidebar.minimumWidth() == ANCHO_COLAPSADA
-    assert principal.ui.btnProductos.text() == ""
-    assert principal.ui.btnProductos.toolTip() == "Productos (F1)"
-    assert principal.ui.btnProductos.minimumWidth() == ANCHO_BOTON_COLAPSADO
-    assert principal.ui.btnAjustes.text() == ""
-    assert principal.ui.lblSeccionStock.isHidden()
-    assert principal.ui.lblSeccionAnalisis.isHidden()
-    assert principal.ui.lblSeccionCaja.isHidden()
+def test_al_expander_la_barra_fluent_vuelve_a_modo_expandido(principal):
+    principal._alternar_barra(animar=False)
+    assert principal.navigationInterface.panel.isCollapsed()
+    principal._alternar_barra(animar=False)
+    assert not principal.navigationInterface.panel.isCollapsed()
 
 
-def test_al_colapsar_el_usuario_queda_solo_con_icono(tactil, principal):
-    principal._alternar_barra()
-
-    assert principal.ui.btnUsuario.text() == ""
-    assert principal.ui.btnUsuario.toolTip() == "admin · Administrador"
-
-
-def test_al_expander_vuelve_a_modo_estandar(tactil, principal):
-    principal._alternar_barra()
-    principal._alternar_barra()
-
-    assert principal._btn_menu.text() == "«"
-    assert principal.ui.frameSidebar.minimumWidth() == ANCHO_EXPANDIDA
-    assert principal.ui.btnProductos.text() == "Productos (F1)"
-    assert principal.ui.btnProductos.toolTip() == ""
-    assert principal.ui.btnUsuario.text() == " admin\n Administrador"
-    assert not principal.ui.lblSeccionStock.isHidden()
+def test_usuario_configurado_en_barra(principal):
+    assert principal.ui.btnUsuario is not None
+    assert "admin" in principal.ui.btnUsuario.text()

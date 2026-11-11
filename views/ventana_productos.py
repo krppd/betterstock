@@ -5,7 +5,14 @@ from datetime import date
 from PyQt6 import QtCore, QtWidgets
 from PyQt6.QtCore import QTimer, QUrl
 from PyQt6.QtGui import QDesktopServices
-from PyQt6.QtWidgets import QDialog, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QDialog, QVBoxLayout, QWidget
+from qfluentwidgets import (
+    FluentIcon as FIF,
+    PrimaryPushButton,
+    PushButton,
+    isDarkTheme,
+    qconfig,
+)
 
 from models.movimiento import MovimientoEntrada
 from models.producto import Producto
@@ -14,7 +21,7 @@ from repositories.importacion_repositorio import ImportacionRepositorio
 from services.excepciones import ErrorNegocio
 from services.gestor_stock import GestorStock
 from services.importador.servicio import ServicioImportacion
-from services.plan_motor import CONTACTO, excedido, limite, reposicion_permitida
+from services.plan_motor import CONTACTO, excedido, limite, plan_actual, reposicion_permitida
 from ui.estilos import ROJO_TEXTO
 from ui.generated.productos_ui import Ui_Form as Ui_ProductosForm
 from ui.widgets.notificacion import Notificacion
@@ -32,6 +39,7 @@ class VentanaProductos(QWidget, VentanaBase):
     """Muestra el listado de productos (en rojo los críticos) y permite buscarlos, crearlos, editarlos y eliminarlos."""
 
     COLOR_CRITICO = ROJO_TEXTO
+    COLOR_CRITICO_OSCURO = "#ff6b6b"
     DEMORA_BUSQUEDA_MS = 250
 
     def __init__(self, gestor_stock: GestorStock,
@@ -51,7 +59,12 @@ class VentanaProductos(QWidget, VentanaBase):
         self._conectar_botones()
         self._aplicar_permisos()
         self._preparar_busqueda()
+        if hasattr(qconfig, "themeChanged"):
+            qconfig.themeChanged.connect(self._repintar_colores)
         self.cargar_datos()
+
+    def _color_critico(self) -> str:
+        return self.COLOR_CRITICO_OSCURO if isDarkTheme() else self.COLOR_CRITICO
 
     def _aplicar_permisos(self) -> None:
         if self._admin:
@@ -63,7 +76,6 @@ class VentanaProductos(QWidget, VentanaBase):
             self.btnAgregarCategoria,
             self.btnReponer,
             self.btnRecuento,
-            self.btnImportarLista,
         ):
             boton.hide()
 
@@ -85,7 +97,6 @@ class VentanaProductos(QWidget, VentanaBase):
         self.btnAgregarCategoria.clicked.connect(self.agregar_categoria)
         self.btnReponer.clicked.connect(self.reponer_stock)
         self.btnRecuento.clicked.connect(self.abrir_recuento)
-        self.btnImportarLista.clicked.connect(self.importar_lista)
 
     def _preparar_busqueda(self) -> None:
         self._temporizador_busqueda = QTimer(self)
@@ -94,28 +105,56 @@ class VentanaProductos(QWidget, VentanaBase):
         self._temporizador_busqueda.timeout.connect(self.cargar_datos)
         self.ui.txtBuscar.textChanged.connect(lambda _texto: self._temporizador_busqueda.start())
         self.ui.txtBuscar.returnPressed.connect(self.abrir_detalle_buscado)
+        if hasattr(self.ui.txtBuscar, "searchSignal"):
+            self.ui.txtBuscar.searchSignal.connect(self.abrir_detalle_buscado)
+        if hasattr(self.ui.txtBuscar, "clearSignal"):
+            self.ui.txtBuscar.clearSignal.connect(self.cargar_datos)
         self.ui.tblProductos.cellDoubleClicked.connect(self._abrir_detalle_de_fila)
 
     def _acomodar_widgets(self) -> None:
-        """Mete el contenido en un layout, para que acompañe el redimensionado.
-
-        En el ``.ui`` quedó con posición y tamaño fijos.
-        """
+        """Configura el layout con espaciado moderno Windows 11 Fluent y barras de herramientas."""
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(20, 10, 20, 9)
+        layout.setContentsMargins(20, 12, 20, 12)
+        layout.setSpacing(10)
         layout.addWidget(self.ui.layoutWidget)
-        self.btnAgregarCategoria = QPushButton("Agregar categoría", self.ui.layoutWidget)
-        self.ui.horizontalLayout_2.addWidget(self.btnAgregarCategoria)
-        self.btnReponer = QPushButton("Reponer stock", self.ui.layoutWidget)
+
+        self.btnAgregarCategoria = PushButton(FIF.TAG, "Agregar categoría", self.ui.layoutWidget)
+
+        self.btnReponer = PushButton(FIF.SYNC, "Reponer stock", self.ui.layoutWidget)
+        self.btnRecuento = PushButton(FIF.HISTORY, "Recuento", self.ui.layoutWidget)
+
+        self.btnNuevo = self.ui.btnNuevo
+        self.btnEditar = self.ui.btnEditar
+        self.btnEliminar = self.ui.btnEliminar
+        self.ui.btnAgregarCategoria = self.btnAgregarCategoria
+        self.ui.btnReponer = self.btnReponer
+        self.ui.btnRecuento = self.btnRecuento
+
+        while self.ui.horizontalLayout.count():
+            item = self.ui.horizontalLayout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        self.ui.horizontalLayout.addWidget(self.ui.txtBuscar)
+        self.ui.horizontalLayout.addStretch(1)
+        self.ui.horizontalLayout.addWidget(self.btnAgregarCategoria)
+        self.ui.horizontalLayout.addWidget(self.ui.btnNuevo)
+
+        while self.ui.horizontalLayout_2.count():
+            item = self.ui.horizontalLayout_2.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        self.ui.horizontalLayout_2.addWidget(self.ui.btnEditar)
+        self.ui.horizontalLayout_2.addWidget(self.ui.btnEliminar)
         self.ui.horizontalLayout_2.addWidget(self.btnReponer)
-        self.btnRecuento = QPushButton("Recuento", self.ui.layoutWidget)
         self.ui.horizontalLayout_2.addWidget(self.btnRecuento)
-        self.btnImportarLista = QPushButton("Importar lista", self.ui.layoutWidget)
-        self.ui.horizontalLayout_2.addWidget(self.btnImportarLista)
+        self.ui.horizontalLayout_2.addStretch(1)
+
         self.estirar_columnas(self.ui.tblProductos)
         self.ui.tblProductos.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.ui.tblProductos.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-        self.setMinimumSize(720, 360)
+        self.setMinimumSize(820, 360)
 
     def cargar_datos(self) -> None:
         """Vuelve a llenar la tabla con los productos que coinciden con el buscador (todos, si está vacío)."""
@@ -127,7 +166,24 @@ class VentanaProductos(QWidget, VentanaBase):
              formatear_cantidad(p.stock_minimo), formatear_dinero(p.precio_venta)]
             for p in productos
         ]
-        colores = [self.COLOR_CRITICO if p.esta_en_stock_critico() else None for p in productos]
+        color_critico = self._color_critico()
+        colores = [color_critico if p.esta_en_stock_critico() else None for p in productos]
+        self.llenar_tabla(self.ui.tblProductos, filas, colores)
+
+    def _repintar_colores(self) -> None:
+        """Repinta la tabla con los colores del tema, sin volver a consultar la base."""
+        color_critico = self._color_critico()
+        colores = [
+            color_critico if p.esta_en_stock_critico() else None
+            for p in self._productos_mostrados
+        ]
+        filas = [
+            [item.text() for item in (
+                self.ui.tblProductos.item(fila, columna)
+                for columna in range(self.ui.tblProductos.columnCount())
+            )]
+            for fila in range(self.ui.tblProductos.rowCount())
+        ]
         self.llenar_tabla(self.ui.tblProductos, filas, colores)
 
     def abrir_formulario(self) -> None:
@@ -151,23 +207,9 @@ class VentanaProductos(QWidget, VentanaBase):
         self.cargar_datos()
 
     def importar_lista(self) -> None:
-        """Abre el asistente para importar una lista de productos desde un archivo CSV."""
-        if not self._puede_editar():
-            return
-        servicio = self._obtener_servicio_importacion()
-        if servicio.limite_alcanzado():
-            AvisoPlanGratis(self).exec()
-            return
-        asistente = ImportadorProductos(servicio, self)
-        asistente.exec()
-        resultado = asistente.resultado()
-        asistente.deleteLater()
-        self.cargar_datos()
-        if resultado is not None and resultado.recortados:
-            Notificacion(self).mostrar(
-                "Importación limitada",
-                f"El plan admite hasta {limite('productos')} productos: "
-                f"{resultado.recortados} filas nuevas quedaron fuera.")
+        Notificacion(self).mostrar(
+            "BetterStock Pro",
+            "La importación masiva de productos está disponible en BetterStock Pro.")
 
     def _obtener_servicio_importacion(self) -> ServicioImportacion:
         if self._servicio_importacion is None:
@@ -290,7 +332,7 @@ class VentanaProductos(QWidget, VentanaBase):
         if not excedido("productos", cantidad + 1):
             return
         maximo = limite("productos")
-        titulo = "Gratis"
+        titulo = plan_actual().get("titulo", "Gratis")
         eleccion = self.elegir(
             "Límite del plan",
             f"Llegaste al límite de {maximo} productos del plan {titulo}. "

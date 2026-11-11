@@ -2,12 +2,34 @@ from __future__ import annotations
 
 import math
 from datetime import date
+from typing import Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QDate, Qt
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
+    QApplication,
     QDialog,
+    QFrame,
+    QGridLayout,
+    QHBoxLayout,
     QLabel,
+    QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    CalendarPicker,
+    DoubleSpinBox,
+    FluentIcon as FIF,
+    PrimaryPushButton,
+    PushButton,
+    ScrollArea,
+    SimpleCardWidget,
+    SubtitleLabel,
+    TableWidget,
+    TransparentPushButton,
+    isDarkTheme,
+    qconfig,
 )
 
 from models.caja_movimiento import CajaMovimiento
@@ -15,9 +37,9 @@ from models.cierre import Cierre, CierreRegistrado
 from services.caja import ErrorCaja, ServicioCaja
 from services.cierre_caja import ErrorCierre, ServicioCierre
 from services.turnos import ServicioTurnos
-from ui.estilos import ROJO_TEXTO, VERDE_TEXTO, TAMANO_MICRO, TAMANO_SMALL, escala, fuente
-from ui.manual.cierre_ui import Ui_CierreForm
-from ui.tema import color
+from ui.estilos import TAMANO_SMALL, escala, fuente
+from ui.fluent import CLARO, OSCURO, color
+from ui.widgets.boton_rodante import BotonRodante
 from ui.widgets.notificacion import Notificacion
 from utils.formato import diferencia as diferencia_montos
 from utils.formato import formatear_dinero
@@ -28,107 +50,87 @@ from views.seccion_turnos import SeccionTurnos
 from views.tarjeta_caja import TarjetaHistorialCierre, TarjetaMovimientoCaja
 from views.ventana_base import VentanaBase
 
+MAXIMO_EFECTIVO = 1_000_000_000_000.0
+
+_APLICACION: QApplication | None = None
+
+
+def conservar_aplicacion() -> None:
+    """Mantiene viva la QApplication de la sesión (ver ``_APLICACION``)."""
+    global _APLICACION
+    app = QApplication.instance()
+    if app is not None:
+        _APLICACION = app
+
+
+def _tinta(nombre: str) -> tuple[QColor, QColor]:
+    """Devuelve el par (claro, oscuro) de un token Fluent para labels adaptativos."""
+    return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
+
+
+class SelectorFechaCaja(CalendarPicker):
+    """CalendarPicker con compatibilidad de API para date().toPyDate() y setDate()."""
+
+    def date(self) -> QDate:
+        d = self.getDate()
+        return d if d.isValid() else QDate.currentDate()
+
+    def setDate(self, fecha: Any) -> None:
+        if hasattr(fecha, "year") and not callable(fecha.year):
+            fecha = QDate(fecha.year, fecha.month, fecha.day)
+        super().setDate(fecha)
+
+
+class _UiCaja:
+    """Namespace con los widgets de la ventana de caja.
+
+    Conserva la forma ``self.ui.<widget>`` que usan el resto del código
+    y los tests, ahora sobre componentes Fluent.
+    """
+
 
 class VentanaCaja(QWidget, VentanaBase):
-    ESTILO_ABIERTA = (
-        "QPushButton#btnEstadoCaja {"
-        "  background-color: #F6FEF9;"
-        f"  color: {VERDE_TEXTO};"
-        "  border: 1px solid #B8E6CB;"
-        "  border-radius: 8px;"
-        "  padding: 4px 12px;"
-        "  font-weight: bold;"
-        "  min-height: 28px;"
-        "}"
-        "QPushButton#btnEstadoCaja:hover {"
-        "  background-color: #EDFBF2;"
-        "  border-color: #8AD2A8;"
-        "}"
-    )
-    ESTILO_CERRADA = (
-        "QPushButton#btnEstadoCaja {"
-        "  background-color: #FEF3F2;"
-        f"  color: {ROJO_TEXTO};"
-        "  border: 1px solid #FECDCA;"
-        "  border-radius: 8px;"
-        "  padding: 4px 12px;"
-        "  font-weight: bold;"
-        "  min-height: 28px;"
-        "}"
-        "QPushButton#btnEstadoCaja:hover {"
-        "  background-color: #FEE4E2;"
-        "  border-color: #FDA29B;"
-        "}"
-    )
+    """Panel de caja: arqueo del día, movimientos, turno e historial de cierres."""
 
-    ESTILO_GLOBAL = (
-        "QFrame#frmHeaderCaja, QFrame#frmArqueoCaja, QFrame#frmDeclaradoCaja, "
-        "QFrame#frmMovimientosCaja, QFrame#frmHistorialCaja {"
-        "  background-color: #FFFFFF;"
-        "  border: 1px solid #E5E7EB;"
+    ESTILO_ESTADO = (
+        "QPushButton#btnEstadoCaja {"
+        "  background-color: {fondo};"
+        "  color: {texto};"
+        "  border: 1px solid {borde};"
         "  border-radius: 8px;"
-        "}"
-        "QPushButton#btnCerrarCaja {"
-        "  background-color: #1E8149;"
-        "  color: #FFFFFF;"
-        "  border: 1px solid #1E8149;"
-        "  border-radius: 8px;"
+        "  padding: 4px 12px;"
         "  font-weight: bold;"
+        "  min-height: 28px;"
         "}"
-        "QPushButton#btnCerrarCaja:hover {"
-        "  background-color: #176B3C;"
-        "}"
-        "QPushButton#btnCerrarCaja:disabled {"
-        "  background-color: #E5E7EB;"
-        "  color: #9CA3AF;"
-        "  border-color: #E5E7EB;"
-        "}"
-        "QPushButton#btnEgresoCaja, QPushButton#btnIngresoCaja {"
-        "  background-color: #F9FAFB;"
-        "  color: #111827;"
-        "  border: 1px solid #D1D5DB;"
-        "  border-radius: 8px;"
-        "  font-weight: bold;"
-        "}"
-        "QPushButton#btnEgresoCaja:hover, QPushButton#btnIngresoCaja:hover {"
-        "  background-color: #F3F4F6;"
-        "  border-color: #9CA3AF;"
-        "}"
-        "QPushButton#btnEgresoCaja:disabled, QPushButton#btnIngresoCaja:disabled {"
-        "  background-color: #F9FAFB;"
-        "  color: #9CA3AF;"
-        "  border-color: #E5E7EB;"
-        "}"
-        "QPushButton#btnToggleMedios {"
-        "  background-color: #F9FAFB;"
-        "  color: #374151;"
-        "  border: 1px solid #D1D5DB;"
-        "  border-radius: 6px;"
-        "  padding: 4px 10px;"
-        "  font-weight: 600;"
-        "}"
-        "QPushButton#btnToggleMedios:hover {"
-        "  background-color: #F3F4F6;"
-        "  border-color: #9CA3AF;"
+        "QPushButton#btnEstadoCaja:hover {"
+        "  background-color: {fondo_hover};"
+        "  border-color: {borde_hover};"
         "}"
     )
+    ESTILO_ABIERTA = ESTILO_ESTADO
+    ESTILO_CERRADA = ESTILO_ESTADO
+    ESTILO_GLOBAL = ""
 
     def __init__(self, servicio: ServicioCierre, usuario: str = "",
                  permiso: str = "", turnos: ServicioTurnos | None = None,
-                 caja: ServicioCaja | None = None) -> None:
+                 caja: ServicioCaja | None = None,
+                 nombre_comercio: str = "") -> None:
         super().__init__()
+        conservar_aplicacion()
         self.setWindowTitle("Caja")
         self._servicio = servicio
         self._turnos = turnos
         self._caja = caja if caja is not None else getattr(servicio, "caja", None)
         self._usuario = usuario
+        self._nombre_comercio = nombre_comercio
+        self._ciego = False
         self._estado_previo: bool | None = None
         self._medios_colapsados: bool = False
         self._movimientos_cache: list[CajaMovimiento] = []
+        self._arqueo_actual: Cierre | None = None
 
-        self.ui = Ui_CierreForm()
-        self.ui.setupUi(self)
-        self.setStyleSheet(self.ESTILO_GLOBAL)
+        self.ui = _UiCaja()
+        self._iniciar_interfaz()
 
         self.btnEgreso = self.ui.btnEgreso
         self.btnIngreso = self.ui.btnIngreso
@@ -149,6 +151,7 @@ class VentanaCaja(QWidget, VentanaBase):
             self.ui.contenedorTurnos.addWidget(self.seccion_turnos)
 
         self.ui.dateDia.setDate(date.today())
+        self.ui.dateDia.dateChanged.connect(self.recalcular)
         self.ui.btnHoy.clicked.connect(self.ir_a_hoy)
         self.ui.btnRefrescar.clicked.connect(self.recalcular)
         self.ui.btnEstado.clicked.connect(self.recalcular)
@@ -156,7 +159,236 @@ class VentanaCaja(QWidget, VentanaBase):
             self.ui.tblHistorial.setColumnWidth(columna, round(ancho * escala()))
         self.ui.spnEfectivo.valueChanged.connect(self.actualizar_diferencia)
         self.ui.btnCerrarCaja.clicked.connect(self.cerrar_caja)
+        qconfig.themeChanged.connect(self._aplicar_tema)
         self.recalcular()
+
+    def _iniciar_interfaz(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 16, 20, 16)
+        layout.setSpacing(14)
+
+        layout.addWidget(self._armar_cabecera())
+        layout.addWidget(self._armar_arqueo())
+        layout.addWidget(self._armar_declarado())
+        layout.addLayout(self._armar_acciones())
+        layout.addLayout(self._armar_paneles(), 1)
+
+        self.setMinimumSize(760, 620)
+
+    def _armar_cabecera(self) -> SimpleCardWidget:
+        """Tarjeta superior con el día, los atajos y el estado de la caja."""
+        tarjeta = SimpleCardWidget(self)
+        lay = QVBoxLayout(tarjeta)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(8)
+
+        fila = QHBoxLayout()
+        fila.setSpacing(8)
+
+        self.ui.lblDia = BodyLabel("Día:", tarjeta)
+        self.ui.lblDia.setTextColor(*_tinta("texto"))
+
+        self.ui.dateDia = SelectorFechaCaja(tarjeta)
+        self.ui.dateDia.setObjectName("dateDia")
+
+        self.ui.btnHoy = PushButton("Hoy", tarjeta)
+        self.ui.btnHoy.setObjectName("btnHoy")
+
+        self.ui.btnRefrescar = PushButton(FIF.SYNC, "Recalcular", tarjeta)
+        self.ui.btnRefrescar.setObjectName("btnRefrescar")
+
+        self.ui.btnEstado = BotonRodante(parent=tarjeta, escalon=0)
+        self.ui.btnEstado.setObjectName("btnEstadoCaja")
+        self.ui.btnEstado.setCentrado(True)
+        self.ui.btnEstado.setMinimumSize(150, 30)
+        self.ui.btnEstado.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        fila.addWidget(self.ui.lblDia)
+        fila.addWidget(self.ui.dateDia)
+        fila.addWidget(self.ui.btnHoy)
+        fila.addWidget(self.ui.btnRefrescar)
+        fila.addStretch(1)
+        fila.addWidget(self.ui.btnEstado)
+        lay.addLayout(fila)
+        return tarjeta
+
+    def _armar_arqueo(self) -> SimpleCardWidget:
+        """Tarjeta con el turno de caja, el esperado y los medios de pago."""
+        tarjeta = SimpleCardWidget(self)
+        lay = QVBoxLayout(tarjeta)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(8)
+
+        self.ui.contenedorTurnos = QHBoxLayout()
+        self.ui.contenedorTurnos.setObjectName("contenedorTurnos")
+        self.ui.contenedorTurnos.setSpacing(8)
+        lay.addLayout(self.ui.contenedorTurnos)
+
+        self.ui.hlyResumen = QHBoxLayout()
+        self.ui.hlyResumen.setObjectName("hlyResumen")
+        self.ui.hlyResumen.setSpacing(8)
+
+        self.ui.lblEsperado = BodyLabel("", tarjeta)
+        self.ui.lblEsperado.setObjectName("lblEsperado")
+        self.ui.lblEsperado.setWordWrap(True)
+        self.ui.lblEsperado.setTextColor(*_tinta("texto"))
+
+        self.ui.btnToggleMedios = TransparentPushButton("Medios de pago ▾", tarjeta)
+        self.ui.btnToggleMedios.setObjectName("btnToggleMedios")
+
+        self.ui.hlyResumen.addWidget(self.ui.lblEsperado, 1)
+        self.ui.hlyResumen.addWidget(self.ui.btnToggleMedios)
+        lay.addLayout(self.ui.hlyResumen)
+
+        self.ui.tblMedios = QFrame(tarjeta)
+        self.ui.tblMedios.setObjectName("tblMedios")
+        self.ui.hlyMedios = QHBoxLayout(self.ui.tblMedios)
+        self.ui.hlyMedios.setContentsMargins(0, 0, 0, 0)
+        self.ui.hlyMedios.setSpacing(8)
+        lay.addWidget(self.ui.tblMedios)
+        return tarjeta
+
+    def _armar_declarado(self) -> SimpleCardWidget:
+        """Tarjeta con el efectivo contado y la diferencia respecto del esperado."""
+        tarjeta = SimpleCardWidget(self)
+        lay = QHBoxLayout(tarjeta)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(10)
+
+        self.ui.lblDeclarado = BodyLabel("Efectivo contado en el cajón:", tarjeta)
+        self.ui.lblDeclarado.setTextColor(*_tinta("texto"))
+
+        self.ui.spnEfectivo = DoubleSpinBox(tarjeta)
+        self.ui.spnEfectivo.setObjectName("spnEfectivo")
+        self.ui.spnEfectivo.setDecimals(2)
+        self.ui.spnEfectivo.setMinimum(0.0)
+        self.ui.spnEfectivo.setMaximum(MAXIMO_EFECTIVO)
+        self.ui.spnEfectivo.setMinimumWidth(160)
+
+        self.ui.lblDiferencia = BodyLabel("", tarjeta)
+        self.ui.lblDiferencia.setObjectName("lblDiferencia")
+        self.ui.lblDiferencia.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        lay.addWidget(self.ui.lblDeclarado)
+        lay.addWidget(self.ui.spnEfectivo)
+        lay.addWidget(self.ui.lblDiferencia, 1)
+        return tarjeta
+
+    def _armar_acciones(self) -> QHBoxLayout:
+        """Fila con los ingresos, egresos y el cierre del día."""
+        fila = QHBoxLayout()
+        fila.setSpacing(10)
+
+        self.ui.btnEgreso = PushButton(FIF.REMOVE, "Egreso de caja", self)
+        self.ui.btnEgreso.setObjectName("btnEgresoCaja")
+
+        self.ui.btnIngreso = PushButton(FIF.ADD, "Ingreso de caja", self)
+        self.ui.btnIngreso.setObjectName("btnIngresoCaja")
+
+        self.ui.btnCerrarCaja = PrimaryPushButton(FIF.ACCEPT_MEDIUM, "Cerrar caja", self)
+        self.ui.btnCerrarCaja.setObjectName("btnCerrarCaja")
+
+        fila.addWidget(self.ui.btnEgreso)
+        fila.addWidget(self.ui.btnIngreso)
+        fila.addWidget(self.ui.btnCerrarCaja)
+        return fila
+
+    def _armar_paneles(self) -> QHBoxLayout:
+        """Paneles lado a lado: movimientos del día e historial de cierres."""
+        paneles = QHBoxLayout()
+        paneles.setObjectName("hlyPanelesCaja")
+        paneles.setSpacing(14)
+        self.ui.hlyPaneles = paneles
+
+        tarjeta_mov = SimpleCardWidget(self)
+        lay_mov = QVBoxLayout(tarjeta_mov)
+        lay_mov.setContentsMargins(16, 12, 16, 12)
+        lay_mov.setSpacing(8)
+
+        cabecera_mov = QHBoxLayout()
+        cabecera_mov.setSpacing(8)
+        self.ui.lblMovimientos = SubtitleLabel("Movimientos del día", tarjeta_mov)
+        self.ui.lblMovimientos.setObjectName("lblMovimientosCaja")
+        self.ui.lblMovimientos.setTextColor(*_tinta("texto"))
+        self.ui.btnAnularMovimiento = PushButton(
+            FIF.DELETE, "Anular movimiento", tarjeta_mov)
+        self.ui.btnAnularMovimiento.setObjectName("btnAnularMovimientoCierre")
+        cabecera_mov.addWidget(self.ui.lblMovimientos)
+        cabecera_mov.addStretch(1)
+        cabecera_mov.addWidget(self.ui.btnAnularMovimiento)
+        lay_mov.addLayout(cabecera_mov)
+
+        self.ui.scrollMovimientos = ScrollArea(tarjeta_mov)
+        self.ui.scrollMovimientos.setObjectName("scrollMovimientosCaja")
+        self.ui.scrollMovimientos.setWidgetResizable(True)
+        self.ui.scrollMovimientos.setMaximumHeight(300)
+        self.ui.scrollMovimientos.setFrameShape(QFrame.Shape.NoFrame)
+        self.ui.scrollMovimientos.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        self.ui.contenedorMovimientos = QWidget()
+        self.ui.contenedorMovimientos.setObjectName("contenedorMovimientosCaja")
+        self.ui.vlyTarjetasMovimientos = QVBoxLayout(self.ui.contenedorMovimientos)
+        self.ui.vlyTarjetasMovimientos.setContentsMargins(0, 0, 0, 0)
+        self.ui.vlyTarjetasMovimientos.setSpacing(6)
+        self.ui.scrollMovimientos.setWidget(self.ui.contenedorMovimientos)
+        self._scroll_transparente(self.ui.scrollMovimientos)
+        lay_mov.addWidget(self.ui.scrollMovimientos, 1)
+        paneles.addWidget(tarjeta_mov, 1)
+
+        tarjeta_hist = SimpleCardWidget(self)
+        lay_hist = QVBoxLayout(tarjeta_hist)
+        lay_hist.setContentsMargins(16, 12, 16, 12)
+        lay_hist.setSpacing(8)
+
+        self.ui.hlyHistHeader = QHBoxLayout()
+        self.ui.hlyHistHeader.setSpacing(8)
+        self.ui.lblHistorial = SubtitleLabel("Historial de cierres", tarjeta_hist)
+        self.ui.lblHistorial.setObjectName("lblHistorial")
+        self.ui.lblHistorial.setTextColor(*_tinta("texto"))
+        self.ui.hlyHistHeader.addWidget(self.ui.lblHistorial)
+        self.ui.hlyHistHeader.addStretch(1)
+        lay_hist.addLayout(self.ui.hlyHistHeader)
+
+        self.ui.tblHistorial = TableWidget(tarjeta_hist)
+        self.ui.tblHistorial.setObjectName("tblHistorial")
+        self.ui.tblHistorial.setColumnCount(6)
+        self.ui.tblHistorial.setHorizontalHeaderLabels(
+            ["Fecha", "Hora", "Ventas", "Esperado", "Diferencia", "Usuario"])
+        self.ui.tblHistorial.setBorderVisible(True)
+        self.ui.tblHistorial.setBorderRadius(8)
+        self.ui.tblHistorial.setVisible(False)
+
+        self.ui.scrollHistorial = ScrollArea(tarjeta_hist)
+        self.ui.scrollHistorial.setObjectName("scrollHistorialCaja")
+        self.ui.scrollHistorial.setWidgetResizable(True)
+        self.ui.scrollHistorial.setMaximumHeight(300)
+        self.ui.scrollHistorial.setFrameShape(QFrame.Shape.NoFrame)
+        self.ui.scrollHistorial.setHorizontalScrollBarPolicy(
+            Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+
+        self.ui.contenedorHistorial = QWidget()
+        self.ui.contenedorHistorial.setObjectName("contenedorHistorialCaja")
+        self.ui.gridHistorial = QGridLayout(self.ui.contenedorHistorial)
+        self.ui.gridHistorial.setContentsMargins(0, 0, 0, 0)
+        self.ui.gridHistorial.setSpacing(8)
+        self.ui.scrollHistorial.setWidget(self.ui.contenedorHistorial)
+        self._scroll_transparente(self.ui.scrollHistorial)
+        lay_hist.addWidget(self.ui.scrollHistorial, 1)
+        paneles.addWidget(tarjeta_hist, 1)
+
+        return paneles
+
+    @staticmethod
+    def _scroll_transparente(scroll: ScrollArea) -> None:
+        """Deja el área de scroll sin marco y con el fondo transparente."""
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        viewport = scroll.viewport()
+        viewport.setAutoFillBackground(False)
+        viewport.setStyleSheet(
+            "QWidget#qt_scrollarea_viewport { background: transparent; border: none; }")
+        scroll.widget().setAutoFillBackground(False)
 
     def al_mostrar(self) -> None:
         self.recalcular()
@@ -188,6 +420,7 @@ class VentanaCaja(QWidget, VentanaBase):
             self.seccion_turnos.actualizar(dia_cerrado=ya_cerrado)
 
         arqueo = self._servicio.arqueo(self.dia)
+        self._arqueo_actual = arqueo
         self._cargar_medios(arqueo)
         self._mostrar_esperado(arqueo)
         self._mostrar_estado_del_dia(ya_cerrado, turno_abierto)
@@ -196,6 +429,17 @@ class VentanaCaja(QWidget, VentanaBase):
         self.cargar_historial()
         self._cargar_movimientos()
         self._ajustar_alturas_paneles()
+
+    def _aplicar_tema(self) -> None:
+        """Reaplica los colores dependientes del tema (claro/oscuro)."""
+        try:
+            if self._estado_previo is not None:
+                self._mostrar_estado_del_dia(self._estado_previo)
+            if self._arqueo_actual is not None:
+                self._cargar_medios(self._arqueo_actual)
+            self.actualizar_diferencia()
+        except Exception:
+            pass
 
     def _ajustar_alturas_paneles(self) -> None:
         """Ajusta las dos scrolls según la cantidad de tarjetas (sin huecos fijos)."""
@@ -206,7 +450,9 @@ class VentanaCaja(QWidget, VentanaBase):
         alto_hist = 70 if n_hist == 0 else min(74 + (n_hist - 1) * 74, 300)
 
         self.ui.scrollMovimientos.setMinimumHeight(alto_mov)
+        self.ui.scrollMovimientos.setMaximumHeight(300)
         self.ui.scrollHistorial.setMinimumHeight(alto_hist)
+        self.ui.scrollHistorial.setMaximumHeight(300)
         self.ui.scrollMovimientos.updateGeometry()
         self.ui.scrollHistorial.updateGeometry()
 
@@ -216,11 +462,7 @@ class VentanaCaja(QWidget, VentanaBase):
         self.ui.btnToggleMedios.setText("Medios de pago ▾" if self._medios_colapsados else "Ocultar medios ▴")
 
     def _cargar_medios(self, arqueo: Cierre) -> None:
-        ciego = getattr(self, "_ciego", False)
-        self.ui.btnToggleMedios.setVisible(not ciego)
-        if ciego:
-            self.ui.tblMedios.setVisible(False)
-            return
+        self.ui.btnToggleMedios.setVisible(True)
         self.ui.tblMedios.setVisible(not self._medios_colapsados)
         self.ui.btnToggleMedios.setText("Medios de pago ▾" if self._medios_colapsados else "Ocultar medios ▴")
         if not hasattr(self.ui, "hlyMedios"):
@@ -235,9 +477,9 @@ class VentanaCaja(QWidget, VentanaBase):
             filas = [["Sin ventas cobradas", formatear_dinero(0.0)]]
         for etiqueta, importe_str in filas:
             lbl_medio = QLabel(f"{etiqueta}: {importe_str}", self.ui.tblMedios)
-            lbl_medio.setFont(fuente(TAMANO_MICRO, negrita=True, tabular=True))
+            lbl_medio.setFont(fuente(TAMANO_SMALL, negrita=True, tabular=True))
             lbl_medio.setStyleSheet(
-                f"background-color: {color('fondo_insignia')}; color: {color('gris_linea')}; "
+                f"background-color: {color('fondo_suave')}; color: {color('gris_medio')}; "
                 f"border: 1px solid {color('borde_suave')}; border-radius: 6px; padding: 3px 8px;"
             )
             self.ui.hlyMedios.addWidget(lbl_medio)
@@ -252,46 +494,6 @@ class VentanaCaja(QWidget, VentanaBase):
             f"Esperado en el cajón: {formatear_dinero(arqueo.esperado_por_medio.efectivo)}"
         )
 
-    def _mostrar_estado_del_dia(self, ya_cerrado: bool, turno_abierto: bool = False) -> None:
-        if ya_cerrado:
-            self.ui.btnEstado.setText("● Caja cerrada")
-            self.ui.btnEstado.setStyleSheet(self.ESTILO_CERRADA)
-            self.ui.btnCerrarCaja.setEnabled(False)
-            self.btnEgreso.setEnabled(False)
-            self.btnIngreso.setEnabled(False)
-            self.btnAnularMovimiento.setEnabled(False)
-        else:
-            self.ui.btnEstado.setText("● Caja abierta")
-            self.ui.btnEstado.setStyleSheet(self.ESTILO_ABIERTA)
-            self.ui.btnCerrarCaja.setEnabled(True)
-            self.btnEgreso.setEnabled(True)
-            self.btnIngreso.setEnabled(True)
-            self.btnAnularMovimiento.setEnabled(True)
-        self._estado_previo = ya_cerrado
-
-    def _proponer_efectivo(self, efectivo: float) -> None:
-        if math.isfinite(efectivo):
-            self.ui.spnEfectivo.setMaximum(
-                max(self.ui.spnEfectivo.maximum(), math.ceil(efectivo)))
-        self.ui.spnEfectivo.blockSignals(True)
-        self.ui.spnEfectivo.setValue(max(efectivo, 0.0))
-        self.ui.spnEfectivo.blockSignals(False)
-
-    def actualizar_diferencia(self) -> None:
-        arqueo = self._servicio.arqueo(self.dia)
-        diferencia = float(diferencia_montos(
-            self.ui.spnEfectivo.value(), arqueo.esperado_por_medio.efectivo))
-        if abs(diferencia) < 0.01:
-            self.ui.lblDiferencia.setText("Cuadra")
-            self.ui.lblDiferencia.setStyleSheet(f"color: {VERDE_TEXTO};")
-            return
-        if diferencia > 0:
-            self.ui.lblDiferencia.setText(f"Sobrante: {formatear_dinero(diferencia)}")
-            self.ui.lblDiferencia.setStyleSheet(f"color: {VERDE_TEXTO};")
-        else:
-            self.ui.lblDiferencia.setText(f"Faltante: {formatear_dinero(-diferencia)}")
-            self.ui.lblDiferencia.setStyleSheet(f"color: {ROJO_TEXTO};")
-
     def _cargar_movimientos(self) -> None:
         self._movimientos_cache = []
         self._tarjetas_movimientos = []
@@ -304,9 +506,9 @@ class VentanaCaja(QWidget, VentanaBase):
                 w.deleteLater()
 
         if self._caja is None:
-            lbl_vacio = QLabel("Servicio de caja no disponible", self.ui.contenedorMovimientos)
+            lbl_vacio = BodyLabel("Servicio de caja no disponible", self.ui.contenedorMovimientos)
             lbl_vacio.setFont(fuente(TAMANO_SMALL))
-            lbl_vacio.setStyleSheet(f"color: {color('gris_apagado')}; padding: 12px 0px; background: transparent;")
+            lbl_vacio.setTextColor(*_tinta("gris_apagado"))
             lbl_vacio.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.ui.vlyTarjetasMovimientos.addWidget(lbl_vacio)
             return
@@ -314,11 +516,12 @@ class VentanaCaja(QWidget, VentanaBase):
         self._movimientos_cache = self._caja.listar_del_dia(self.dia)
         movimientos_ordenados = list(reversed(self._movimientos_cache))
         if not movimientos_ordenados:
-            lbl_vacio = QLabel("Sin movimientos en el día", self.ui.contenedorMovimientos)
+            lbl_vacio = BodyLabel("Sin movimientos en el día", self.ui.contenedorMovimientos)
             lbl_vacio.setFont(fuente(TAMANO_SMALL))
-            lbl_vacio.setStyleSheet(f"color: {color('gris_apagado')}; padding: 12px 0px; background: transparent;")
+            lbl_vacio.setTextColor(*_tinta("gris_apagado"))
             lbl_vacio.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.ui.vlyTarjetasMovimientos.addWidget(lbl_vacio)
+            self.ui.vlyTarjetasMovimientos.addStretch(1)
             return
 
         for idx, m in enumerate(movimientos_ordenados):
@@ -443,6 +646,69 @@ class VentanaCaja(QWidget, VentanaBase):
 
         self.recalcular()
 
+    def _mostrar_estado_del_dia(self, ya_cerrado: bool, turno_abierto: bool = False) -> None:
+        if ya_cerrado:
+            self.ui.btnEstado.setText("● Caja cerrada")
+            self.ui.btnEstado.setStyleSheet(self._estilo_estado(False))
+            self.ui.btnCerrarCaja.setEnabled(False)
+            self.btnEgreso.setEnabled(False)
+            self.btnIngreso.setEnabled(False)
+            self.btnAnularMovimiento.setEnabled(False)
+        else:
+            self.ui.btnEstado.setText("● Caja abierta")
+            self.ui.btnEstado.setStyleSheet(self._estilo_estado(True))
+            self.ui.btnCerrarCaja.setEnabled(True)
+            self.btnEgreso.setEnabled(True)
+            self.btnIngreso.setEnabled(True)
+            self.btnAnularMovimiento.setEnabled(True)
+        self._estado_previo = ya_cerrado
+
+    def _estilo_estado(self, abierto: bool) -> str:
+        """QSS del indicador de estado con los colores del tema activo."""
+        if abierto:
+            tokens = {
+                "fondo": color("pastilla_positiva"),
+                "fondo_hover": color("pastilla_positiva"),
+                "texto": color("acento") if isDarkTheme() else color("exito"),
+                "borde": color("borde"),
+                "borde_hover": color("acento"),
+            }
+        else:
+            tokens = {
+                "fondo": color("pastilla_negativa"),
+                "fondo_hover": color("pastilla_negativa"),
+                "texto": color("error"),
+                "borde": color("borde"),
+                "borde_hover": color("error"),
+            }
+        estilo = self.ESTILO_ESTADO
+        for clave, valor in tokens.items():
+            estilo = estilo.replace("{" + clave + "}", valor)
+        return estilo
+
+    def _proponer_efectivo(self, efectivo: float) -> None:
+        if math.isfinite(efectivo):
+            self.ui.spnEfectivo.setMaximum(
+                max(self.ui.spnEfectivo.maximum(), math.ceil(efectivo)))
+        self.ui.spnEfectivo.blockSignals(True)
+        self.ui.spnEfectivo.setValue(max(efectivo, 0.0))
+        self.ui.spnEfectivo.blockSignals(False)
+
+    def actualizar_diferencia(self) -> None:
+        arqueo = self._servicio.arqueo(self.dia)
+        diferencia = float(diferencia_montos(
+            self.ui.spnEfectivo.value(), arqueo.esperado_por_medio.efectivo))
+        if abs(diferencia) < 0.01:
+            self.ui.lblDiferencia.setText("Cuadra")
+            self.ui.lblDiferencia.setTextColor(*_tinta("exito"))
+            return
+        if diferencia > 0:
+            self.ui.lblDiferencia.setText(f"Sobrante: {formatear_dinero(diferencia)}")
+            self.ui.lblDiferencia.setTextColor(*_tinta("exito"))
+        else:
+            self.ui.lblDiferencia.setText(f"Faltante: {formatear_dinero(-diferencia)}")
+            self.ui.lblDiferencia.setTextColor(*_tinta("error"))
+
     def cerrar_caja(self) -> None:
         if self._servicio.ya_cerrado(self.dia):
             self.mostrar_advertencia("Cerrar caja", "Este día ya fue cerrado.")
@@ -453,7 +719,8 @@ class VentanaCaja(QWidget, VentanaBase):
         dialogo = DialogoCerrarCaja(
             declarado=declarado,
             esperado=arqueo.esperado_por_medio.efectivo,
-            ciego=getattr(self, "_ciego", False),
+            ciego=False,
+            devoluciones_total=getattr(arqueo, "devoluciones_total", 0.0),
             parent=self,
         )
         if dialogo.exec() != QDialog.DialogCode.Accepted:
@@ -507,6 +774,9 @@ class VentanaCaja(QWidget, VentanaBase):
             f"{' de sobra' if registro.sobrante > 0 else ' de menos'}.")
 
     def cargar_historial(self) -> None:
+        self.ui.tblHistorial.setColumnHidden(3, False)
+        self.ui.tblHistorial.setColumnHidden(4, False)
+        self.ui.tblHistorial.setColumnHidden(5, False)
         filas = []
         colores = []
         cierres = list(reversed(self._servicio.historial()))
@@ -530,19 +800,21 @@ class VentanaCaja(QWidget, VentanaBase):
                 w.deleteLater()
 
         if not cierres:
-            lbl_vacio = QLabel("Sin cierres registrados", self.ui.contenedorHistorial)
+            lbl_vacio = BodyLabel("Sin cierres registrados", self.ui.contenedorHistorial)
             lbl_vacio.setFont(fuente(TAMANO_SMALL))
-            lbl_vacio.setStyleSheet(f"color: {color('gris_apagado')}; padding: 12px 0px; background: transparent;")
+            lbl_vacio.setTextColor(*_tinta("gris_apagado"))
             lbl_vacio.setAlignment(Qt.AlignmentFlag.AlignCenter)
             self.ui.gridHistorial.addWidget(lbl_vacio, 0, 0)
+            self.ui.gridHistorial.setRowStretch(1, 1)
             return
 
         for idx, cierre in enumerate(cierres[:4]):
-            tarjeta = TarjetaHistorialCierre(cierre, ciego=getattr(self, "_ciego", False), parent=self.ui.contenedorHistorial)
+            tarjeta = TarjetaHistorialCierre(cierre, ciego=False, parent=self.ui.contenedorHistorial)
             self.ui.gridHistorial.addWidget(tarjeta, idx, 0)
             self._tarjetas_historial.append(tarjeta)
 
         self.ui.gridHistorial.setColumnStretch(0, 1)
+        self.ui.gridHistorial.setRowStretch(min(len(cierres), 4), 1)
 
 
 VentanaCierre = VentanaCaja

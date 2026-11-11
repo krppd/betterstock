@@ -4,6 +4,7 @@ import datetime
 from datetime import date, timedelta
 from typing import Any
 
+from PyQt6 import sip
 from PyQt6.QtCore import (
     QObject,
     QPointF,
@@ -29,10 +30,19 @@ from PyQt6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    CaptionLabel,
+    CardWidget,
+    ScrollArea,
+    SegmentedWidget,
+    StrongBodyLabel,
+    SubtitleLabel,
+    TitleLabel,
 )
 
 from config import RECURSOS_DIR
@@ -42,82 +52,66 @@ from services.gestor_stock import GestorStock
 from ui.estilos import (
     ESCALA_NORMAL,
     TAMANO_BODY,
-    TAMANO_MICRO,
     TAMANO_SMALL,
     TAMANO_SUBTITLE,
     TAMANO_TITLE,
     escala,
     fuente,
 )
-from ui.tema import color
+from ui.fluent import CLARO, OSCURO, color, conectar_tema
+from ui.tema import color_tema
 from utils.formato import formatear_cantidad, formatear_dinero
+
 
 def _px(valor: int) -> int:
     return round(valor * escala())
 
 
+_PASTILLAS: dict[str, str] = {
+    "ventas": "pastilla_esmeralda",
+    "pedidos": "pastilla_bosque",
+    "ticket": "pastilla_ambar",
+    "unidades": "pastilla_lima",
+}
+
+_ACENTOS: dict[str, str] = {
+    "ventas": "acento_esmeralda",
+    "pedidos": "acento_bosque",
+    "ticket": "acento_ambar",
+    "unidades": "acento_lima",
+}
+
+
+def _pastilla(tipo: str) -> str:
+    """Color de fondo de la pastilla del indicador según el tema activo."""
+    return color_tema(_PASTILLAS.get(tipo, "pastilla_neutra"))
+
+
+def _acento(tipo: str) -> str:
+    """Color de acento del indicador según el tema activo."""
+    return color_tema(_ACENTOS.get(tipo, "verde"))
+
+
+def _tintar(etiqueta, token: str) -> None:
+    """Aplica a una etiqueta Fluent el color de un token de ui.fluent (claro y oscuro)."""
+    etiqueta.setTextColor(
+        QColor(CLARO.get(token, "#000000")),
+        QColor(OSCURO.get(token, "#FFFFFF")),
+    )
+
+
 def estilo_dashboard() -> str:
+    """Hoja de estilos del dashboard, adapted al tema activo."""
     return f"""
-* {{
-    font-family: "Inter", sans-serif;
-}}
-QScrollArea#scrollDashboard {{
-    background-color: {color('blanco')};
-    border: none;
-}}
-QScrollArea#scrollDashboard QScrollBar:vertical {{
-    width: {_px(8)}px;
+QFrame#filaActividad {{
     background: transparent;
-    margin: {_px(4)}px {_px(2)}px;
+    border-bottom: 1px solid {color('borde_suave')};
+    padding: {_px(6)}px 0px;
 }}
-QScrollArea#scrollDashboard QScrollBar::handle:vertical {{
-    background-color: {color('borde_destacado')};
-    border-radius: {_px(4)}px;
-    min-height: {_px(40)}px;
-}}
-QScrollArea#scrollDashboard QScrollBar::handle:vertical:hover {{
-    background-color: {color('gris_apagado')};
-}}
-QScrollArea#scrollDashboard QScrollBar::add-line:vertical,
-QScrollArea#scrollDashboard QScrollBar::sub-line:vertical {{
-    height: 0px;
-}}
-
-QWidget#contenidoDashboard {{
-    background-color: {color('blanco')};
-}}
-
-QFrame#tarjetaMetrica, QFrame#tarjetaGrafico, QFrame#tarjetaActividad {{
-    background-color: {color('blanco')};
-    border: 1px solid {color('borde_suave')};
-    border-radius: {_px(10)}px;
-}}
-
-QFrame#pillGroupRango {{
-    background-color: {color('fondo_insignia')};
-    border: 1px solid {color('borde_suave')};
-    border-radius: {_px(8)}px;
-    padding: {_px(2)}px;
-}}
-QPushButton#btnPillRango {{
-    background-color: transparent;
-    border: none;
+QFrame#filaActividad:hover {{
+    background-color: {color('fondo_suave')};
     border-radius: {_px(6)}px;
-    color: {color('gris_medio')};
-    font-size: {_px(11)}px;
-    font-weight: 500;
-    padding: {_px(4)}px {_px(8)}px;
 }}
-QPushButton#btnPillRango:hover {{
-    color: {color('texto_oscuro')};
-}}
-QPushButton#btnPillRango[seleccionado="true"] {{
-    background-color: {color('blanco')};
-    color: {color('verde_profundo')};
-    font-weight: 700;
-    border: 1px solid {color('borde_destacado')};
-}}
-
 """
 
 
@@ -127,9 +121,15 @@ class IconoPastel(QWidget):
     def __init__(self, tipo: str, color_icono: str | None = None, fondo: str | None = None, parent=None) -> None:
         super().__init__(parent)
         self.tipo = tipo
-        self.color_icono = QColor(color_icono or color("verde_acento"))
-        self.color_fondo = QColor(fondo or color("pastilla_positiva"))
+        self.color_icono = QColor(color_icono or _acento(tipo))
+        self.color_fondo = QColor(fondo or _pastilla(tipo))
         self.setFixedSize(_px(36), _px(36))
+
+    def set_colores(self, color_icono: str, fondo: str) -> None:
+        """Cambia los colores del badge (se usa al cambiar de tema)."""
+        self.color_icono = QColor(color_icono)
+        self.color_fondo = QColor(fondo)
+        self.update()
 
     def paintEvent(self, event) -> None:
         p = QPainter(self)
@@ -177,14 +177,16 @@ class IconoPastel(QWidget):
         p.end()
 
 
-class KPICard(QFrame):
-    """Tarjeta de métrica clave moderna con borde sutil, icono y tendencia."""
+class KPICard(CardWidget):
+    """Tarjeta de métrica clave con icono, valor y tendencia."""
 
     def __init__(self, titulo: str, tipo_icono: str, color_acento: str, color_fondo: str, parent=None) -> None:
         super().__init__(parent)
+        self.tipo_icono = tipo_icono
         self.setObjectName("tarjetaMetrica")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setMinimumHeight(_px(112))
+        self.setBorderRadius(8)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(_px(12), _px(12), _px(12), _px(12))
@@ -193,9 +195,8 @@ class KPICard(QFrame):
         fila_sup = QHBoxLayout()
         fila_sup.setSpacing(_px(6))
 
-        self.lbl_titulo = QLabel(titulo)
+        self.lbl_titulo = BodyLabel(titulo, self)
         self.lbl_titulo.setWordWrap(True)
-        self.lbl_titulo.setStyleSheet(f"color: {color('gris_medio')}; font-size: {_px(11)}px; font-weight: 600;")
 
         self.icono = IconoPastel(tipo_icono, color_acento, color_fondo, self)
 
@@ -207,50 +208,68 @@ class KPICard(QFrame):
         fila_inf = QHBoxLayout()
         fila_inf.setSpacing(_px(6))
 
-        self.lbl_valor = QLabel("--")
-        self.lbl_valor.setFont(fuente(TAMANO_SUBTITLE, negrita=True, tabular=True))
-        self.lbl_valor.setStyleSheet(f"color: {color('texto_oscuro')}; background: transparent;")
+        self.lbl_valor = StrongBodyLabel("--", self)
 
-        self.badge_tendencia = QLabel("+0%")
-        self.badge_tendencia.setStyleSheet(
-            f"background-color: {color('pastilla_positiva')}; color: {color('verde_acento')}; font-size: {_px(11)}px; "
-            f"font-weight: 700; border: 1px solid {color('borde_positivo')}; border-radius: {_px(6)}px; padding: {_px(2)}px {_px(6)}px;"
-        )
+        self.badge_tendencia = QLabel("+0%", self)
         self.badge_tendencia.setFixedHeight(_px(22))
+        self.badge_tendencia.hide()
 
         fila_inf.addWidget(self.lbl_valor)
         fila_inf.addWidget(self.badge_tendencia)
         fila_inf.addStretch()
         layout.addLayout(fila_inf)
 
+        self._positivo = True
+        self._tendencia = ""
+        self._aplicar_estilos()
+
+    def _aplicar_estilos(self) -> None:
+        """Repinta la tarjeta con los colores del tema activo."""
+        _tintar(self.lbl_titulo, "gris_medio")
+        if self._tendencia:
+            if self._positivo:
+                fondo, texto, borde = (
+                    color("pastilla_positiva"), color("exito"), color("borde"))
+            else:
+                fondo, texto, borde = (
+                    color("pastilla_negativa"), color("error"), color("borde"))
+            self.badge_tendencia.setStyleSheet(
+                f"background-color: {fondo}; color: {texto}; font-size: {_px(11)}px; "
+                f"font-weight: 700; border: 1px solid {borde}; border-radius: {_px(6)}px; "
+                f"padding: {_px(2)}px {_px(6)}px;"
+            )
+        else:
+            self.badge_tendencia.setStyleSheet(
+                f"background-color: {color('pastilla_positiva')}; color: {color('exito')}; "
+                f"font-size: {_px(11)}px; font-weight: 700; border: 1px solid {color('borde')}; "
+                f"border-radius: {_px(6)}px; padding: {_px(2)}px {_px(6)}px;"
+            )
+
+    def set_colores(self, color_acento: str, color_fondo: str) -> None:
+        """Actualiza los colores del icono (se usa al cambiar de tema)."""
+        self.icono.set_colores(color_acento, color_fondo)
+
     def minimumSizeHint(self) -> QSize:
         return QSize(_px(150), _px(90))
 
     def set_datos(self, valor: str, tendencia: str = "", positiva: bool = True) -> None:
         self._valor_crudo = valor
+        self._tendencia = tendencia
+        self._positivo = positiva
         if "," in valor:
             entero, _, dec = valor.partition(",")
             txt_html = (
-                f"<span style='font-size: {_px(22)}px; font-weight: 700; color: {color('texto_oscuro')};'>{entero}</span>"
+                f"<span style='font-size: {_px(22)}px; font-weight: 700; color: {color('texto')};'>{entero}</span>"
                 f"<span style='font-size: {_px(14)}px; font-weight: 600; color: {color('gris_medio')};'>,{dec}</span>"
             )
         else:
-            txt_html = f"<span style='font-size: {_px(22)}px; font-weight: 700; color: {color('texto_oscuro')};'>{valor}</span>"
+            txt_html = f"<span style='font-size: {_px(22)}px; font-weight: 700; color: {color('texto')};'>{valor}</span>"
         self.lbl_valor.setText(txt_html)
         self.lbl_valor.adjustSize()
+        self._aplicar_estilos()
         if tendencia:
             self.badge_tendencia.setText(tendencia)
             self.badge_tendencia.adjustSize()
-            if positiva:
-                self.badge_tendencia.setStyleSheet(
-                    f"background-color: {color('pastilla_positiva')}; color: {color('verde_acento')}; font-size: {_px(11)}px; "
-                    f"font-weight: 700; border: 1px solid {color('borde_positivo')}; border-radius: {_px(6)}px; padding: {_px(2)}px {_px(6)}px;"
-                )
-            else:
-                self.badge_tendencia.setStyleSheet(
-                    f"background-color: {color('pastilla_negativa')}; color: {color('rojo_oscuro')}; font-size: {_px(11)}px; "
-                    f"font-weight: 700; border: 1px solid {color('borde_negativo')}; border-radius: {_px(6)}px; padding: {_px(2)}px {_px(6)}px;"
-                )
             self.badge_tendencia.show()
         else:
             self.badge_tendencia.hide()
@@ -305,7 +324,7 @@ class GraficoTendenciaWidget(QWidget):
             y = pad_arr + (alto_util * (i / lineas))
             val = val_max * (1.0 - (i / lineas))
 
-            p.setPen(QPen(QColor(color("fondo_insignia")), 1, Qt.PenStyle.SolidLine))
+            p.setPen(QPen(QColor(color("fondo_suave")), 1, Qt.PenStyle.SolidLine))
             p.drawLine(QPointF(pad_izq, y), QPointF(w - pad_der, y))
 
             p.setPen(QColor(color("gris_linea")))
@@ -357,7 +376,7 @@ class GraficoTendenciaWidget(QWidget):
             area_path.lineTo(puntos[0].x(), pad_arr + alto_util)
             area_path.closeSubpath()
 
-            c_v = QColor(color("verde_grafico"))
+            c_v = QColor(color("acento"))
             grad = QLinearGradient(0, pad_arr, 0, pad_arr + alto_util)
             grad.setColorAt(0.0, QColor(c_v.red(), c_v.green(), c_v.blue(), 55))
             grad.setColorAt(1.0, QColor(c_v.red(), c_v.green(), c_v.blue(), 0))
@@ -365,12 +384,12 @@ class GraficoTendenciaWidget(QWidget):
             p.setBrush(QBrush(grad))
             p.drawPath(area_path)
 
-            p.setPen(QPen(QColor(color("verde_grafico")), float(_px(2.5)), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            p.setPen(QPen(QColor(color("acento")), float(_px(2.5)), Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawPath(path)
 
-            p.setBrush(QBrush(QColor(color("blanco"))))
-            p.setPen(QPen(QColor(color("verde_grafico")), float(_px(2))))
+            p.setBrush(QBrush(QColor(color("fondo_tarjeta"))))
+            p.setPen(QPen(QColor(color("acento")), float(_px(2))))
             radio_pt = float(_px(3.5))
             for pt in puntos:
                 p.drawEllipse(pt, radio_pt, radio_pt)
@@ -384,17 +403,12 @@ class GraficoTendenciaWidget(QWidget):
                 rect_b = QRectF(x_b, y_b, ancho_barra, h_b)
 
                 p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(QBrush(QColor(color("verde_grafico"))))
+                p.setBrush(QBrush(QColor(color("acento"))))
                 p.drawRoundedRect(rect_b, float(_px(4)), float(_px(4)))
-
-                p.setPen(Qt.PenStyle.NoPen)
-                p.setBrush(QBrush(QColor(color("verde_grafico"))))
-                p.drawRoundedRect(rect_b, 4, 4)
-
         p.end()
 
 
-class PillGroup(QFrame):
+class PillGroup(SegmentedWidget):
     """Segmented Control (pill buttons) de opciones exclusivas."""
 
     cambio_seleccion = pyqtSignal(str)
@@ -405,31 +419,26 @@ class PillGroup(QFrame):
         self._botones: dict[str, QPushButton] = {}
         self._clave_activa = opciones[0][0] if opciones else ""
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(2, 2, 2, 2)
-        layout.setSpacing(2)
-
         for clave, texto in opciones:
-            btn = QPushButton(texto, self)
-            btn.setObjectName("btnPillRango")
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setProperty("seleccionado", "true" if clave == self._clave_activa else "false")
-            btn.clicked.connect(lambda _, c=clave: self.seleccionar(c))
-            layout.addWidget(btn)
-            self._botones[clave] = btn
+            self._botones[clave] = self.addItem(clave, texto)
+
+        self.currentItemChanged.connect(self._al_cambiar_item)
+        if self._clave_activa:
+            self.setCurrentItem(self._clave_activa)
+
+    def _al_cambiar_item(self, clave: str) -> None:
+        self._clave_activa = clave
+        self.cambio_seleccion.emit(clave)
 
     def seleccionar(self, clave: str) -> None:
-        if clave not in self._botones or clave == self._clave_activa:
+        if clave not in self._botones:
             return
-        self._clave_activa = clave
-        for c, btn in self._botones.items():
-            btn.setProperty("seleccionado", "true" if c == clave else "false")
-            btn.style().unpolish(btn)
-            btn.style().polish(btn)
-        self.cambio_seleccion.emit(clave)
+        self.setCurrentItem(clave)
 
 
 class FilaActividad(QFrame):
+    """Fila con título, detalle, importe e insignia de una lista de actividad."""
+
     def __init__(
         self,
         titulo: str,
@@ -442,21 +451,10 @@ class FilaActividad(QFrame):
         parent=None,
     ) -> None:
         super().__init__(parent)
-        col_der = color_derecha or color("texto_oscuro")
-        bg_b = badge_bg or color("fondo_insignia")
+        col_der = color_derecha or color("texto")
+        bg_b = badge_bg or color("fondo_suave")
         fg_b = badge_fg or color("gris_linea")
         self.setObjectName("filaActividad")
-        self.setStyleSheet(
-            "QFrame#filaActividad { "
-            "background: transparent; "
-            f"border-bottom: 1px solid {color('fondo_insignia')}; "
-            f"padding: {_px(6)}px 0px; "
-            "} "
-            "QFrame#filaActividad:hover { "
-            f"background-color: {color('fondo_suave')}; "
-            f"border-radius: {_px(6)}px; "
-            "}"
-        )
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(_px(6), _px(4), _px(6), _px(4))
@@ -466,15 +464,13 @@ class FilaActividad(QFrame):
         col_izq.setContentsMargins(0, 0, 0, 0)
         col_izq.setSpacing(_px(2))
 
-        lbl_tit = QLabel(titulo, self)
-        lbl_tit.setFont(fuente(TAMANO_BODY, negrita=True))
-        lbl_tit.setStyleSheet(f"color: {color('texto_oscuro')}; background: transparent; border: none;")
+        lbl_tit = StrongBodyLabel(titulo, self)
+        _tintar(lbl_tit, "texto")
         col_izq.addWidget(lbl_tit)
 
         if subtitulo:
-            lbl_sub = QLabel(subtitulo, self)
-            lbl_sub.setFont(fuente(TAMANO_SMALL))
-            lbl_sub.setStyleSheet(f"color: {color('gris_medio')}; background: transparent; border: none;")
+            lbl_sub = CaptionLabel(subtitulo, self)
+            _tintar(lbl_sub, "gris_medio")
             col_izq.addWidget(lbl_sub)
 
         lay.addLayout(col_izq, 1)
@@ -488,7 +484,7 @@ class FilaActividad(QFrame):
 
         if badge:
             lbl_badge = QLabel(badge, self)
-            lbl_badge.setFont(fuente(TAMANO_MICRO, negrita=True))
+            lbl_badge.setFont(fuente(TAMANO_SMALL, negrita=True))
             lbl_badge.setStyleSheet(
                 f"background-color: {bg_b}; color: {fg_b}; "
                 f"border-radius: {_px(6)}px; padding: {_px(2)}px {_px(6)}px; border: none;"
@@ -498,6 +494,8 @@ class FilaActividad(QFrame):
 
 
 class ListaActividadWidget(QWidget):
+    """Lista de filas de actividad con estado vacío."""
+
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._lay = QVBoxLayout(self)
@@ -506,10 +504,16 @@ class ListaActividadWidget(QWidget):
         self._filas: list[QWidget] = []
         self._lbl_vacio = QLabel(self)
         self._lbl_vacio.setFont(fuente(TAMANO_SMALL))
-        self._lbl_vacio.setStyleSheet(f"color: {color('gris_apagado')}; padding: {_px(14)}px 0px; background: transparent;")
         self._lbl_vacio.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._lay.addWidget(self._lbl_vacio)
         self._lbl_vacio.hide()
+        self._aplicar_estilos()
+
+    def _aplicar_estilos(self) -> None:
+        """Repinta el mensaje de lista vacía con los colores del tema activo."""
+        self._lbl_vacio.setStyleSheet(
+            f"color: {color('gris_apagado')}; padding: {_px(14)}px 0px; background: transparent;"
+        )
 
     def limpiar(self) -> None:
         for fila in self._filas:
@@ -538,9 +542,9 @@ class ListaActividadWidget(QWidget):
             titulo,
             subtitulo,
             derecha,
-            color_derecha or color("texto_oscuro"),
+            color_derecha or color("texto"),
             badge,
-            badge_bg or color("fondo_insignia"),
+            badge_bg or color("fondo_suave"),
             badge_fg or color("gris_linea"),
             self,
         )
@@ -608,6 +612,20 @@ class WorkerCargaDashboard(QRunnable):
                 cant_pedidos = int(res.cantidad_ventas)
                 ticket_promedio = float(res.ticket_promedio)
                 unidades_vendidas = float(res.unidades)
+            except Exception:
+                pass
+
+            try:
+                comp = self._estadisticas.comparar(desde, hasta)
+                if comp.variacion_total is not None:
+                    var_ventas_pos = comp.variacion_total >= 0
+                    var_ventas_txt = f"{'+' if var_ventas_pos else ''}{comp.variacion_total:.1f}%"
+                if comp.variacion_unidades is not None:
+                    var_unidades_pos = comp.variacion_unidades >= 0
+                    var_unidades_txt = f"{'+' if var_unidades_pos else ''}{comp.variacion_unidades:.1f}%"
+                if comp.variacion_ticket_promedio is not None:
+                    var_ticket_pos = comp.variacion_ticket_promedio >= 0
+                    var_ticket_txt = f"{'+' if var_ticket_pos else ''}{comp.variacion_ticket_promedio:.1f}%"
             except Exception:
                 pass
 
@@ -679,6 +697,19 @@ class WorkerCargaDashboard(QRunnable):
                 pass
 
         filas_clientes: list[dict[str, Any]] = []
+        if self._fiado:
+            try:
+                deudores = self._fiado.deudores()[:4]
+                if deudores:
+                    for c, saldo in deudores:
+                        sub = f"Tel: {c.telefono}" if c.telefono else "Cliente registrado"
+                        filas_clientes.append({
+                            "titulo": str(c.nombre),
+                            "subtitulo": sub,
+                            "derecha": formatear_dinero(saldo),
+                        })
+            except Exception:
+                pass
 
         datos = {
             "id_carga": self.id_carga,
@@ -704,7 +735,7 @@ class WorkerCargaDashboard(QRunnable):
 
 
 class DashboardPrincipalWidget(QWidget):
-    """Vista principal con métricas clave, gráfico interactivo y pestañas de actividad."""
+    """Vista principal con métricas clave, gráfico interactivo y listas de actividad."""
 
     def __init__(
         self,
@@ -722,19 +753,25 @@ class DashboardPrincipalWidget(QWidget):
         self._periodo_actual = "30d"
         self._id_carga = 0
         self._worker_actual: WorkerCargaDashboard | None = None
+        self._ultimos_datos: dict[str, Any] | None = None
 
-        self.setStyleSheet(estilo_dashboard())
         self._construir_ui()
+        conectar_tema(self._aplicar_temas)
         self.recargar_datos()
 
     def _construir_ui(self) -> None:
         layout_raiz = QVBoxLayout(self)
         layout_raiz.setContentsMargins(0, 0, 0, 0)
 
-        scroll = QScrollArea(self)
+        scroll = ScrollArea(self)
         scroll.setObjectName("scrollDashboard")
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll.setStyleSheet(
+            "QScrollArea#scrollDashboard { background: transparent; border: none; }"
+        )
+        scroll.viewport().setAutoFillBackground(False)
 
         contenedor = QWidget()
         contenedor.setObjectName("contenidoDashboard")
@@ -756,17 +793,19 @@ class DashboardPrincipalWidget(QWidget):
         else:
             saludo = "Buenas noches"
 
-        self.lbl_saludo = QLabel(f"{saludo}, {self._usuario.capitalize()}")
-        self.lbl_saludo.setFont(fuente(TAMANO_TITLE if escala() == ESCALA_NORMAL else TAMANO_SUBTITLE, negrita=True))
-        self.lbl_saludo.setStyleSheet(f"color: {color('texto_oscuro')};")
+        self.lbl_saludo = TitleLabel(f"{saludo}, {self._usuario.capitalize()}", self)
+        self.lbl_saludo.setFont(
+            fuente(TAMANO_TITLE if escala() == ESCALA_NORMAL else TAMANO_SUBTITLE, negrita=True)
+        )
+        _tintar(self.lbl_saludo, "texto")
         fila_sup_header.addWidget(self.lbl_saludo)
 
         fila_sup_header.addStretch()
 
         self.lbl_logo = QLabel()
-        ruta_logo = RECURSOS_DIR / "logo_sf_crop.png"
+        ruta_logo = RECURSOS_DIR / "logo_sf.png"
         if not ruta_logo.is_file():
-            ruta_logo = RECURSOS_DIR / "logo_sf.png"
+            ruta_logo = RECURSOS_DIR / "logo_sf_crop.png"
         pix_logo = QPixmap(str(ruta_logo))
         if not pix_logo.isNull():
             alto_logo = _px(38)
@@ -797,8 +836,8 @@ class DashboardPrincipalWidget(QWidget):
 
         col_header.addLayout(fila_pill)
 
-        self.lbl_nota_plan = QLabel("Gratis: 12 meses de estadísticas. Con el plan Mensual ves todo el historial.")
-        self.lbl_nota_plan.setStyleSheet(f"color: {color('ambar_texto')}; font-size: {_px(12)}px; font-weight: 500;")
+        self.lbl_nota_plan = CaptionLabel(
+            "Gratis: 12 meses de estadísticas. Con el plan Mensual ves todo el historial.", self)
         col_header.addWidget(self.lbl_nota_plan)
 
         layout_cont.addLayout(col_header)
@@ -806,12 +845,18 @@ class DashboardPrincipalWidget(QWidget):
         grid_kpi = QGridLayout()
         grid_kpi.setHorizontalSpacing(_px(14))
         grid_kpi.setVerticalSpacing(_px(14))
-        grid_kpi.setVerticalSpacing(10)
 
-        self.kpi_ventas = KPICard("Ventas del período", "ventas", color("verde_acento"), color("pastilla_positiva"))
-        self.kpi_pedidos = KPICard("Ventas realizadas", "pedidos", color("acento_teal"), color("pastilla_teal"))
-        self.kpi_ticket = KPICard("Ticket promedio", "ticket", color("acento_ambar"), color("pastilla_alerta"))
-        self.kpi_unidades = KPICard("Unidades vendidas", "unidades", color("acento_sky"), color("pastilla_sky"))
+        self.kpi_ventas = KPICard("Ventas del período", "ventas", _acento("ventas"), _pastilla("ventas"))
+        self.kpi_pedidos = KPICard("Ventas realizadas", "pedidos", _acento("pedidos"), _pastilla("pedidos"))
+        self.kpi_ticket = KPICard("Ticket promedio", "ticket", _acento("ticket"), _pastilla("ticket"))
+        self.kpi_unidades = KPICard("Unidades vendidas", "unidades", _acento("unidades"), _pastilla("unidades"))
+
+        self._kpis = (
+            (self.kpi_ventas, "ventas"),
+            (self.kpi_pedidos, "pedidos"),
+            (self.kpi_ticket, "ticket"),
+            (self.kpi_unidades, "unidades"),
+        )
 
         grid_kpi.addWidget(self.kpi_ventas, 0, 0)
         grid_kpi.addWidget(self.kpi_pedidos, 0, 1)
@@ -819,8 +864,9 @@ class DashboardPrincipalWidget(QWidget):
         grid_kpi.addWidget(self.kpi_unidades, 0, 3)
         layout_cont.addLayout(grid_kpi)
 
-        tarjeta_grafico = QFrame()
+        tarjeta_grafico = CardWidget()
         tarjeta_grafico.setObjectName("tarjetaGrafico")
+        tarjeta_grafico.setBorderRadius(8)
 
         lay_grafico = QVBoxLayout(tarjeta_grafico)
         lay_grafico.setContentsMargins(_px(16), _px(12), _px(16), _px(12))
@@ -829,9 +875,8 @@ class DashboardPrincipalWidget(QWidget):
         header_graf = QHBoxLayout()
         header_graf.setSpacing(_px(8))
 
-        lbl_tit_graf = QLabel("Tendencia de ingresos")
-        lbl_tit_graf.setFont(fuente(TAMANO_TITLE if escala() == ESCALA_NORMAL else TAMANO_SUBTITLE, negrita=True))
-        lbl_tit_graf.setStyleSheet(f"color: {color('texto_oscuro')};")
+        lbl_tit_graf = SubtitleLabel("Tendencia de ingresos", tarjeta_grafico)
+        _tintar(lbl_tit_graf, "texto")
         header_graf.addWidget(lbl_tit_graf)
         header_graf.addStretch()
 
@@ -860,23 +905,42 @@ class DashboardPrincipalWidget(QWidget):
 
         layout_cont.addStretch()
         scroll.setWidget(contenedor)
+        contenedor.setAutoFillBackground(False)
         layout_raiz.addWidget(scroll)
 
     def _crear_tarjeta_actividad(self, titulo: str, widget_lista: QWidget) -> QFrame:
-        tarjeta = QFrame()
+        tarjeta = CardWidget()
         tarjeta.setObjectName("tarjetaActividad")
+        tarjeta.setBorderRadius(8)
 
         lay = QVBoxLayout(tarjeta)
         lay.setContentsMargins(_px(16), _px(12), _px(16), _px(12))
         lay.setSpacing(_px(8))
 
-        lbl_tit = QLabel(titulo)
-        lbl_tit.setFont(fuente(TAMANO_BODY, negrita=True))
-        lbl_tit.setStyleSheet(f"color: {color('texto_oscuro')};")
+        lbl_tit = StrongBodyLabel(titulo, tarjeta)
+        _tintar(lbl_tit, "texto")
         lay.addWidget(lbl_tit)
         lay.addWidget(widget_lista)
         lay.addStretch()
         return tarjeta
+
+    def _aplicar_temas(self) -> None:
+        """Repinta el dashboard con los colores del tema activo."""
+        if sip.isdeleted(self):
+            return
+        try:
+            self.setStyleSheet(estilo_dashboard())
+            self.lbl_nota_plan.setStyleSheet(f"color: {color('alerta')};")
+            for tarjeta, tipo in self._kpis:
+                tarjeta.set_colores(_acento(tipo), _pastilla(tipo))
+                tarjeta._aplicar_estilos()
+            for lista in (self.tablaVentas, self.tablaTop, self.tablaAlertas, self.tablaClientes):
+                lista._aplicar_estilos()
+            if self._ultimos_datos is not None:
+                self._aplicar_datos_dashboard(self._ultimos_datos)
+            self.grafico_tendencia.update()
+        except RuntimeError:
+            pass
 
     def _al_cambiar_periodo(self, clave: str) -> None:
         self._periodo_actual = clave
@@ -904,6 +968,7 @@ class DashboardPrincipalWidget(QWidget):
     def _aplicar_datos_dashboard(self, datos: dict[str, Any]) -> None:
         if datos.get("id_carga") != self._id_carga:
             return
+        self._ultimos_datos = datos
 
         self.kpi_ventas.set_datos(
             formatear_dinero(datos["total_ventas"]),
@@ -945,7 +1010,7 @@ class DashboardPrincipalWidget(QWidget):
                 titulo=v["titulo"],
                 subtitulo=v["subtitulo"],
                 derecha=v["derecha"],
-                color_derecha=color("verde_acento"),
+                color_derecha=color("exito"),
             )
 
     def _cargar_tabla_top_productos(self, filas: list[dict[str, Any]] | None = None) -> None:
@@ -961,7 +1026,7 @@ class DashboardPrincipalWidget(QWidget):
                 titulo=item["titulo"],
                 subtitulo=item["subtitulo"],
                 derecha=item["derecha"],
-                color_derecha=color("texto_oscuro"),
+                color_derecha=color("texto"),
             )
 
     def _cargar_tabla_clientes(self, filas: list[dict[str, Any]] | None = None) -> None:
@@ -977,7 +1042,7 @@ class DashboardPrincipalWidget(QWidget):
                 titulo=c["titulo"],
                 subtitulo=c["subtitulo"],
                 derecha=c["derecha"],
-                color_derecha=color("rojo_alerta"),
+                color_derecha=color("error"),
             )
 
     def _cargar_tabla_alertas(self, filas: list[dict[str, Any]] | None = None) -> None:
@@ -993,5 +1058,5 @@ class DashboardPrincipalWidget(QWidget):
                 titulo=p["titulo"],
                 subtitulo=p["subtitulo"],
                 derecha=p["derecha"],
-                color_derecha=color("rojo_alerta") if p.get("es_cero") else color("ambar_alerta"),
+                color_derecha=color("error") if p.get("es_cero") else color("alerta"),
             )

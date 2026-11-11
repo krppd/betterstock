@@ -1,8 +1,27 @@
 from __future__ import annotations
 
 import math
+from typing import Any
 
-from PyQt6.QtWidgets import QDialog
+from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import (
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QSizePolicy,
+    QSpacerItem,
+    QVBoxLayout,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    ComboBox,
+    DoubleSpinBox,
+    FluentIconBase,
+    LineEdit,
+    PushButton,
+    qconfig,
+)
 
 from models import medio_pago
 from models.medio_pago import (
@@ -18,14 +37,37 @@ from models.venta import Venta
 from models.venta_registrada import PagoVenta
 from services.excepciones import ErrorValidacion
 from services.gestor_fiado import GestorFiado
-from ui.estilos import ROJO_TEXTO, VERDE_TEXTO
-from ui.manual.cobro_ui import Ui_CobroForm
-from ui.tema import color
+from ui.estilos import ROJO_TEXTO, VERDE_TEXTO, TAMANO_BODY, TAMANO_DISPLAY, TAMANO_MICRO, fuente
+from ui.fluent import color as color_fluent
+from ui.tema import color as color_tema
+from ui.widgets.etiqueta_rodante import EtiquetaRodante
 from utils.formato import diferencia as diferencia_montos
 from utils.formato import formatear_dinero
 from views.ventana_base import VentanaBase
 
-COLOR_DETALLE = color("gris_detalle")
+COLOR_DETALLE = color_tema("gris_detalle")
+MAXIMO_MONTO = 1_000_000_000_000.0
+
+
+class _FluentComboBox(ComboBox):
+    def addItem(self, text: str, icon_or_data: Any = None, userData: Any = None) -> None:
+        if userData is None and icon_or_data is not None:
+            if not isinstance(icon_or_data, (QIcon, FluentIconBase)):
+                super().addItem(text, userData=icon_or_data)
+                return
+        super().addItem(text, icon=icon_or_data, userData=userData)
+
+
+class _UiCompat:
+    def __init__(self, owner) -> None:
+        for attr in (
+            "verticalLayout", "lblTotalPagar", "lblTotalCobrar", "lblDetalle", "linea",
+            "lblMetodo", "cmbMetodo", "lblMedioParcial", "cmbMedioParcial",
+            "lblCliente", "cmbCliente", "lblSaldo", "lblMonto", "spnMonto",
+            "lblVuelto", "lblDatos", "txtDatos", "lblPagos", "hlyPagos",
+            "btnAgregar", "btnQuitar", "hlyBotones", "btnCancelar", "btnCobrar",
+        ):
+            setattr(self, attr, getattr(owner, attr))
 
 
 class VentanaCobro(QDialog, VentanaBase):
@@ -36,8 +78,7 @@ class VentanaCobro(QDialog, VentanaBase):
         self._fiado = fiado
         self._pagos: list[PagoVenta] = []
         self._cliente_fiado = ""
-        self.ui = Ui_CobroForm()
-        self.ui.setupUi(self)
+        self._iniciar_interfaz()
         for etiqueta, codigo in MEDIOS:
             self.ui.cmbMetodo.addItem(etiqueta, codigo)
             self.ui.cmbMedioParcial.addItem(etiqueta, codigo)
@@ -57,6 +98,153 @@ class VentanaCobro(QDialog, VentanaBase):
         self.ui.btnCobrar.setDefault(True)
         self.ui.btnCancelar.setAutoDefault(False)
         self.actualizar()
+        self._aplicar_tema()
+        if hasattr(qconfig, "themeChanged"):
+            qconfig.themeChanged.connect(self._aplicar_tema)
+
+    def _aplicar_tema(self) -> None:
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color_fluent('fondo')}; }}"
+        )
+
+    def _iniciar_interfaz(self) -> None:
+        self.setObjectName("Form")
+        self.setWindowTitle("Cobrar")
+        self.setFixedSize(380, 600)
+
+        layout = QVBoxLayout(self)
+        layout.setObjectName("verticalLayout")
+        layout.setContentsMargins(20, 24, 20, 20)
+        layout.setSpacing(10)
+
+        self.lblTotalPagar = BodyLabel("TOTAL A COBRAR:", self)
+        self.lblTotalPagar.setFont(fuente(TAMANO_BODY, negrita=True))
+        self.lblTotalPagar.setObjectName("lblTotalPagar")
+        layout.addWidget(self.lblTotalPagar)
+
+        self.lblTotalCobrar = EtiquetaRodante(parent=self, alineacion=Qt.AlignmentFlag.AlignCenter)
+        font_cobrar = fuente(TAMANO_DISPLAY, negrita=True, tabular=True)
+        self.lblTotalCobrar.setFont(font_cobrar)
+        self.lblTotalCobrar.setStyleSheet(f"color: {VERDE_TEXTO};")
+        self.lblTotalCobrar.setObjectName("lblTotalCobrar")
+        self.lblTotalCobrar.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.lblTotalCobrar)
+
+        self.lblDetalle = BodyLabel("", self)
+        font_detalle = fuente(TAMANO_MICRO)
+        self.lblDetalle.setFont(font_detalle)
+        self.lblDetalle.setObjectName("lblDetalle")
+        self.lblDetalle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.lblDetalle.setWordWrap(True)
+        self.lblDetalle.setVisible(False)
+        layout.addWidget(self.lblDetalle)
+
+        self.linea = QFrame(self)
+        self.linea.setObjectName("linea")
+        self.linea.setFrameShape(QFrame.Shape.HLine)
+        self.linea.setFrameShadow(QFrame.Shadow.Sunken)
+        layout.addWidget(self.linea)
+
+        self.lblMetodo = BodyLabel("Medio de pago:", self)
+        self.lblMetodo.setObjectName("lblMetodo")
+        layout.addWidget(self.lblMetodo)
+
+        self.cmbMetodo = _FluentComboBox(self)
+        self.cmbMetodo.setObjectName("cmbMetodo")
+        self.cmbMetodo.setMinimumHeight(30)
+        layout.addWidget(self.cmbMetodo)
+
+        self.lblMedioParcial = BodyLabel("Medio del pago parcial:", self)
+        self.lblMedioParcial.setObjectName("lblMedioParcial")
+        self.lblMedioParcial.setVisible(False)
+        layout.addWidget(self.lblMedioParcial)
+
+        self.cmbMedioParcial = _FluentComboBox(self)
+        self.cmbMedioParcial.setObjectName("cmbMedioParcial")
+        self.cmbMedioParcial.setMinimumHeight(30)
+        self.cmbMedioParcial.setVisible(False)
+        layout.addWidget(self.cmbMedioParcial)
+
+        self.lblCliente = BodyLabel("Cliente:", self)
+        self.lblCliente.setObjectName("lblCliente")
+        layout.addWidget(self.lblCliente)
+
+        self.cmbCliente = _FluentComboBox(self)
+        self.cmbCliente.setObjectName("cmbCliente")
+        self.cmbCliente.setMinimumHeight(30)
+        layout.addWidget(self.cmbCliente)
+
+        self.lblSaldo = BodyLabel("", self)
+        self.lblSaldo.setObjectName("lblSaldo")
+        layout.addWidget(self.lblSaldo)
+
+        self.lblMonto = BodyLabel("Monto recibido:", self)
+        self.lblMonto.setObjectName("lblMonto")
+        layout.addWidget(self.lblMonto)
+
+        self.spnMonto = DoubleSpinBox(self)
+        self.spnMonto.setObjectName("spnMonto")
+        self.spnMonto.setDecimals(2)
+        self.spnMonto.setMinimum(0.0)
+        self.spnMonto.setMaximum(MAXIMO_MONTO)
+        self.spnMonto.setMinimumHeight(30)
+        layout.addWidget(self.spnMonto)
+
+        self.lblVuelto = EtiquetaRodante(parent=self, alineacion=Qt.AlignmentFlag.AlignCenter)
+        font_vuelto = fuente(TAMANO_BODY, negrita=True, tabular=True)
+        self.lblVuelto.setFont(font_vuelto)
+        self.lblVuelto.setObjectName("lblVuelto")
+        self.lblVuelto.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        layout.addWidget(self.lblVuelto)
+
+        self.lblDatos = BodyLabel("", self)
+        self.lblDatos.setObjectName("lblDatos")
+        layout.addWidget(self.lblDatos)
+
+        self.txtDatos = LineEdit(self)
+        self.txtDatos.setObjectName("txtDatos")
+        self.txtDatos.setMaxLength(60)
+        self.txtDatos.setMinimumHeight(30)
+        layout.addWidget(self.txtDatos)
+
+        self.lblPagos = BodyLabel("", self)
+        self.lblPagos.setFont(fuente(TAMANO_BODY))
+        self.lblPagos.setObjectName("lblPagos")
+        self.lblPagos.setWordWrap(True)
+        self.lblPagos.setVisible(False)
+        layout.addWidget(self.lblPagos)
+
+        self.hlyPagos = QHBoxLayout()
+        self.hlyPagos.setObjectName("hlyPagos")
+        self.btnAgregar = PushButton("Registrar dinero parcial", self)
+        self.btnAgregar.setObjectName("btnAgregar")
+        self.btnAgregar.setMinimumHeight(30)
+        self.hlyPagos.addWidget(self.btnAgregar)
+        self.btnQuitar = PushButton("Quitar", self)
+        self.btnQuitar.setObjectName("btnQuitar")
+        self.btnQuitar.setMinimumHeight(30)
+        self.hlyPagos.addWidget(self.btnQuitar)
+        layout.addLayout(self.hlyPagos)
+
+        spacer = QSpacerItem(20, 10, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding)
+        layout.addItem(spacer)
+
+        self.hlyBotones = QHBoxLayout()
+        self.hlyBotones.setObjectName("hlyBotones")
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnCancelar.setObjectName("btnCancelar")
+        self.btnCancelar.setMinimumHeight(36)
+        self.hlyBotones.addWidget(self.btnCancelar)
+        self.btnCobrar = PushButton("Cobrar", self)
+        font_cobrar_btn = fuente(TAMANO_BODY, negrita=True)
+        self.btnCobrar.setFont(font_cobrar_btn)
+        self.btnCobrar.setObjectName("btnCobrar")
+        self.btnCobrar.setMinimumHeight(36)
+        self.hlyBotones.addWidget(self.btnCobrar)
+        layout.addLayout(self.hlyBotones)
+
+        self.verticalLayout = layout
+        self.ui = _UiCompat(self)
 
     @property
     def metodo(self) -> str:

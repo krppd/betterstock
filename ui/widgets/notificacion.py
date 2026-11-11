@@ -13,6 +13,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from qfluentwidgets import isDarkTheme, qconfig
 
 from ui.estilos import escala as escala_activa
 from ui.tema import color, familia
@@ -54,8 +55,7 @@ class IconoCapsula(QWidget):
         p.setBrush(QBrush(self._fondo))
         w = self.width()
         h = self.height()
-        r = round(8 * (w / 28.0))
-        p.drawRoundedRect(0, 0, w, h, r, r)
+        p.drawEllipse(0, 0, w, h)
 
         factor = w / 28.0
         p.setPen(QPen(self._acento, 1.8 * factor, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin))
@@ -141,7 +141,7 @@ class Notificacion(QWidget):
 
         self._btn_cerrar = QLabel("✕", self._tarjeta)
         self._btn_cerrar.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_cerrar.setStyleSheet(f"color: {color('gris_apagado')}; font-size: 10pt; font-family: '{familia()}';")
+        self._btn_cerrar.mousePressEvent = self._cerrar_por_usuario
         row_top.addWidget(self._btn_cerrar)
         self._columna.addLayout(row_top)
 
@@ -159,6 +159,7 @@ class Notificacion(QWidget):
 
         self._layout_interior.addLayout(self._columna, 1)
 
+        self._filas_cache: list[dict] = []
         self._aplicar_estilo("aviso")
 
         self._temporizador = QTimer(self)
@@ -178,49 +179,90 @@ class Notificacion(QWidget):
         self._salida.addAnimation(self._retirar)
         self._salida.finished.connect(self._al_terminar_animacion)
 
+        if hasattr(qconfig, "themeChanged"):
+            qconfig.themeChanged.connect(self._al_cambiar_tema)
+
         if parent is not None:
             parent.installEventFilter(self)
         _INSTANCIAS.append(self)
         self.hide()
+
+    def _cerrar_por_usuario(self, evento) -> None:
+        self._temporizador.stop()
+        self.hide()
+        self._desregistrar()
+
+    def _al_cambiar_tema(self) -> None:
+        if self.isVisible():
+            self._aplicar_estilo(self._tipo)
+            if self._filas_cache:
+                self._renderizar_filas(self._filas_cache)
 
     def eventFilter(self, objeto: QObject, evento: QEvent) -> bool:
         if objeto is self.parent() and evento.type() == QEvent.Type.Resize and self.isVisible():
             self._reubicar()
         return super().eventFilter(objeto, evento)
 
-    def _obtener_tokens_tipo(self, tipo: str) -> tuple[str, str, str]:
+    def _obtener_tokens_tipo(self, tipo: str) -> tuple[str, str, str, str, str, str]:
+        oscuro = isDarkTheme()
+        if oscuro:
+            if tipo == "limite":
+                return "#ffb74d", "rgba(255, 183, 77, 0.22)", "rgba(255, 183, 77, 0.35)", "#26211a", "#ffc107", "rgba(255, 255, 255, 0.88)"
+            if tipo == "critico":
+                return "#ff6b6b", "rgba(255, 107, 107, 0.22)", "rgba(255, 107, 107, 0.35)", "#281b1b", "#ff7878", "rgba(255, 255, 255, 0.88)"
+            if tipo == "vencimiento":
+                return "#ffa726", "rgba(255, 167, 38, 0.22)", "rgba(255, 167, 38, 0.35)", "#261f1a", "#ffb74d", "rgba(255, 255, 255, 0.88)"
+            return "#4caf50", "rgba(76, 175, 80, 0.22)", "rgba(76, 175, 80, 0.35)", "#1b251d", "#4caf50", "rgba(255, 255, 255, 0.88)"
+
         if tipo == "limite":
-            return color("ambar_texto"), color("pastilla_alerta"), color("borde_alerta")
+            return color("ambar_texto"), color("pastilla_alerta"), color("borde_alerta"), color("blanco"), color("ambar_texto"), color("gris_linea")
         if tipo == "critico":
-            return color("rojo"), color("pastilla_negativa"), color("borde_negativo")
+            return color("rojo"), color("pastilla_negativa"), color("borde_negativo"), color("blanco"), color("rojo"), color("gris_linea")
         if tipo == "vencimiento":
-            return color("naranja_texto"), color("pastilla_naranja"), color("borde_suave")
-        return color("verde_profundo"), color("pastilla_positiva"), color("borde_suave")
+            return color("naranja_texto"), color("pastilla_naranja"), color("borde_suave"), color("blanco"), color("naranja_texto"), color("gris_linea")
+        return color("verde_profundo"), color("pastilla_positiva"), color("borde_suave"), color("blanco"), color("verde_profundo"), color("gris_linea")
 
     def _aplicar_estilo(self, tipo: str) -> None:
-        acento, fondo_capsula, borde_tarjeta = self._obtener_tokens_tipo(tipo)
+        acento, fondo_capsula, borde_tarjeta, fondo_tarjeta, texto_titulo, texto_cuerpo = self._obtener_tokens_tipo(tipo)
         self._acento = acento
         self._icono.actualizar(tipo, fondo_capsula, acento)
         esc = min(escala_activa(), 1.4)
-        tam = round(11 * esc)
+        tam = round(10.5 * esc)
+        tam_titulo = round(13.5 * esc)
         tam_cerrar = round(10 * esc)
-        pad_h = round(10 * esc)
-        pad_v = round(8 * esc)
-        rad = round(12 * min(esc, 1.25))
-        ancho_barra = max(3, round(3.5 * esc))
-        rad_barra = round(2 * esc)
+        pad_h = round(12 * esc)
+        pad_v = round(10 * esc)
+        rad = round(8 * min(esc, 1.25))
+        ancho_barra = max(3, round(3 * esc))
+        rad_barra = round(2.5 * esc)
+        oscuro = isDarkTheme()
+
+        if oscuro:
+            self._sombra.setBlurRadius(24)
+            self._sombra.setOffset(0, 6)
+            self._sombra.setColor(QColor(0, 0, 0, 160))
+        else:
+            self._sombra.setBlurRadius(20)
+            self._sombra.setOffset(0, 4)
+            self._sombra.setColor(QColor(0, 0, 0, 28))
 
         self._barra_acento.setFixedWidth(ancho_barra)
         self._tarjeta.setStyleSheet(
-            f"QFrame#tarjeta {{ background-color: {color('blanco')};"
+            f"QFrame#tarjeta {{ background-color: {fondo_tarjeta};"
             f" border: 1px solid {borde_tarjeta};"
             f" border-radius: {rad}px; }}"
-            f"QFrame#barraAcento {{ background-color: {acento}; border-radius: {rad_barra}px; border: none; margin: {round(3 * esc)}px 0px; }}"
-            f"QLabel#titulo {{ color: {acento}; font-size: {tam}pt; font-weight: bold; font-family: '{familia()}'; }}"
-            f"QLabel#cuerpo {{ color: {color('gris_linea')}; font-size: {tam}pt; font-family: '{familia()}'; }}"
+            f"QFrame#barraAcento {{ background-color: {acento}; border-radius: {rad_barra}px; border: none; margin: {round(2 * esc)}px 0px; }}"
+            f"QLabel#titulo {{ color: {texto_titulo}; font-size: {tam_titulo}pt; font-weight: 600; font-family: 'Segoe UI', '{familia()}'; }}"
+            f"QLabel#cuerpo {{ color: {texto_cuerpo}; font-size: {tam}pt; font-family: 'Segoe UI', '{familia()}'; }}"
         )
+
+        color_cerrar = "rgba(255, 255, 255, 0.65)" if oscuro else "rgba(0, 0, 0, 0.45)"
+        color_cerrar_hover = "#ffffff" if oscuro else "#000000"
+        bg_cerrar_hover = "rgba(255, 255, 255, 0.12)" if oscuro else "rgba(0, 0, 0, 0.08)"
         self._btn_cerrar.setStyleSheet(
-            f"color: {color('gris_apagado')}; font-size: {tam_cerrar}pt; font-family: '{familia()}';"
+            f"QLabel {{ color: {color_cerrar}; font-size: {tam_cerrar}pt; font-family: 'Segoe UI', '{familia()}';"
+            f" border-radius: 4px; padding: 2px 4px; }}"
+            f"QLabel:hover {{ color: {color_cerrar_hover}; background-color: {bg_cerrar_hover}; }}"
         )
         self._layout_interior.setContentsMargins(pad_h, pad_v, pad_h, pad_v)
         self._layout_interior.setSpacing(round(10 * esc))
@@ -276,6 +318,49 @@ class Notificacion(QWidget):
                     if subitem.widget() is not None:
                         subitem.widget().deleteLater()
 
+    def _renderizar_filas(self, filas: list[dict]) -> None:
+        self._limpiar_filas()
+        esc = min(escala_activa(), 1.4)
+        tam_filas = round(10 * esc)
+        tam_badge = round(9 * esc)
+        pad_v = round(2.5 * esc)
+        pad_h = round(6 * esc)
+        rad_badge = round(4 * esc)
+        oscuro = isDarkTheme()
+
+        self._layout_filas.setSpacing(round(4 * esc))
+        for item in filas:
+            r = QHBoxLayout()
+            r.setContentsMargins(0, 0, 0, 0)
+            r.setSpacing(round(6 * esc))
+            dot = QLabel("•")
+            dot.setStyleSheet(f"color: {self._acento}; font-size: {tam_filas}pt;")
+            r.addWidget(dot)
+            lbl_n = QLabel(item["nombre"])
+            color_nombre = "rgba(255, 255, 255, 0.92)" if oscuro else color("panel_borde")
+            lbl_n.setStyleSheet(f"color: {color_nombre}; font-size: {tam_filas}pt; font-family: 'Segoe UI', '{familia()}';")
+            lbl_n.setToolTip(item["nombre"])
+            r.addWidget(lbl_n, 1)
+
+            if item.get("badge"):
+                lbl_b = QLabel(item["badge"])
+                es_crit = item.get("critico", False)
+                if oscuro:
+                    col_bg = "rgba(255, 107, 107, 0.22)" if es_crit else "rgba(255, 255, 255, 0.08)"
+                    col_fg = "#ff8e8e" if es_crit else "rgba(255, 255, 255, 0.78)"
+                    col_brd = "rgba(255, 107, 107, 0.35)" if es_crit else "rgba(255, 255, 255, 0.15)"
+                else:
+                    col_bg = color("pastilla_negativa") if es_crit else color("fondo_insignia")
+                    col_fg = color("rojo") if es_crit else color("gris_medio")
+                    col_brd = color("borde_negativo") if es_crit else color("borde_suave")
+                lbl_b.setStyleSheet(
+                    f"background-color: {col_bg}; color: {col_fg};"
+                    f" border: 1px solid {col_brd}; border-radius: {rad_badge}px;"
+                    f" padding: {pad_v}px {pad_h}px; font-size: {tam_badge}pt; font-weight: 500; font-family: 'Segoe UI', '{familia()}';"
+                )
+                r.addWidget(lbl_b)
+            self._layout_filas.addLayout(r)
+
     def mostrar(self, titulo: str, texto: str, desplazamiento: int = 0, tipo: str = "aviso") -> None:
         self._saliendo = False
         self._desplazamiento = desplazamiento
@@ -293,46 +378,15 @@ class Notificacion(QWidget):
         self._titulo.setText(titulo)
 
         cuerpo, filas = self._extraer_filas(texto)
-        self._limpiar_filas()
+        self._filas_cache = filas
 
         if filas:
             self._cuerpo.setText(cuerpo)
             self._cuerpo.setVisible(bool(cuerpo))
             self._contenedor_filas.setVisible(True)
-            esc = min(escala_activa(), 1.4)
-            tam_filas = round(10.5 * esc)
-            tam_badge = round(9 * esc)
-            pad_v = round(2.5 * esc)
-            pad_h = round(6 * esc)
-            rad_badge = round(4 * esc)
-
-            self._layout_filas.setSpacing(round(4 * esc))
-            for item in filas:
-                r = QHBoxLayout()
-                r.setContentsMargins(0, 0, 0, 0)
-                r.setSpacing(round(6 * esc))
-                dot = QLabel("•")
-                dot.setStyleSheet(f"color: {self._acento}; font-size: {tam_filas}pt;")
-                r.addWidget(dot)
-                lbl_n = QLabel(item["nombre"])
-                lbl_n.setStyleSheet(f"color: {color('panel_borde')}; font-size: {tam_filas}pt; font-family: '{familia()}';")
-                lbl_n.setToolTip(item["nombre"])
-                r.addWidget(lbl_n, 1)
-
-                if item.get("badge"):
-                    lbl_b = QLabel(item["badge"])
-                    es_crit = item.get("critico", False)
-                    col_bg = color("pastilla_negativa") if es_crit else color("fondo_insignia")
-                    col_fg = color("rojo") if es_crit else color("gris_medio")
-                    col_brd = color("borde_negativo") if es_crit else color("borde_suave")
-                    lbl_b.setStyleSheet(
-                        f"background-color: {col_bg}; color: {col_fg};"
-                        f" border: 1px solid {col_brd}; border-radius: {rad_badge}px;"
-                        f" padding: {pad_v}px {pad_h}px; font-size: {tam_badge}pt; font-weight: 500; font-family: '{familia()}';"
-                    )
-                    r.addWidget(lbl_b)
-                self._layout_filas.addLayout(r)
+            self._renderizar_filas(filas)
         else:
+            self._limpiar_filas()
             self._cuerpo.setText(cuerpo or texto)
             self._cuerpo.setVisible(True)
             self._contenedor_filas.setVisible(False)
@@ -363,6 +417,11 @@ class Notificacion(QWidget):
         self._desregistrar()
 
     def _desregistrar(self) -> None:
+        if hasattr(qconfig, "themeChanged"):
+            try:
+                qconfig.themeChanged.disconnect(self._al_cambiar_tema)
+            except Exception:
+                pass
         if self in _INSTANCIAS:
             _INSTANCIAS.remove(self)
 

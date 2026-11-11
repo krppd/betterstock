@@ -3,11 +3,21 @@ from __future__ import annotations
 import copy
 import sys
 from collections.abc import Callable
-from datetime import date, datetime
+from datetime import date
 from pathlib import Path
 
-from PyQt6.QtGui import QKeySequence, QPalette, QShortcut
-from PyQt6.QtWidgets import QApplication, QInputDialog, QWidget
+from PyQt6.QtGui import QColor, QKeySequence, QShortcut
+from PyQt6.QtWidgets import (
+    QAbstractItemView,
+    QApplication,
+    QHBoxLayout,
+    QInputDialog,
+    QSizePolicy,
+    QSpacerItem,
+    QTableWidgetItem,
+    QVBoxLayout,
+    QWidget,
+)
 from PyQt6.QtCore import QMetaObject, QObject, Qt, QUrl, pyqtSignal
 from PyQt6.QtQuickWidgets import QQuickWidget
 
@@ -24,9 +34,11 @@ from services.gestor_comercio import GestorComercio
 from services.gestor_fiado import GestorFiado
 from services.gestor_ventas import GestorVentas
 from services.impresion import imprimir_ticket
-from ui.estilos import AMBAR_TEXTO, escala
-from ui.manual.ventas_ui import Ui_VentasForm
+from qfluentwidgets import BodyLabel, LineEdit, PushButton, TableWidget
+from ui.estilos import AMBAR_TEXTO, TAMANO_DISPLAY, VERDE_TEXTO, escala, fuente
+from ui.fluent import color
 from ui.tema import puente_tema
+from ui.widgets.etiqueta_rodante import EtiquetaRodante
 from ui.widgets.notificacion import Notificacion
 from ui.widgets.trabajo_impresion import TrabajoImpresion
 from utils.formato import formatear_cantidad, formatear_dinero
@@ -44,6 +56,16 @@ def _ruta_qml(nombre: str) -> Path:
     if raiz is not None:
         return Path(raiz) / "ui" / "qml" / nombre
     return Path(__file__).resolve().parent.parent / "ui" / "qml" / nombre
+
+
+class _UiCompat:
+    def __init__(self, owner) -> None:
+        for attr in (
+            "horizontalLayout", "lblCodigo", "txtCodigoBarras", "btnAgregar", "btnQuitar",
+            "btnComodin", "tblVentas", "horizontalLayout_2",
+            "lblTotalTxt", "lblTotal", "lyBarraAcciones",
+        ):
+            setattr(self, attr, getattr(owner, attr))
 
 
 class VentanaVentas(QWidget, VentanaBase):
@@ -66,8 +88,7 @@ class VentanaVentas(QWidget, VentanaBase):
         self._ultimo_comprobante = None
         self._avisados_texto_ambiguo: set[str] = set()
         self._trabajos: list[TrabajoImpresion] = []
-        self.ui = Ui_VentasForm()
-        self.ui.setupUi(self)
+        self._iniciar_interfaz()
         self._aviso_texto_ambiguo = Notificacion(self)
         self.estirar_columnas(self.ui.tblVentas)
         self.setMinimumSize(700, 420)
@@ -83,7 +104,7 @@ class VentanaVentas(QWidget, VentanaBase):
         self._quick_acciones = QQuickWidget(self)
         self._quick_acciones.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self._quick_acciones.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
-        self._quick_acciones.setClearColor(self.palette().color(QPalette.ColorRole.Window))
+        self._quick_acciones.setClearColor(QColor(color("fondo")))
         self._quick_acciones.setFixedHeight(round(114 * escala()))
         self._quick_acciones.statusChanged.connect(self._conectar_barra_qml)
         self._tema = puente_tema(self._quick_acciones)
@@ -91,6 +112,7 @@ class VentanaVentas(QWidget, VentanaBase):
         self._quick_acciones.setSource(QUrl.fromLocalFile(str(_ruta_qml("components/BarraAccionesVentas.qml"))))
         self.ui.lyBarraAcciones.addWidget(self._quick_acciones)
         self._conectar_barra_qml()
+        self._tema.temaCambiado.connect(self._aplicar_tema_barra)
         for secuencia, metodo, objeto in (
             ("Alt+D", self.descuento_global, "accionDescuento"),
             ("Alt+R", self.recargo, "accionRecargo"),
@@ -105,12 +127,83 @@ class VentanaVentas(QWidget, VentanaBase):
         atajo_comodin = QShortcut(QKeySequence("Alt+O"), self)
         atajo_comodin.activated.connect(self.agregar_comodin)
 
+    def _iniciar_interfaz(self) -> None:
+        layout_principal = QVBoxLayout(self)
+        layout_principal.setContentsMargins(12, 12, 12, 12)
+        layout_principal.setSpacing(8)
+
+        self.horizontalLayout = QHBoxLayout()
+        self.lblCodigo = BodyLabel("Código de Barras:", self)
+        self.txtCodigoBarras = LineEdit(self)
+        self.txtCodigoBarras.setObjectName("txtCodigoBarras")
+        self.txtCodigoBarras.setToolTip(
+            "Escaneá el código o escribí 3*1001 para agregar 3 unidades")
+        self.btnAgregar = PushButton("&Agregar", self)
+        self.btnAgregar.setObjectName("btnAgregar")
+        self.btnQuitar = PushButton("&Quitar", self)
+        self.btnQuitar.setObjectName("btnQuitar")
+        self.btnComodin = PushButton("Comodín", self)
+        self.btnComodin.setObjectName("btnComodin")
+        self.btnComodin.setToolTip("Vender algo que no está en el catálogo (Alt+O)")
+
+        self.horizontalLayout.addWidget(self.lblCodigo)
+        self.horizontalLayout.addWidget(self.txtCodigoBarras, 1)
+        self.horizontalLayout.addWidget(self.btnAgregar)
+        self.horizontalLayout.addWidget(self.btnQuitar)
+        self.horizontalLayout.addWidget(self.btnComodin)
+        layout_principal.addLayout(self.horizontalLayout)
+
+        self.tblVentas = TableWidget(self)
+        self.tblVentas.setObjectName("tblVentas")
+        self.tblVentas.setColumnCount(5)
+        headers = ["Código", "Nombre", "Precio Venta", "Cantidad", "Subtotal"]
+        for i, header in enumerate(headers):
+            item = QTableWidgetItem(header)
+            self.tblVentas.setHorizontalHeaderItem(i, item)
+        self.tblVentas.horizontalHeader().setDefaultSectionSize(150)
+        self.tblVentas.horizontalHeader().setStretchLastSection(True)
+        self.tblVentas.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.tblVentas.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.tblVentas.setSelectionMode(QAbstractItemView.SelectionMode.ExtendedSelection)
+        layout_principal.addWidget(self.tblVentas, 1)
+
+        self.horizontalLayout_2 = QHBoxLayout()
+        self.lblTotalTxt = BodyLabel("TOTAL:", self)
+        self.lblTotalTxt.setObjectName("lblTotalTxt")
+        self.lblTotal = EtiquetaRodante(parent=self)
+        self.lblTotal.setFont(fuente(TAMANO_DISPLAY, negrita=True, tabular=True))
+        self.lblTotal.setStyleSheet(f"color: {VERDE_TEXTO};")
+        self.lblTotal.setObjectName("lblTotal")
+        self.lblTotal.setText("$ 0,00")
+        self.horizontalLayout_2.addWidget(self.lblTotalTxt)
+        self.horizontalLayout_2.addWidget(self.lblTotal)
+        spacer = QSpacerItem(40, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum)
+        self.horizontalLayout_2.addItem(spacer)
+        layout_principal.addLayout(self.horizontalLayout_2)
+
+        self.lyBarraAcciones = QHBoxLayout()
+        self.lyBarraAcciones.setObjectName("lyBarraAcciones")
+        self.lyBarraAcciones.setContentsMargins(0, 0, 0, 0)
+        layout_principal.addLayout(self.lyBarraAcciones)
+
+        self.ui = _UiCompat(self)
+
     def al_mostrar(self) -> None:
         self.actualizar_tabla_y_total()
         self.ui.txtCodigoBarras.setFocus()
 
     def _usuario_actual(self) -> str:
         return self._usuario_actual_nombre
+
+    def _aplicar_tema_barra(self) -> None:
+        """Recarga la barra QML para que tome la paleta del tema activo."""
+        self._quick_acciones.setClearColor(QColor(color("fondo")))
+        self._qml_conectado = False
+        self._raiz_qml = None
+        self._botones_qml.clear()
+        self._quick_acciones.setSource(
+            QUrl.fromLocalFile(str(_ruta_qml("components/BarraAccionesVentas.qml"))))
+        self._conectar_barra_qml()
 
     def _conectar_barra_qml(self) -> None:
         if self._qml_conectado:
@@ -395,4 +488,3 @@ class VentanaVentas(QWidget, VentanaBase):
         if comprobante is None:
             return "", ""
         return comprobante.identificador, comprobante.medio_pago_texto
-

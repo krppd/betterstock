@@ -1,21 +1,28 @@
+"""Diálogo para cargar un ítem comodín en la venta."""
+
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
     QFormLayout,
-    QLabel,
-    QLineEdit,
+    QHBoxLayout,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    DoubleSpinBox,
+    LineEdit,
+    PrimaryPushButton,
+    PushButton,
 )
 
 from models.venta import validar_descripcion_comodin
 from ui.estilos import TAMANO_BODY, fuente
-from ui.manual.campo_cantidad import CampoCantidad
+from ui.fluent import color
 from utils.formato import formatear_cantidad, formatear_dinero
+from views.dialogo_cantidad import CampoCantidadFluent
 from views.ventana_base import VentanaBase
 
 PRECISION_PRECIO = 2
@@ -28,14 +35,19 @@ class DialogoComodin(QDialog, VentanaBase):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Ítem comodín")
+        self.setObjectName("dlgComodin")
+        self._aplicar_tema()
 
-        self.txtDescripcion = QLineEdit(self)
+        self.txtDescripcion = LineEdit(self)
+        self.txtDescripcion.setObjectName("txtDescripcionComodin")
         self.txtDescripcion.setPlaceholderText("Ej: pila AA recargada")
         self.txtDescripcion.setMaxLength(MAXIMO_DESCRIPCION)
-        self.spnCantidad = CampoCantidad(self)
+        self.spnCantidad = CampoCantidadFluent(self)
+        self.spnCantidad.setObjectName("spnCantidadComodin")
         self.spnCantidad.setMaximum(MAXIMO_CANTIDAD)
         self.spnCantidad.setValue(1)
-        self.spnPrecio = QDoubleSpinBox(self)
+        self.spnPrecio = DoubleSpinBox(self)
+        self.spnPrecio.setObjectName("spnPrecioComodin")
         self.spnPrecio.setRange(0.0, MAXIMO_PRECIO)
         self.spnPrecio.setDecimals(PRECISION_PRECIO)
         self.spnPrecio.setSingleStep(100.0)
@@ -47,37 +59,52 @@ class DialogoComodin(QDialog, VentanaBase):
         formulario.setVerticalSpacing(10)
         formulario.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
         formulario.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        formulario.addRow("Descripción:", self.txtDescripcion)
-        formulario.addRow("Cantidad:", self.spnCantidad)
-        formulario.addRow("Precio unitario:", self.spnPrecio)
+        formulario.addRow(BodyLabel("Descripción:", self), self.txtDescripcion)
+        formulario.addRow(BodyLabel("Cantidad:", self), self.spnCantidad)
+        formulario.addRow(BodyLabel("Precio unitario:", self), self.spnPrecio)
 
-        self.lblSubtotal = QLabel(self)
+        self.lblSubtotal = BodyLabel(self)
+        self.lblSubtotal.setObjectName("lblSubtotal")
         self.lblSubtotal.setFont(fuente(TAMANO_BODY, negrita=True, tabular=True))
         self.lblSubtotal.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
 
-        self.botones = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, self)
-        self.btnAgregar = self.botones.button(QDialogButtonBox.StandardButton.Ok)
-        self.btnAgregar.setText("Agregar")
-        self.btnAgregar.setDefault(True)
-        self.botones.button(QDialogButtonBox.StandardButton.Cancel).setAutoDefault(False)
+        self.botones = self._armar_botones()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(12)
         layout.addLayout(formulario)
         layout.addWidget(self.lblSubtotal)
-        layout.addWidget(self.botones)
+        layout.addLayout(self.botones)
 
         self.txtDescripcion.textChanged.connect(self.actualizar)
         self.spnCantidad.textChanged.connect(self.actualizar)
         self.spnPrecio.valueChanged.connect(self.actualizar)
-        self.botones.accepted.connect(self.aceptar)
-        self.botones.rejected.connect(self.reject)
         self.actualizar()
 
         self.setMinimumWidth(380)
         self.txtDescripcion.setFocus()
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema claro/oscuro."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
+        )
+
+    def _armar_botones(self) -> QHBoxLayout:
+        botones = QHBoxLayout()
+        botones.setSpacing(8)
+        self.btnAgregar = PrimaryPushButton("Agregar", self)
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnAgregar.setDefault(True)
+        self.btnCancelar.setAutoDefault(False)
+        botones.addStretch(1)
+        botones.addWidget(self.btnCancelar)
+        botones.addWidget(self.btnAgregar)
+
+        self.btnAgregar.clicked.connect(self.aceptar)
+        self.btnCancelar.clicked.connect(self.reject)
+        return botones
 
     @property
     def descripcion(self) -> str:

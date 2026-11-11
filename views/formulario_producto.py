@@ -5,7 +5,8 @@ from collections.abc import Callable
 
 from PyQt6.QtCore import QDate, Qt
 from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QDialog, QHBoxLayout, QPushButton
+from PyQt6.QtWidgets import QDialog, QHBoxLayout
+from qfluentwidgets import TransparentPushButton
 
 from models.producto import Producto
 from models.venta import validar_texto_sin_separadores
@@ -13,6 +14,7 @@ from services.excepciones import ErrorNegocio
 from services.fotos import ruta_foto
 from services.gestor_stock import GestorStock
 from services.plan_motor import limite
+from ui.fluent import color
 from ui.generated.formulario_Producto_ui import Ui_Dialog as Ui_FormularioProducto
 from utils.formato import formatear_cantidad, formatear_dinero
 from views.dialogo_categoria import DialogoCategoria
@@ -32,8 +34,25 @@ class FormularioProducto(QDialog, VentanaBase):
         self.ui = Ui_FormularioProducto()
         self._categoria_original = producto.categoria if producto is not None else ""
         self.ui.setupUi(self)
-        self.ui.lblVencimiento.setVisible(False)
-        self.ui.dateVencimiento.setVisible(False)
+        self.setObjectName("dlgFormularioProducto")
+        self._aplicar_tema()
+
+        self.lblVencimiento = getattr(self.ui, "lblVencimiento", None)
+        self.dateVencimiento = getattr(self.ui, "dateVencimiento", None)
+        if self.lblVencimiento is not None:
+            self.lblVencimiento.hide()
+        if self.dateVencimiento is not None:
+            self.dateVencimiento.hide()
+
+        for widget in (
+            getattr(self.ui, "lblPromoCantidad", None),
+            getattr(self.ui, "spnPromoCantidad", None),
+            getattr(self.ui, "lblPromoPrecio", None),
+            getattr(self.ui, "spnPromoPrecio", None),
+        ):
+            if widget is not None:
+                widget.hide()
+
         self._agregar_boton_categoria()
         self._cargar_categorias(self._categoria_original)
         self._avisar_maximos()
@@ -49,6 +68,12 @@ class FormularioProducto(QDialog, VentanaBase):
             self.ui.txtCodigo.setText(codigo_inicial.strip())
         self._refrescar_foto()
 
+    def _aplicar_tema(self) -> None:
+        """El fondo del formulario sigue al tema claro/oscuro."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
+        )
+
     def _avisar_maximos(self) -> None:
         precio = f"Máximo: {formatear_dinero(Producto.PRECIO_MAXIMO)}."
         unidades = f"Máximo: {formatear_cantidad(Producto.STOCK_MAXIMO)} unidades."
@@ -60,7 +85,8 @@ class FormularioProducto(QDialog, VentanaBase):
 
     def _agregar_boton_categoria(self) -> None:
         """Pone un botón "+" al lado del combo de categoría, para crear una sin salir del formulario."""
-        self.btnNuevaCategoria = QPushButton("+", self)
+        self.btnNuevaCategoria = TransparentPushButton("+", self)
+        self.btnNuevaCategoria.setObjectName("btnNuevaCategoria")
         self.btnNuevaCategoria.setToolTip("Agregar categoría")
         self.btnNuevaCategoria.setMaximumWidth(40)
         self.btnNuevaCategoria.setAutoDefault(False)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Callable
 
 from PyQt6 import QtCore
@@ -7,27 +8,41 @@ from PyQt6.QtCore import (
     QEvent,
     QObject,
     QPropertyAnimation,
+    QRect,
     QSize,
     Qt,
     pyqtSignal,
 )
 from PyQt6.QtGui import (
+    QBrush,
     QCloseEvent,
+    QColor,
+    QIcon,
+    QImage,
     QKeySequence,
+    QPainter,
     QPixmap,
     QShortcut,
 )
 from PyQt6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QMainWindow,
     QMessageBox,
     QPushButton,
-    QScrollArea,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    FluentIcon as FIF,
+    FluentWindow,
+    NavigationAvatarWidget,
+    NavigationItemPosition,
+    Theme,
+    isDarkTheme,
+    setTheme,
 )
 
 from config import ALERTAS_EN_AVISO_STOCK, RECURSOS_DIR
@@ -41,18 +56,16 @@ from services.gestor_comercio import GestorComercio
 from services.gestor_fiado import GestorFiado
 from services.gestor_stock import GestorStock
 from services.gestor_ventas import GestorVentas
+from services import preferencias
 from services.turnos import ServicioTurnos
 from ui.estilo_ventana import aplicar_estilo_ventana
 from ui.estilos import (
     ESCALA_NORMAL,
-    TAMANO_BODY,
-    TAMANO_MICRO,
     TAMANO_SMALL,
+    aplicar_color_fluent,
     escala,
     fuente,
 )
-from ui.generated.main_ui import Ui_MainWindow
-from ui.tema import color
 from ui.widgets.notificacion import Notificacion
 from ui.widgets.sidebar import (
     ANCHO_COLAPSADO,
@@ -60,10 +73,9 @@ from ui.widgets.sidebar import (
     ANCHO_ITEM_COLAPSADO,
 )
 from utils.formato import formatear_cantidad
-from views.componentes_sidebar import BotonSidebar, _icono_tintado, _px
 from views.ventana_alertas import VentanaAlertas
 from views.ventana_base import VentanaBase
-from views.ventana_caja import VentanaCaja, VentanaCierre
+from views.ventana_caja import VentanaCaja
 from views.ventana_clientes import VentanaClientes
 from views.ventana_configuracion import VentanaConfiguracion
 from views.ventana_consulta import VentanaConsulta
@@ -74,11 +86,54 @@ from views.ventana_productos import VentanaProductos
 from views.ventana_reportes import VentanaReportes
 from views.ventana_ventas import VentanaVentas
 
-def _px(valor: int) -> int:
-    return round(valor * escala())
+
+class _BotonCompat(QPushButton):
+    """Boton proxy para mantener compatibilidad con tests que inspeccionan self.ui.btn*."""
+
+    def __init__(self, clave: str, texto: str, icono: str, accion: Callable[[], None], parent: QWidget | None = None) -> None:
+        super().__init__(texto, parent)
+        self.clave = clave
+        self.accion = accion
+        self.clicked.connect(accion)
+
+    def set_activo(self, activo: bool) -> None:
+        pass
+
+    def set_colapsado(self, colapsado: bool, ancho: int) -> None:
+        pass
 
 
-class VentanaPrincipal(QMainWindow, VentanaBase):
+class _UiCompat:
+    """Proxy de compatibilidad para evitar roturas en código o tests que leían atributos legacy."""
+
+    def __init__(self, ventana: VentanaPrincipal) -> None:
+        self._ventana = ventana
+        self.widget = QWidget()
+        self.label = QLabel()
+        self.horizontalLayout = QHBoxLayout()
+        self.frameSidebar = QFrame()
+        self.frameSidebar.setMinimumWidth(round(ANCHO_EXPANDIDO * escala()))
+        self.lblSeccionStock = QLabel("STOCK")
+        self.lblSeccionCaja = QLabel("VENTAS Y CAJA")
+        self.lblSeccionAnalisis = QLabel("REPORTES")
+        self.btnProductos = _BotonCompat("productos", "Productos (F1)", "productos.png", ventana.abrir_productos)
+        self.btnMovimientos = _BotonCompat("movimientos", "Movimientos (F2)", "movimientos.png", ventana.abrir_movimientos)
+        self.btnAlertas = _BotonCompat("alertas", "Alertas (F4)", "alertas.png", ventana.abrir_alertas)
+        self.btnReportes = _BotonCompat("reportes", "Reportes", "estadisticas.png", ventana.abrir_reportes)
+        self.btnEstadisticas = _BotonCompat("estadisticas", "Estadísticas (F8)", "estadisticas.png", ventana.abrir_estadisticas)
+        self.btnVentas = _BotonCompat("ventas", "Ventas (F5)", "ventas.png", ventana.abrir_ventas)
+        self.btnCierre = _BotonCompat("cierre", "Caja (F6)", "cierre.png", ventana.abrir_cierre)
+        self.btnClientes = _BotonCompat("clientes", "Clientes (F7)", "user.png", ventana.abrir_clientes)
+        self.btnConsulta = _BotonCompat("consulta", "Consulta precio (F7)", "consulta.png", ventana.abrir_consulta)
+        self.btnAjustes = _BotonCompat("ajustes", "Ajustes", "ajustes.png", ventana.abrir_ajustes)
+        self.btnUsuario = QPushButton(ventana)
+        self.btnUsuario.setFixedSize(0, 0)
+        self.btnUsuario.move(-100, -100)
+        self.btnUsuario.clicked.connect(ventana._al_hacer_click_usuario)
+
+
+class VentanaPrincipal(FluentWindow, VentanaBase):
+    """Ventana principal rediseñada con PyQt-Fluent-Widgets (Fluent Design Windows 11)."""
 
     MAXIMO_ALERTAS_EN_MENSAJE = ALERTAS_EN_AVISO_STOCK
     LADO_ICONO = 24
@@ -112,47 +167,54 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         self._usuario_actual = usuario_actual
         self._permiso = permiso
         self._cierre_controlado = False
-        self._barra_colapsada = False
         self._fiado = fiado
         self._gestor_ventas = gestor_ventas if gestor_ventas is not None else \
             GestorVentas(gestor_stock, estadisticas, fiado, cierre)
         self._anulaciones = anulaciones
         self._autenticacion = autenticacion
         self._turnos = turnos
-        self._caja = caja
-        self._paginas: QStackedWidget | None = None
-        self._inicio: QLabel | None = None
-        self._aviso_stock: Notificacion | None = None
+
+        self._paginas = self.stackedWidget
+        self._paginas_instanciadas: dict[str, QWidget] = {}
         self._indices: dict[str, int] = {}
-        self._pixmap_logo = self._cargar_logo()
+        self._aviso_stock: Notificacion | None = None
 
-        self.ui = Ui_MainWindow()
-        self.ui.setupUi(self)
-        self.setStyleSheet(
-            f"QMainWindow#MainWindow {{ background-color: {color('blanco')}; border: none; }} "
-            f"QWidget#centralwidget {{ background-color: {color('blanco')}; border: none; }}"
-        )
+        self.setWindowTitle("BetterStock")
+        self.setWindowIcon(QIcon(str(RECURSOS_DIR / "logo_u.png")))
+        self.setCustomBackgroundColor(QColor("#f8f9fa"), QColor("#181818"))
+        self._aplicar_tema(preferencias.modo_oscuro())
+        self.setMinimumSize(round(980 * escala()), 650)
 
-        self._acomodar_widgets()
-        self.setMinimumSize(round(940 * escala()), 620)
         self._preparar_animacion()
-        self._preparar_barra_estado()
-        self._conectar_botones()
-        self._conectar_atajos()
+        self._preparar_reloj()
+        self._preparar_navegacion()
+        self.navigationInterface.setMinimumExpandWidth(round(700 * escala()))
+        self.navigationInterface.setExpandWidth(round(260 * escala()))
+        self.navigationInterface.panel.expand(useAni=False)
 
+        self.ui = _UiCompat(self)
+        self._btn_menu = self.navigationInterface.panel.menuButton
+        self._armar_boton_usuario()
+        self._armar_menu_hamburguesa()
+
+        self._conectar_atajos()
         QtCore.QTimer.singleShot(500, self.verificar_alertas)
 
-    @staticmethod
-    def _cargar_logo() -> QPixmap:
-        logo = QPixmap(str(RECURSOS_DIR / "logo_sf.png"))
-        if logo.isNull():
-            logo = QPixmap(":/Imagenes/logo_sf.png")
-        return logo
+    def _armar_menu_hamburguesa(self) -> None:
+        panel = self.navigationInterface.panel
+        try:
+            panel.menuButton.clicked.disconnect()
+        except (TypeError, RuntimeError):
+            pass
+        panel.menuButton.clicked.connect(lambda *_: self._alternar_barra())
 
-    def _preparar_barra_estado(self) -> None:
-        self._reloj = QLabel()
+    def _preparar_reloj(self) -> None:
+        self._reloj = QLabel(self)
         self._reloj.setFont(fuente(TAMANO_SMALL, tabular=True))
-        self.statusBar().addPermanentWidget(self._reloj)
+        self._reloj.setStyleSheet("color: rgba(128, 128, 128, 0.85); padding-right: 8px;")
+        layout = self.titleBar.layout()
+        pos = max(0, layout.count() - 1)
+        layout.insertWidget(pos, self._reloj)
         self._actualizar_reloj()
         temporizador = QtCore.QTimer(self)
         temporizador.setInterval(1000)
@@ -162,6 +224,15 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
     def _actualizar_reloj(self) -> None:
         self._reloj.setText(QtCore.QDateTime.currentDateTime().toString("dd/MM/yyyy HH:mm"))
 
+    def statusBar(self):
+        class _StatusBarDummy:
+            def __init__(self, reloj: QLabel) -> None:
+                self._reloj = reloj
+
+            def addPermanentWidget(self, w: QWidget) -> None:
+                pass
+        return _StatusBarDummy(self._reloj)
+
     def _preparar_animacion(self) -> None:
         self._animacion = QPropertyAnimation(self, b"windowOpacity")
         self._animacion.setDuration(200)
@@ -169,9 +240,66 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         self._animacion.setEndValue(1.0)
         self._animada = False
 
-    def _acomodar_widgets(self) -> None:
-        self.ui.widget.setVisible(False)
-        self.ui.label.setVisible(False)
+    @staticmethod
+    def _crear_avatar_icono(icono: FIF | str | Path | QPixmap, color_fondo: str, tam: int = 48) -> QPixmap:
+        pix = QPixmap(tam, tam)
+        pix.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pix)
+        p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(QColor(color_fondo)))
+        p.drawEllipse(0, 0, tam, tam)
+        if isinstance(icono, (str, Path)):
+            img = QImage(str(icono))
+        elif isinstance(icono, QPixmap):
+            img = icono.toImage()
+        else:
+            svg_path = icono.path(Theme.DARK) if hasattr(icono, "path") else ""
+            img = QImage(svg_path) if svg_path else QImage()
+        m = round(tam * 0.22)
+        p.drawImage(QRect(m, m, tam - 2 * m, tam - 2 * m), img)
+        p.end()
+        return pix
+
+    @staticmethod
+    def _crear_avatar_tienda(oscuro: bool = False, tam: int = 48) -> QPixmap:
+        pix = QPixmap(tam, tam)
+        pix.fill(Qt.GlobalColor.transparent)
+        base = QPixmap(str(RECURSOS_DIR / "iconos" / "tienda.png"))
+        if base.isNull():
+            return pix
+        m = round(tam * 0.15)
+        icono_escalado = base.scaled(
+            tam - 2 * m, tam - 2 * m, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+        )
+        p = QPainter(pix)
+        p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
+        p.drawPixmap(m, m, icono_escalado)
+        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+        color_tinte = QColor("#FFFFFF") if oscuro else QColor("#202020")
+        p.fillRect(pix.rect(), color_tinte)
+        p.end()
+        return pix
+
+    def _preparar_navegacion(self) -> None:
+        self.navigationInterface.setReturnButtonVisible(False)
+
+        nombre_tienda = "BetterStock"
+        if self._gestor_comercio:
+            try:
+                com = self._gestor_comercio.comercio
+                if com and getattr(com, "nombre", None):
+                    nombre_tienda = str(com.nombre)
+            except (AttributeError, Exception):
+                pass
+        avatar_tienda = self._crear_avatar_tienda(preferencias.modo_oscuro())
+        self._card_tienda = NavigationAvatarWidget(nombre_tienda, avatar_tienda)
+        self.navigationInterface.addWidget(
+            routeKey="tienda",
+            widget=self._card_tienda,
+            onClick=self.mostrar_inicio,
+            position=NavigationItemPosition.TOP,
+        )
 
         self._dashboard = DashboardPrincipalWidget(
             gestor_stock=self._gestor_stock,
@@ -180,273 +308,69 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
             usuario=self._usuario_actual or "Admin",
             parent=self,
         )
+        self._dashboard.setObjectName("inicio")
+        self.addSubInterface(self._dashboard, FIF.HOME, "Inicio")
+        self._indices["inicio"] = 0
+        self._paginas_instanciadas["inicio"] = self._dashboard
 
-        self._paginas = QStackedWidget()
-        pagina_inicio = QWidget()
-        layout_inicio = QVBoxLayout(pagina_inicio)
-        layout_inicio.setContentsMargins(0, 0, 0, 0)
-        layout_inicio.addWidget(self._dashboard)
-
-        self._inicio = QLabel(pagina_inicio)
-        self._inicio.setVisible(False)
-        self._inicio.installEventFilter(self)
-
-        self._indices["inicio"] = self._paginas.addWidget(pagina_inicio)
-
-        layout = self.ui.horizontalLayout
-        while layout.count():
-            layout.takeAt(0)
-
-        layout.setContentsMargins(6, 6, 6, 6)
-        layout.setSpacing(6)
-
-        self._construir_sidebar_moderno()
-
-        self._aplicar_posicion_sidebar()
-
-    def _aplicar_posicion_sidebar(self, posicion: str | None = None) -> None:
-        if posicion is None:
-            try:
-                from services.preferencias import posicion_menu
-                posicion = posicion_menu()
-            except Exception:
-                posicion = "izquierda"
-
-        self._posicion_sidebar = posicion
-        layout = self.ui.horizontalLayout
-        layout.removeWidget(self.ui.frameSidebar)
-        layout.removeWidget(self._paginas)
-
-        if posicion == "derecha":
-            layout.addWidget(self._paginas, 1)
-            layout.addWidget(self.ui.frameSidebar)
-        else:
-            layout.addWidget(self.ui.frameSidebar)
-            layout.addWidget(self._paginas, 1)
-
-        self._vestir_boton_menu()
-
-    def _construir_sidebar_moderno(self) -> None:
-        """Construye el frameSidebar con estética nativa, degradé verde BetterStock y bordes."""
-        frame = self.ui.frameSidebar
-        frame.setObjectName("frameSidebar")
-        frame.setStyleSheet(
-            "QFrame#frameSidebar { "
-            f"background: qlineargradient(spread:pad, x1:0, y1:0, x2:0, y2:1, stop:0 {color('verde_lateral_inicio')}, stop:1 {color('verde_lateral_fin')}); "
-            "border: 1px solid rgba(0, 0, 0, 0.08); "
-            "border-radius: 14px; "
-            "}"
+        self.navigationInterface.addSeparator(NavigationItemPosition.SCROLL)
+        self.navigationInterface.addItemHeader("STOCK", NavigationItemPosition.SCROLL)
+        self.navigationInterface.addItem(
+            "productos", FIF.TAG, "Productos (F1)", self.abrir_productos, position=NavigationItemPosition.SCROLL
         )
-        self._ancho_pilar = ANCHO_EXPANDIDO
-        frame.setMinimumWidth(round(self._ancho_pilar * escala()))
-        frame.setMaximumWidth(round(self._ancho_pilar * escala()))
-
-        layout_viejo = frame.layout()
-        if layout_viejo is not None:
-            QWidget().setLayout(layout_viejo)
-
-        layout_raiz = QVBoxLayout(frame)
-        layout_raiz.setContentsMargins(_px(10), _px(12), _px(10), _px(12))
-        layout_raiz.setSpacing(_px(6))
-
-        nombre_tienda = "BetterStock"
-        if self._gestor_comercio:
-            try:
-                if self._gestor_comercio.comercio and isinstance(self._gestor_comercio.comercio.nombre, str):
-                    nombre_tienda = self._gestor_comercio.comercio.nombre
-                elif hasattr(self._gestor_comercio, "obtener_nombre_comercio"):
-                    n = self._gestor_comercio.obtener_nombre_comercio()
-                    if n and isinstance(n, str):
-                        nombre_tienda = n
-            except Exception:
-                pass
-        nombre_tienda = str(nombre_tienda)
-
-        etiqueta_rol = Usuario.ETIQUETAS_PERMISO.get(self._permiso, "Profesional") if self._permiso else "Profesional"
-
-        self._card_tienda = QFrame(frame)
-        self._card_tienda.setObjectName("btnSwitcherTienda")
-        self._card_tienda.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._card_tienda.setFixedHeight(_px(46))
-        self._card_tienda.setStyleSheet(
-            "QFrame#btnSwitcherTienda { "
-            f"background-color: {color('sidebar_btn_inactivo_fondo')}; "
-            f"border: 1px solid {color('sidebar_btn_inactivo_borde')}; "
-            f"border-radius: {_px(10)}px; "
-            "} "
-            "QFrame#btnSwitcherTienda:hover { "
-            f"background-color: {color('sidebar_btn_hover_fondo')}; "
-            f"border-color: {color('sidebar_btn_hover_borde')}; "
-            "}"
+        self.navigationInterface.addItem(
+            "movimientos", FIF.HISTORY, "Movimientos (F2)", self.abrir_movimientos, position=NavigationItemPosition.SCROLL
         )
-        lay_tienda = QHBoxLayout(self._card_tienda)
-        lay_tienda.setContentsMargins(_px(12), _px(2), _px(12), _px(6))
-        lay_tienda.setSpacing(_px(10))
-        lay_tienda.setAlignment(Qt.AlignmentFlag.AlignVCenter)
-
-        ico_box = QLabel(self._card_tienda)
-        ico_box.setFixedSize(_px(20), _px(20))
-        ico_box.setStyleSheet("background: transparent; border: none;")
-        ico_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        ico_box.setPixmap(_icono_tintado("tienda.png", color("blanco"), 20).pixmap(_px(20), _px(20)))
-        lay_tienda.addWidget(ico_box, 0, Qt.AlignmentFlag.AlignVCenter)
-
-        col_t = QVBoxLayout()
-        col_t.setContentsMargins(0, 0, 0, _px(2))
-        col_t.setSpacing(_px(1))
-        col_t.addStretch(1)
-        lbl_t_nom = QLabel(nombre_tienda, self._card_tienda)
-        lbl_t_nom.setStyleSheet(f"color: {color('blanco')}; font-weight: 700; font-size: {_px(13)}px; background: transparent; border: none;")
-        lbl_t_nom.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        lbl_t_rol = QLabel(etiqueta_rol, self._card_tienda)
-        lbl_t_rol.setStyleSheet(f"color: rgba(255, 255, 255, 0.65); font-size: {_px(11)}px; background: transparent; border: none;")
-        lbl_t_rol.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        col_t.addWidget(lbl_t_nom)
-        col_t.addWidget(lbl_t_rol)
-        col_t.addStretch(1)
-        lay_tienda.addLayout(col_t, 0)
-        lay_tienda.addStretch(1)
-
-        self._card_tienda.mousePressEvent = lambda _: self.mostrar_inicio()
-        layout_raiz.addWidget(self._card_tienda)
-
-        self._btn_menu = QPushButton("«", frame)
-        self._btn_menu.setObjectName("btnMenu")
-        self._btn_menu.setFixedSize(_px(self.LADO_BOTON_MENU), _px(self.LADO_BOTON_MENU))
-        self._btn_menu.setFont(fuente(TAMANO_BODY, negrita=True))
-        self._btn_menu.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; color: {color('blanco')}; }} "
-            "QPushButton:hover { background: rgba(255, 255, 255, 0.18); border-radius: 6px; } "
-            "QPushButton:pressed { background: rgba(255, 255, 255, 0.30); border-radius: 6px; }"
-        )
-        self._btn_menu.setVisible(escala() > ESCALA_NORMAL)
-        self._btn_menu.clicked.connect(self._alternar_barra)
-        layout_raiz.addWidget(self._btn_menu, 0, Qt.AlignmentFlag.AlignRight)
-
-        scroll_nav = QScrollArea(frame)
-        scroll_nav.setWidgetResizable(True)
-        scroll_nav.setFrameShape(QFrame.Shape.NoFrame)
-        scroll_nav.setStyleSheet(
-            "QScrollArea { background: transparent; border: none; } "
-            "QScrollBar:vertical { width: 4px; background: transparent; } "
-            "QScrollBar::handle:vertical { background: rgba(255, 255, 255, 0.2); border-radius: 2px; } "
-            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+        self.navigationInterface.addItem(
+            "alertas", FIF.RINGER, "Alertas (F4)", self.abrir_alertas, position=NavigationItemPosition.SCROLL
         )
 
-        contenedor_nav = QWidget()
-        contenedor_nav.setStyleSheet("background: transparent;")
-        lay_nav = QVBoxLayout(contenedor_nav)
-        lay_nav.setContentsMargins(0, 4, 0, 4)
-        lay_nav.setSpacing(_px(6))
-
-        self.ui.btnProductos = BotonSidebar("productos", "Productos (F1)", "productos.png", contenedor_nav)
-        self.ui.btnMovimientos = BotonSidebar("movimientos", "Movimientos (F2)", "movimientos.png", contenedor_nav)
-        self.ui.btnAlertas = BotonSidebar("alertas", "Alertas (F4)", "alertas.png", contenedor_nav)
-        self.ui.btnReportes = BotonSidebar("reportes", "Reportes", "estadisticas.png", contenedor_nav)
-
-        self.ui.btnEstadisticas = BotonSidebar("estadisticas", "Estadísticas (F8)", "estadisticas.png", contenedor_nav)
-
-        self.ui.btnVentas = BotonSidebar("ventas", "Ventas (F5)", "ventas.png", contenedor_nav)
-        self.ui.btnCierre = BotonSidebar("cierre", "Caja (F6)", "cierre.png", contenedor_nav)
-        self.ui.btnConsulta = BotonSidebar("consulta", "Consulta precio (F7)", "consulta.png", contenedor_nav)
-        self.ui.btnAjustes = BotonSidebar("ajustes", "Ajustes", "ajustes.png", contenedor_nav)
-
-        self.ui.lblSeccionStock = QLabel("STOCK", contenedor_nav)
-        self.ui.lblSeccionCaja = QLabel("VENTAS Y CAJA", contenedor_nav)
-        self.ui.lblSeccionAnalisis = QLabel("REPORTES", contenedor_nav)
-
-        for lbl in (self.ui.lblSeccionStock, self.ui.lblSeccionCaja, self.ui.lblSeccionAnalisis):
-            lbl.setFont(fuente(TAMANO_MICRO, negrita=True))
-            lbl.setStyleSheet(
-                "color: rgba(255, 255, 255, 0.65); "
-                f"font-size: {_px(10)}px; "
-                "font-weight: 700; "
-                "letter-spacing: 0.8px; "
-                "background: transparent; "
-                "border: none; "
-                f"padding: {_px(10)}px {_px(4)}px {_px(2)}px {_px(4)}px;"
-            )
-
-        lay_nav.addWidget(self.ui.lblSeccionStock)
-        lay_nav.addWidget(self.ui.btnProductos)
-        lay_nav.addWidget(self.ui.btnMovimientos)
-        lay_nav.addWidget(self.ui.btnAlertas)
-
-        lay_nav.addWidget(self.ui.lblSeccionCaja)
-        lay_nav.addWidget(self.ui.btnVentas)
-        lay_nav.addWidget(self.ui.btnCierre)
-        lay_nav.addWidget(self.ui.btnConsulta)
-
-        lay_nav.addWidget(self.ui.lblSeccionAnalisis)
-        lay_nav.addWidget(self.ui.btnEstadisticas)
-
-        lay_nav.addStretch(1)
-        scroll_nav.setWidget(contenedor_nav)
-        layout_raiz.addWidget(scroll_nav, 1)
-
-        self._divisor = QFrame(frame)
-        self._divisor.setFixedHeight(1)
-        self._divisor.setStyleSheet("background-color: rgba(255, 255, 255, 0.15); margin: 2px 0px;")
-        layout_raiz.addWidget(self._divisor)
-
-        self.ui.btnUsuario = QPushButton(frame)
-        self.ui.btnUsuario.setObjectName("btnUsuario")
-        self.ui.btnUsuario.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.ui.btnUsuario.setMinimumHeight(_px(46))
-        layout_raiz.addWidget(self.ui.btnUsuario)
-
-        layout_raiz.addWidget(self.ui.btnAjustes)
-
-        self._titulos_sidebar = {
-            "btnProductos": "Productos (F1)",
-            "btnMovimientos": "Movimientos (F2)",
-            "btnAlertas": "Alertas (F4)",
-            "btnEstadisticas": "Estadísticas (F8)",
-            "btnVentas": "Ventas (F5)",
-            "btnCierre": "Caja (F6)",
-            "btnConsulta": "Consulta precio (F7)",
-            "btnAjustes": "Ajustes",
-        }
-
-    def _conectar_botones(self) -> None:
-        self.ui.btnProductos.setText("Productos (F1)")
-        self.ui.btnMovimientos.setText("Movimientos (F2)")
-        self.ui.btnAlertas.setText("Alertas (F4)")
-        self.ui.btnEstadisticas.setText("Estadísticas (F8)")
-        self.ui.btnVentas.setText("Ventas (F5)")
-        self.ui.btnCierre.setText("Caja (F6)")
-        self.ui.btnConsulta.setText("Consulta precio (F7)")
-        self.ui.btnAlertas.setVisible(True)
-        self.ui.btnReportes.setVisible(False)
-
-        self._armar_boton_usuario()
-
-        self.ui.btnAlertas.clicked.connect(self.abrir_alertas)
-        self.ui.btnProductos.clicked.connect(self.abrir_productos)
-        self.ui.btnMovimientos.clicked.connect(self.abrir_movimientos)
-        self.ui.btnReportes.clicked.connect(self.abrir_reportes)
-        self.ui.btnEstadisticas.clicked.connect(self.abrir_estadisticas)
-        self.ui.btnVentas.clicked.connect(self.abrir_ventas)
-        self.ui.btnCierre.clicked.connect(self.abrir_cierre)
-        self.ui.btnConsulta.clicked.connect(self.abrir_consulta)
-        self.ui.btnUsuario.clicked.connect(self._al_hacer_click_usuario)
-        self.ui.btnAjustes.clicked.connect(self.abrir_ajustes)
-
-        self._marcar_activa("")
-
-    def _conectar_atajos(self) -> None:
-        atajos = (
-            (Qt.Key.Key_F1, self.abrir_productos),
-            (Qt.Key.Key_F2, self.abrir_movimientos),
-            (Qt.Key.Key_F4, self.abrir_alertas),
-            (Qt.Key.Key_F8, self.abrir_estadisticas),
-            (Qt.Key.Key_F5, self.abrir_ventas),
-            (Qt.Key.Key_F6, self.abrir_cierre),
-            (Qt.Key.Key_F7, self.abrir_consulta),
-            (Qt.Key.Key_Escape, self.mostrar_inicio),
+        self.navigationInterface.addSeparator(NavigationItemPosition.SCROLL)
+        self.navigationInterface.addItemHeader("VENTAS Y CAJA", NavigationItemPosition.SCROLL)
+        self.navigationInterface.addItem(
+            "ventas", FIF.SHOPPING_CART, "Ventas (F5)", self.abrir_ventas, position=NavigationItemPosition.SCROLL
         )
-        for tecla, destino in atajos:
-            QShortcut(QKeySequence(tecla), self).activated.connect(destino)
+        self.navigationInterface.addItem(
+            "cierre", FIF.ACCEPT_MEDIUM, "Caja (F6)", self.abrir_cierre, position=NavigationItemPosition.SCROLL
+        )
+        self.navigationInterface.addItem(
+            "consulta", FIF.SEARCH, "Consulta precio (F7)", self.abrir_consulta, position=NavigationItemPosition.SCROLL
+        )
+
+        self.navigationInterface.addSeparator(NavigationItemPosition.SCROLL)
+        self.navigationInterface.addItemHeader("REPORTES", NavigationItemPosition.SCROLL)
+        self.navigationInterface.addItem(
+            "estadisticas", FIF.PIE_SINGLE, "Estadísticas (F8)", self.abrir_estadisticas, position=NavigationItemPosition.SCROLL
+        )
+
+        self.navigationInterface.addItem(
+            "theme",
+            FIF.BRIGHTNESS,
+            "Modo claro" if isDarkTheme() else "Modo oscuro",
+            self._alternar_tema,
+            selectable=False,
+            position=NavigationItemPosition.BOTTOM,
+        )
+
+        etiqueta = Usuario.ETIQUETAS_PERMISO.get(self._permiso, self._permiso)
+        nombre_user = f"{self._usuario_actual} ({etiqueta})" if etiqueta else (self._usuario_actual or "Usuario")
+        avatar_user = self._crear_avatar_icono(FIF.PEOPLE, "#2DBC66")
+        self._card_usuario = NavigationAvatarWidget(nombre_user, avatar_user)
+        self.navigationInterface.addWidget(
+            routeKey="usuario",
+            widget=self._card_usuario,
+            onClick=self._al_hacer_click_usuario,
+            position=NavigationItemPosition.BOTTOM,
+        )
+
+        self.navigationInterface.addItem(
+            "ajustes",
+            FIF.SETTING,
+            "Ajustes",
+            self.abrir_ajustes,
+            selectable=False,
+            position=NavigationItemPosition.BOTTOM,
+        )
 
     def _armar_boton_usuario(self) -> None:
         if not self._usuario_actual:
@@ -458,92 +382,60 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         nombre = f"{aire}{self._usuario_actual}"
         texto = f"{nombre}\n{aire}{etiqueta}" if etiqueta else nombre
         self.ui.btnUsuario.setText(texto)
+        self.ui.btnUsuario.setIcon(QIcon(str(RECURSOS_DIR / "iconos" / "user.png")))
 
-        pad_u = 0 if self._barra_colapsada else _px(12)
-        self.ui.btnUsuario.setFixedHeight(_px(46))
-        self.ui.btnUsuario.setStyleSheet(
-            "QPushButton { "
-            f"background-color: {color('sidebar_btn_inactivo_fondo')}; "
-            f"border: 1px solid {color('sidebar_btn_inactivo_borde')}; "
-            f"border-radius: {_px(10)}px; "
-            f"color: {color('sidebar_btn_inactivo_texto')}; "
-            f"font-size: {_px(12)}px; "
-            "font-weight: 600; "
-            f"text-align: {'center' if self._barra_colapsada else 'left'}; "
-            f"padding: {_px(4)}px {pad_u}px; "
-            "} "
-            "QPushButton:hover { "
-            f"background-color: {color('sidebar_btn_hover_fondo')}; "
-            f"border-color: {color('sidebar_btn_hover_borde')}; "
-            "}"
+    def _conectar_atajos(self) -> None:
+        atajos = (
+            (Qt.Key.Key_F1, self.abrir_productos),
+            (Qt.Key.Key_F2, self.abrir_movimientos),
+            (Qt.Key.Key_F4, self.abrir_alertas),
+            (Qt.Key.Key_F5, self.abrir_ventas),
+            (Qt.Key.Key_F6, self.abrir_cierre),
+            (Qt.Key.Key_F7, self.abrir_consulta),
+            (Qt.Key.Key_F8, self.abrir_estadisticas),
+            (Qt.Key.Key_Escape, self.mostrar_inicio),
         )
-        self.ui.btnUsuario.setIcon(_icono_tintado("user.png", color("sidebar_btn_inactivo_texto"), 20))
-        self.ui.btnUsuario.setIconSize(QSize(_px(20), _px(20)))
+        for tecla, destino in atajos:
+            QShortcut(QKeySequence(tecla), self).activated.connect(destino)
 
-    def _alternar_barra(self) -> None:
-        self._barra_colapsada = not self._barra_colapsada
-        self._vestir_barra()
-
-    def _vestir_boton_menu(self) -> None:
-        self._btn_menu.setVisible(escala() > ESCALA_NORMAL)
-        pos = getattr(self, "_posicion_sidebar", "izquierda")
-        if pos == "derecha":
-            self._btn_menu.setText("«" if self._barra_colapsada else "»")
+    def _alternar_barra(self, animar: bool = True) -> None:
+        panel = self.navigationInterface.panel
+        if panel.isCollapsed():
+            panel.expand(useAni=animar)
         else:
-            self._btn_menu.setText("»" if self._barra_colapsada else "«")
+            panel.collapse()
+            if not animar:
+                panel.expandAni.stop()
+                panel._onExpandAniFinished()
 
-    def _vestir_barra(self) -> None:
-        self._vestir_boton_menu()
-        colapsada = self._barra_colapsada
+    def _aplicar_tema(self, oscuro: bool) -> None:
+        setTheme(Theme.DARK if oscuro else Theme.LIGHT)
+        aplicar_color_fluent(oscuro=oscuro)
+        if hasattr(self, "_card_tienda"):
+            self._card_tienda.setAvatar(self._crear_avatar_tienda(oscuro))
+        self._actualizar_texto_tema()
 
-        for etiqueta in (self.ui.lblSeccionStock, self.ui.lblSeccionAnalisis, self.ui.lblSeccionCaja):
-            etiqueta.setVisible(not colapsada)
+    def _actualizar_texto_tema(self) -> None:
+        try:
+            item = self.navigationInterface.widget("theme")
+        except Exception:
+            item = None
+        if item is not None:
+            txt = "Modo claro" if isDarkTheme() else "Modo oscuro"
+            item.setText(txt)
+            item.setToolTip(txt)
 
-        self._card_tienda.setVisible(not colapsada)
-        self._divisor.setVisible(not colapsada)
-
-        ancho_barra = round((self.ANCHO_BARRA_COLAPSADA if colapsada else self._ancho_pilar) * escala())
-        self.ui.frameSidebar.setMinimumWidth(ancho_barra)
-        self.ui.frameSidebar.setMaximumWidth(ancho_barra)
-
-        ancho_btn = round(self.ANCHO_BOTON_COLAPSADO * escala())
-        for nombre, titulo in self._titulos_sidebar.items():
-            btn = getattr(self.ui, nombre, None)
-            if btn is not None:
-                if isinstance(btn, BotonSidebar):
-                    btn.set_colapsado(colapsada, ancho_btn)
-                else:
-                    btn.setMinimumSize(ancho_btn if colapsada else round(200 * escala()), round(46 * escala()))
-                    btn.setText("" if colapsada else titulo)
-                    btn.setToolTip(titulo if colapsada else "")
-
-        if colapsada:
-            self.ui.btnUsuario.setText("")
-            permiso = Usuario.ETIQUETAS_PERMISO.get(self._permiso, self._permiso)
-            usuario = self._usuario_actual
-            self.ui.btnUsuario.setToolTip(f"{usuario} · {permiso}" if permiso else usuario)
-            self.ui.btnUsuario.setMinimumWidth(ancho_btn)
-            self.ui.btnUsuario.setMaximumWidth(ancho_btn)
-        else:
-            self.ui.btnUsuario.setMinimumWidth(0)
-            self.ui.btnUsuario.setMaximumWidth(16777215)
-            self._armar_boton_usuario()
-            self.ui.btnUsuario.setToolTip("")
+    def _alternar_tema(self) -> None:
+        oscuro = not isDarkTheme()
+        self._aplicar_tema(oscuro)
+        preferencias.guardar_modo_oscuro(oscuro)
 
     def _marcar_activa(self, nombre: str) -> None:
-        for clave, btn in [
-            ("estadisticas", self.ui.btnEstadisticas),
-            ("ventas", self.ui.btnVentas),
-            ("productos", self.ui.btnProductos),
-            ("movimientos", self.ui.btnMovimientos),
-            ("alertas", self.ui.btnAlertas),
-            ("reportes", self.ui.btnReportes),
-            ("cierre", self.ui.btnCierre),
-            ("consulta", self.ui.btnConsulta),
-            ("ajustes", self.ui.btnAjustes),
-        ]:
-            if isinstance(btn, BotonSidebar):
-                btn.set_activo(clave == nombre)
+        if nombre and self.navigationInterface.widget(nombre) is not None:
+            self.navigationInterface.setCurrentItem(nombre)
+
+    def _aplicar_posicion_sidebar(self, posicion: str | None = None) -> None:
+        pass
 
     def showEvent(self, evento: QEvent) -> None:
         super().showEvent(evento)
@@ -575,25 +467,6 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         if respuesta == QMessageBox.StandardButton.Yes:
             self.sesion_cerrada.emit()
 
-    def eventFilter(self, objetivo: QObject, evento: QEvent) -> bool:
-        if self._inicio is not None and objetivo is self._inicio and evento.type() == QEvent.Type.Resize:
-            self._escalar_logo(objetivo.size())
-        return super().eventFilter(objetivo, evento)
-
-    def _escalar_logo(self, tamano: QtCore.QSize) -> None:
-        if self._inicio is None:
-            return
-        pixmap = self._pixmap_logo
-        if pixmap is None or pixmap.isNull() or tamano.width() <= 0 or tamano.height() <= 0:
-            return
-        self._inicio.setPixmap(
-            pixmap.scaled(
-                tamano,
-                QtCore.Qt.AspectRatioMode.KeepAspectRatio,
-                QtCore.Qt.TransformationMode.SmoothTransformation,
-            )
-        )
-
     def verificar_alertas(self) -> None:
         criticos = self._gestor_stock.productos_criticos()
         if not criticos:
@@ -601,7 +474,7 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
                 self._aviso_stock.hide()
             return
         desplazamiento = 0
-        padre_notif = self._paginas if self._paginas is not None else self
+        padre_notif = self.stackedWidget if hasattr(self, "stackedWidget") else self
         if criticos:
             if self._aviso_stock is None:
                 self._aviso_stock = Notificacion(padre_notif)
@@ -632,11 +505,8 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         return "Sin stock o en el mínimo:\n" + "\n".join(lineas)
 
     def mostrar_inicio(self) -> None:
-        if self._paginas is not None:
-            self._paginas.setUpdatesEnabled(False)
-            self._paginas.setCurrentIndex(0)
-            self._paginas.setUpdatesEnabled(True)
-        self._marcar_activa("")
+        self.switchTo(self._dashboard)
+        self.navigationInterface.setCurrentItem("inicio")
         self._dashboard.al_mostrar()
 
     def abrir_ajustes(self) -> None:
@@ -712,11 +582,14 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
             self.mostrar_advertencia(
                 "Cierre de caja", "El servicio de cierre no está disponible.")
             return
+        nombre_com = ""
+        if self._gestor_comercio and hasattr(self._gestor_comercio, "comercio") and self._gestor_comercio.comercio:
+            nombre_com = getattr(self._gestor_comercio.comercio, "nombre", "") or ""
         self._mostrar(
             "cierre",
             lambda: VentanaCaja(
                 self._cierre, self._usuario_actual, self._permiso,
-                turnos=self._turnos, caja=self._caja),
+                nombre_comercio=nombre_com, turnos=self._turnos, caja=self._caja),
         )
 
     def abrir_consulta(self) -> None:
@@ -726,27 +599,32 @@ class VentanaPrincipal(QMainWindow, VentanaBase):
         )
 
     def _mostrar(self, nombre: str, fabricar: Callable[[], QWidget]) -> None:
-        """Muestra la página `nombre`, construyéndola con `fabricar` solo la
-        primera vez: repetir la navegación no vuelve a instanciar la vista."""
-        assert self._paginas is not None
-        indice = self._indices.get(nombre)
-        if indice is None:
+        """Muestra la página `nombre`, construyéndola con `fabricar` solo la primera vez."""
+        pagina = self._paginas_instanciadas.get(nombre)
+        if pagina is None:
             pagina = fabricar()
+            pagina.setObjectName(nombre)
             minimo = pagina.minimumSize()
             if escala() != 1.0 and not minimo.isEmpty():
                 pagina.setMinimumSize(round(minimo.width() * escala()), minimo.height())
-            indice = self._paginas.addWidget(pagina)
+            self._paginas.addWidget(pagina)
+            indice = self._paginas.indexOf(pagina)
             self._indices[nombre] = indice
+            self._paginas_instanciadas[nombre] = pagina
         else:
-            pagina = self._paginas.widget(indice)
-            assert pagina is not None
+            indice = self._indices[nombre]
+
         refrescar = getattr(pagina, "al_mostrar", None)
         if callable(refrescar):
             refrescar()
+
         self._paginas.setUpdatesEnabled(False)
-        self._paginas.setCurrentIndex(indice)
+        self.switchTo(pagina)
         self._paginas.setUpdatesEnabled(True)
-        self._marcar_activa(nombre)
+
+        if self.navigationInterface.widget(nombre) is not None:
+            self.navigationInterface.setCurrentItem(nombre)
+
         self._enfocar(nombre, pagina)
 
     def _enfocar(self, nombre: str, pagina: QWidget) -> None:

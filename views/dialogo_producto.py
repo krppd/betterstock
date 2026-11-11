@@ -11,21 +11,39 @@ from PyQt6.QtWidgets import (
     QFormLayout,
     QFrame,
     QHBoxLayout,
-    QLabel,
     QLayout,
-    QPushButton,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
+from qfluentwidgets import (
+    BodyLabel,
+    PrimaryPushButton,
+    PushButton,
+    TransparentPushButton,
+)
 
 from models.producto import Producto
 from services.fotos import ruta_foto
-from ui.estilos import BORDE
-from ui.tema import color
+from ui.estilos import TAMANO_BODY, fuente
+from ui.fluent import color
 from ui.widgets.etiqueta_texto import EtiquetaTexto
 from utils.formato import formatear_cantidad, formatear_dinero
+
+
+class ColorTema:
+    """Color de un token de ``ui.fluent`` que se resuelve al consultarlo.
+
+    Sirve para los atributos de clase que antes eran colores fijos: así el
+    diálogo respeta el tema claro/oscuro sin perder la API pública.
+    """
+
+    def __init__(self, nombre: str) -> None:
+        self.nombre = nombre
+
+    def __get__(self, _instancia, _tipo=None) -> str:
+        return color(self.nombre)
 
 
 class DialogoProducto(QDialog):
@@ -36,8 +54,8 @@ class DialogoProducto(QDialog):
     el diálogo se cierra.
     """
 
-    COLOR_CRITICO = color("rojo_critico")
-    COLOR_PLACEHOLDER = color("gris_placeholder")
+    COLOR_CRITICO = ColorTema("error")
+    COLOR_PLACEHOLDER = ColorTema("gris_apagado")
     LADO_FOTO = 180
     MARGEN_FOTO = 6
     PORCENTAJE_ALTO = 0.75
@@ -56,9 +74,11 @@ class DialogoProducto(QDialog):
         self._al_eliminar = al_eliminar
         self._solo_lectura = solo_lectura
         self.setWindowTitle("Detalle del producto")
+        self.setObjectName("dlgDetalleProducto")
+        self._aplicar_tema()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(12)
         layout.setSizeConstraint(QLayout.SizeConstraint.SetMinimumSize)
 
@@ -81,6 +101,13 @@ class DialogoProducto(QDialog):
 
         self.setMinimumSize(520, 300)
         self.resize(560, 320)
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo y los textos siguen al tema claro/oscuro."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
+            f"QLabel {{ color: {color('texto')}; }}"
+        )
 
     def showEvent(self, evento) -> None:
         super().showEvent(evento)
@@ -110,9 +137,11 @@ class DialogoProducto(QDialog):
         marco.setObjectName("frameFoto")
         marco.setFixedSize(self.LADO_FOTO, self.LADO_FOTO)
         marco.setStyleSheet(
-            f"QFrame#frameFoto {{ background-color: white; border: 1px solid {BORDE}; border-radius: 6px; }}"
+            f"QFrame#frameFoto {{ background-color: {color('fondo_tarjeta')}; "
+            f"border: 1px solid {color('borde')}; border-radius: 6px; }}"
         )
-        self.lblFoto = QLabel(marco)
+        self.lblFoto = BodyLabel(marco)
+        self.lblFoto.setObjectName("lblFoto")
         self.lblFoto.setAlignment(Qt.AlignmentFlag.AlignCenter)
         contenido = QVBoxLayout(marco)
         contenido.setContentsMargins(*(self.MARGEN_FOTO,) * 4)
@@ -149,8 +178,9 @@ class DialogoProducto(QDialog):
         self.lblPrecio = self._agregar_dato(formulario, "Precio:", formatear_dinero(producto.precio_venta))
         return formulario
 
-    def _armar_aviso(self, producto: Producto) -> QLabel:
-        self.lblAviso = QLabel("El stock está en el mínimo o por debajo.", self)
+    def _armar_aviso(self, producto: Producto) -> BodyLabel:
+        self.lblAviso = BodyLabel("El stock está en el mínimo o por debajo.", self)
+        self.lblAviso.setObjectName("lblAviso")
         self.lblAviso.setStyleSheet(f"color: {self.COLOR_CRITICO};")
         self.lblAviso.setVisible(producto.esta_en_stock_critico())
         if producto.esta_en_stock_critico():
@@ -159,9 +189,10 @@ class DialogoProducto(QDialog):
 
     def _armar_botones(self) -> QHBoxLayout:
         botones = QHBoxLayout()
-        self.btnEditar = QPushButton("Editar", self)
-        self.btnEliminar = QPushButton("Eliminar", self)
-        self.btnCerrar = QPushButton("Cerrar", self)
+        botones.setSpacing(8)
+        self.btnEditar = PrimaryPushButton("Editar", self)
+        self.btnEliminar = PushButton("Eliminar", self)
+        self.btnCerrar = TransparentPushButton("Cerrar", self)
         self.btnEditar.setAutoDefault(False)
         self.btnEliminar.setAutoDefault(False)
         self.btnCerrar.setDefault(True)
@@ -181,8 +212,8 @@ class DialogoProducto(QDialog):
 
     def _agregar_dato(self, formulario: QFormLayout, etiqueta: str, valor: str) -> EtiquetaTexto:
         """Agrega una fila ``etiqueta: valor`` y devuelve la etiqueta del valor."""
-        titulo = QLabel(etiqueta, self)
-        titulo.setStyleSheet("font-weight: bold;")
+        titulo = BodyLabel(etiqueta, self)
+        titulo.setFont(fuente(TAMANO_BODY, negrita=True))
         dato = EtiquetaTexto(valor, self)
         formulario.addRow(titulo, dato)
         return dato

@@ -4,9 +4,6 @@ import os
 import sys
 from pathlib import Path
 
-# Qt 6 on Windows defaults to DirectWrite, which does not always see the .otf
-# fonts shipped with the app. The GDI engine registers them with
-# AddFontMemResourceEx and honors the bundled typeface. QT_QPA_PLATFORM overrides.
 if sys.platform == "win32":
     os.environ.setdefault("QT_QPA_PLATFORM", "windows:fontengine=gdi")
 
@@ -37,7 +34,7 @@ from services.gestor_fiado import GestorFiado
 from services.gestor_stock import GestorStock
 from services.gestor_ventas import GestorVentas
 from services.preferencias import escala_modo_tactil
-from ui.estilos import ESCALA_NORMAL, aplicar_tema
+from ui.estilos import ESCALA_NORMAL, aplicar_color_fluent, aplicar_tema
 from ui.scroll_suave import instalar_scroll_suave
 from views.ventana_configuracion import VentanaConfiguracion
 from views.ventana_login import VentanaLogin
@@ -50,6 +47,7 @@ class Aplicacion:
     def __init__(self, argumentos: list[str], carpeta_datos: Path = DATA_DIR) -> None:
         self._qt = QApplication(argumentos)
         self._qt.setWindowIcon(QIcon(str(RECURSOS_DIR / "logo_u.png")))
+        aplicar_color_fluent(self._qt)
         aplicar_tema(self._qt, ESCALA_NORMAL)
         instalar_scroll_suave(self._qt)
         self._gestor_stock = GestorStock(
