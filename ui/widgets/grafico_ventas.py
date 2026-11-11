@@ -63,7 +63,7 @@ class GraficoVentas(QWidget):
         self._paso = 1
         self._bars: list = []
 
-        self.setMinimumHeight(140)
+        self.setMinimumHeight(150)
 
         self._fig = Figure(facecolor=color("blanco"), edgecolor="none")
         self._canvas = FigureCanvasQTAgg(self._fig)
@@ -129,8 +129,8 @@ class GraficoVentas(QWidget):
 
         self._ax.clear()
         self._ax.set_facecolor(color("blanco"))
-        self._ax.set_title(self._titulo, fontsize=11, fontweight="bold",
-                           color=color("texto_oscuro"), pad=8)
+        self._ax.set_title(self._titulo, fontsize=10, fontweight="bold",
+                           color=color("texto_oscuro"), pad=4)
 
         self._ax.spines["top"].set_visible(False)
         self._ax.spines["right"].set_visible(False)
@@ -184,7 +184,7 @@ class GraficoVentas(QWidget):
         self._annot.set_visible(False)
 
         self._aplicar_etiquetas()
-        self._fig.subplots_adjust(left=0.08, right=0.98, top=0.88, bottom=0.18)
+        self._fig.subplots_adjust(left=0.08, right=0.98, top=0.80, bottom=0.18)
         self._canvas.draw_idle()
 
     def _al_mover_mouse(self, event) -> None:

@@ -8,6 +8,7 @@ from config import DATA_DIR
 ARCHIVO_PREFERENCIAS: Path = DATA_DIR / "preferencias.json"
 CLAVE_MODO_TACTIL = "modo_tactil"
 CLAVE_MODO_OSCURO = "modo_oscuro"
+CLAVE_MOSTRAR_RELOJ = "mostrar_reloj"
 CLAVE_POSICION_MENU = "posicion_menu"
 POSICION_IZQUIERDA = "izquierda"
 POSICION_DERECHA = "derecha"
@@ -56,6 +57,16 @@ def modo_oscuro(ruta: Path | None = None) -> bool:
 def guardar_modo_oscuro(activo: bool, ruta: Path | None = None) -> bool:
     datos = leer(ruta)
     datos[CLAVE_MODO_OSCURO] = bool(activo)
+    return guardar(datos, ruta)
+
+
+def mostrar_reloj(ruta: Path | None = None) -> bool:
+    return bool(leer(ruta).get(CLAVE_MOSTRAR_RELOJ, True))
+
+
+def guardar_mostrar_reloj(activo: bool, ruta: Path | None = None) -> bool:
+    datos = leer(ruta)
+    datos[CLAVE_MOSTRAR_RELOJ] = bool(activo)
     return guardar(datos, ruta)
 
 

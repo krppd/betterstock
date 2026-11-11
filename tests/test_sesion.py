@@ -176,7 +176,7 @@ def test_al_cancelar_no_emite_cerrar_sesion(principal, monkeypatch):
     assert recibidos == []
 
 
-def test_donde_esta_la_hora_no_va_el_usuario(principal):
+def test_reloj_barra_superior_no_incluye_usuario(principal):
     principal._actualizar_reloj()
 
     assert principal._reloj.text() != ""

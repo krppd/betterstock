@@ -23,8 +23,15 @@ def aplicacion_global():
 
 
 @pytest.fixture(autouse=True)
-def _aplicacion_viva(aplicacion_global):
+def _aplicacion_viva(aplicacion_global, monkeypatch, tmp_path_factory):
     """Garantiza que exista una QApplication viva antes de cada test."""
+    from qfluentwidgets import Theme, setTheme
+    from services import preferencias
+
+    setTheme(Theme.LIGHT)
+    ruta_tmp = tmp_path_factory.mktemp("pref") / "preferencias.json"
+    monkeypatch.setattr(preferencias, "ARCHIVO_PREFERENCIAS", ruta_tmp)
+    monkeypatch.setattr(preferencias, "modo_oscuro", lambda ruta=None: False)
     return aplicacion_global
 
 

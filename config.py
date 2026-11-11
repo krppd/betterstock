@@ -9,7 +9,7 @@ BASE_DIR: Path = Path(__file__).resolve().parent
 RECURSOS_DIR: Path = BASE_DIR / "Recursos"
 """Carpeta de imágenes y del archivo de recursos de Qt (sólo lectura)."""
 
-APP_VERSION: str = "1.0.0"
+APP_VERSION: str = "0.9.2"
 """Versión de la app."""
 
 ALERTAS_EN_AVISO_STOCK: int = 5

@@ -68,12 +68,23 @@ def _tinta(nombre: str) -> tuple[QColor, QColor]:
     return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
 
 
+class DateCompat(QDate):
+    def __call__(self) -> QDate:
+        return self
+
+
 class SelectorFechaCaja(CalendarPicker):
     """CalendarPicker con compatibilidad de API para date().toPyDate() y setDate()."""
 
-    def date(self) -> QDate:
+    @property
+    def date(self) -> DateCompat:
         d = self.getDate()
-        return d if d.isValid() else QDate.currentDate()
+        d_val = d if d.isValid() else QDate.currentDate()
+        return DateCompat(d_val.year(), d_val.month(), d_val.day())
+
+    @date.setter
+    def date(self, fecha: Any) -> None:
+        self.setDate(fecha)
 
     def setDate(self, fecha: Any) -> None:
         if hasattr(fecha, "year") and not callable(fecha.year):

@@ -163,3 +163,12 @@ def test_login_tamano_fijo_y_texto_sin_recortes(aplicacion, monkeypatch, tmp_pat
         assert ventana.chkModoTactil.text() == ventana.TEXTO_MODO_TACTIL
     finally:
         ventana.deleteLater()
+
+
+def test_preferencia_mostrar_reloj_persistencia(tmp_path) -> None:
+    ruta = tmp_path / "preferencias.json"
+    assert preferencias.mostrar_reloj(ruta) is True
+    assert preferencias.guardar_mostrar_reloj(False, ruta) is True
+    assert preferencias.mostrar_reloj(ruta) is False
+    assert preferencias.guardar_mostrar_reloj(True, ruta) is True
+    assert preferencias.mostrar_reloj(ruta) is True
