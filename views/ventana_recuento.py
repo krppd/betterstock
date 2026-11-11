@@ -7,26 +7,35 @@ from PyQt6.QtWidgets import (
     QDialog,
     QHBoxLayout,
     QHeaderView,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    FluentIcon as FIF,
+    PrimaryPushButton,
+    PushButton,
+    SearchLineEdit,
+    TableWidget,
+    TransparentPushButton,
+    qconfig,
 )
 
 from models.producto import Producto
 from services.excepciones import ErrorNegocio
 from services.gestor_stock import GestorStock
 from services.recuento import ServicioRecuento
-from ui.estilos import GRIS_TEXTO, ROJO_TEXTO, TAMANO_SMALL, VERDE_TEXTO, fuente
+from ui.estilos import TAMANO_SMALL, fuente
+from ui.fluent import color
 from ui.widgets.notificacion import Notificacion
 from utils.formato import es_cantidad, formatear_cantidad, redondear_cantidad
 from views.ventana_base import VentanaBase
 
 
 class VentanaRecuento(QDialog, VentanaBase):
+    """Carga de conteos de inventario y aplicación de las diferencias."""
+
     COLUMNA_CONTADO = 3
     COLUMNA_DIFERENCIA = 4
     MAXIMO_DIFERENCIAS_EN_RESUMEN = 10
@@ -48,19 +57,22 @@ class VentanaRecuento(QDialog, VentanaBase):
         layout.setContentsMargins(16, 16, 16, 16)
         layout.setSpacing(10)
 
-        self.txtBuscar = QLineEdit(self)
+        self.txtBuscar = SearchLineEdit(self)
         self.txtBuscar.setPlaceholderText("Buscar por código o nombre")
         layout.addWidget(self.txtBuscar)
 
-        ayuda = QLabel(
+        ayuda = BodyLabel(
             "Ingresá la cantidad contada. Solo se aplican las filas con un conteo cargado.",
             self)
         ayuda.setWordWrap(True)
         layout.addWidget(ayuda)
 
-        self.tabla = QTableWidget(0, 5, self)
+        self.tabla = TableWidget(self)
+        self.tabla.setColumnCount(5)
         self.tabla.setHorizontalHeaderLabels(
             ["Código", "Producto", "Stock sistema", "Contado", "Diferencia"])
+        self.tabla.setBorderRadius(8)
+        self.tabla.setBorderVisible(True)
         self.tabla.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows)
         self.tabla.setEditTriggers(
@@ -77,9 +89,10 @@ class VentanaRecuento(QDialog, VentanaBase):
         layout.addWidget(self.tabla, 1)
 
         botones = QHBoxLayout()
-        self.btnLimpiar = QPushButton("Limpiar conteos", self)
-        self.btnCerrar = QPushButton("Cerrar", self)
-        self.btnAplicar = QPushButton("Aplicar recuento", self)
+        botones.setSpacing(8)
+        self.btnLimpiar = TransparentPushButton(FIF.SYNC, "Limpiar conteos", self)
+        self.btnCerrar = PushButton("Cerrar", self)
+        self.btnAplicar = PrimaryPushButton(FIF.ACCEPT, "Aplicar recuento", self)
         self.btnAplicar.setObjectName("btnGuardar")
         for boton in (self.btnLimpiar, self.btnCerrar, self.btnAplicar):
             boton.setAutoDefault(False)
@@ -90,10 +103,17 @@ class VentanaRecuento(QDialog, VentanaBase):
         layout.addLayout(botones)
 
         self.txtBuscar.textChanged.connect(self.cargar_productos)
+        self.txtBuscar.searchSignal.connect(self.cargar_productos)
         self.tabla.itemChanged.connect(self._al_editar_conteo)
         self.btnLimpiar.clicked.connect(self.limpiar_conteos)
         self.btnCerrar.clicked.connect(self.reject)
         self.btnAplicar.clicked.connect(self.aplicar_recuento)
+        qconfig.themeChanged.connect(self._repintar_colores)
+
+    def _repintar_colores(self) -> None:
+        """Repinta la tabla con los colores del tema, sin volver a consultar la base."""
+        for fila in range(self.tabla.rowCount()):
+            self._colorear_diferencia(self.tabla.item(fila, 3))
 
     def cargar_productos(self) -> None:
         self._productos = self._gestor_stock.buscar_productos(self.txtBuscar.text())
@@ -185,11 +205,11 @@ class VentanaRecuento(QDialog, VentanaBase):
             return
         texto = item.text()
         if texto == "Inválido" or texto.startswith("-"):
-            item.setForeground(QBrush(QColor(ROJO_TEXTO)))
+            item.setForeground(QBrush(QColor(color("error"))))
         elif texto.startswith("+"):
-            item.setForeground(QBrush(QColor(VERDE_TEXTO)))
+            item.setForeground(QBrush(QColor(color("exito"))))
         elif texto == "0":
-            item.setForeground(QBrush(QColor(GRIS_TEXTO)))
+            item.setForeground(QBrush(QColor(color("gris_medio"))))
         else:
             item.setData(Qt.ItemDataRole.ForegroundRole, None)
 

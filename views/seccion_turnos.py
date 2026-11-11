@@ -1,69 +1,78 @@
 from __future__ import annotations
 
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import (
-    QAbstractItemView,
     QDialog,
-    QGroupBox,
     QHBoxLayout,
-    QLabel,
-    QPushButton,
-    QTableWidget,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    PrimaryPushButton,
+    PushButton,
+    SimpleCardWidget,
+    TableWidget,
 )
 
 from models.usuario import Usuario
 from services.caja import ServicioCaja
 from services.turnos import ErrorTurno, ServicioTurnos
-from ui.estilos import GRIS_TEXTO, TAMANO_SMALL, fuente
+from ui.fluent import CLARO, OSCURO
 from utils.formato import diferencia as diferencia_montos
 from utils.formato import formatear_dinero
 from views.dialogo_turno import DialogoAbrirTurno, DialogoCerrarTurno
 from views.ventana_base import VentanaBase
 
 
-class SeccionTurnos(QGroupBox, VentanaBase):
+def _tinta(nombre: str) -> tuple[QColor, QColor]:
+    """Devuelve el par (claro, oscuro) de un token Fluent para labels adaptativos."""
+    return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
+
+
+class SeccionTurnos(SimpleCardWidget, VentanaBase):
+    """Tarjeta con el estado del turno de caja y las acciones para abrirlo o cerrarlo."""
+
     def __init__(self, servicio: ServicioTurnos, usuario: str, permiso: str,
                  parent: QWidget | None = None,
                  caja: ServicioCaja | None = None) -> None:
-        super().__init__("", parent)
+        super().__init__(parent)
         self._servicio = servicio
         self._caja = caja if caja is not None else getattr(servicio, "caja", None)
         self._usuario = usuario
         self._permiso = permiso
         self._admin = Usuario.es_admin(permiso)
+        self._ventana = parent
         self.setObjectName("grpTurnos")
-        self.setStyleSheet("QGroupBox#grpTurnos { border: none; margin: 0; padding: 0; background: transparent; }")
+        self.setBorderRadius(8)
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(0)
+        layout.setContentsMargins(16, 12, 16, 12)
+        layout.setSpacing(8)
 
         fila_superior = QHBoxLayout()
         fila_superior.setContentsMargins(0, 0, 0, 0)
         fila_superior.setSpacing(8)
 
-        self.lblEstado = QLabel("", self)
+        self.lblEstado = BodyLabel("", self)
         self.lblEstado.setWordWrap(True)
-        self.lblEstado.setFont(fuente(TAMANO_SMALL))
         fila_superior.addWidget(self.lblEstado, 1)
 
-        self.btnAbrir = QPushButton("Abrir turno", self)
+        self.btnAbrir = PushButton("Abrir turno", self)
         self.btnAbrir.setObjectName("btnAbrirTurno")
-        self.btnAbrir.setMinimumHeight(28)
         self.btnAbrir.clicked.connect(self.abrir)
         fila_superior.addWidget(self.btnAbrir)
 
-        self.btnCerrar = QPushButton("Cerrar turno", self)
+        self.btnCerrar = PrimaryPushButton("Cerrar turno", self)
         self.btnCerrar.setObjectName("btnCerrarTurno")
-        self.btnCerrar.setMinimumHeight(28)
         self.btnCerrar.clicked.connect(self.cerrar)
         fila_superior.addWidget(self.btnCerrar)
 
         layout.addLayout(fila_superior)
 
-        self.tabla = QTableWidget(0, 7, self)
+        self.tabla = TableWidget(self)
         self.tabla.setObjectName("tblTurnos")
+        self.tabla.setColumnCount(7)
         self.tabla.setHorizontalHeaderLabels([
             "Turno", "Apertura", "Cierre", "Fondo", "Esperado",
             "Declarado", "Diferencia",
@@ -86,14 +95,14 @@ class SeccionTurnos(QGroupBox, VentanaBase):
         turno = self._servicio.abierto()
         if dia_cerrado:
             self.lblEstado.setText("Día cerrado: operaciones de turno deshabilitadas.")
-            self.lblEstado.setStyleSheet(f"color: {GRIS_TEXTO};")
+            self.lblEstado.setTextColor(*_tinta("gris_medio"))
             self.btnAbrir.setEnabled(False)
             self.btnCerrar.setEnabled(False)
             self.btnCerrar.setToolTip("")
         elif turno is None:
             self.lblEstado.setText(
                 "Sin turno abierto. Abrí un turno para rendir el efectivo al terminar.")
-            self.lblEstado.setStyleSheet(f"color: {GRIS_TEXTO};")
+            self.lblEstado.setTextColor(*_tinta("gris_medio"))
             self.btnAbrir.setEnabled(True)
             self.btnCerrar.setEnabled(False)
             self.btnCerrar.setToolTip("")
@@ -103,7 +112,7 @@ class SeccionTurnos(QGroupBox, VentanaBase):
                 f"Turno #{turno.id_turno} Abierto · Fondo {formatear_dinero(turno.fondo_inicial)} · "
                 f"Esperado {formatear_dinero(arqueo.efectivo_esperado)}"
             )
-            self.lblEstado.setStyleSheet("")
+            self.lblEstado.setTextColor(*_tinta("texto"))
             self.btnAbrir.setEnabled(False)
             puede_cerrar = self._puede_cerrar(turno)
             self.btnCerrar.setEnabled(puede_cerrar)
@@ -144,6 +153,12 @@ class SeccionTurnos(QGroupBox, VentanaBase):
             ])
         self.llenar_tabla(self.tabla, filas)
 
+    def _ventana_principal(self) -> QWidget | None:
+        """Devuelve la ventana que hospeda la sección, si corresponde."""
+        if self._ventana is not None:
+            return self._ventana
+        return self.parent()
+
     def abrir(self) -> None:
         dialogo = DialogoAbrirTurno(self._servicio.sugerir_fondo(), self)
         if dialogo.exec() != QDialog.DialogCode.Accepted:
@@ -156,7 +171,7 @@ class SeccionTurnos(QGroupBox, VentanaBase):
             self.actualizar()
             return
         self.actualizar()
-        padre = self.parent()
+        padre = self._ventana_principal()
         if padre is not None and hasattr(padre, "recalcular"):
             padre.recalcular()
 
@@ -203,6 +218,6 @@ class SeccionTurnos(QGroupBox, VentanaBase):
             self.actualizar()
             return
         self.actualizar()
-        padre = self.parent()
+        padre = self._ventana_principal()
         if padre is not None and hasattr(padre, "recalcular"):
             padre.recalcular()

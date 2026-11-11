@@ -38,7 +38,10 @@ class GestorFiado:
         ]
 
     def guardar_cliente(self, nombre: str, telefono: str = "", limite: float = 0.0,
-                        activo: bool = True, codigo: str = "") -> Cliente:
+                        activo: bool = True, codigo: str = "",
+                        doc_tipo: int | None = None, doc_nro: str | None = None,
+                        cond_iva: int | None = None,
+                        email: str | None = None) -> Cliente:
         if self._clientes.existe_nombre(nombre, excluir=codigo):
             raise ErrorValidacion(f"Ya hay un cliente llamado '{nombre.strip()}'.")
         if codigo.strip():
@@ -47,10 +50,19 @@ class GestorFiado:
                 raise ErrorValidacion("No se encontró el cliente indicado.")
             actualizado = Cliente(
                 nombre, telefono=telefono, limite=limite, activo=activo,
-                codigo=existente.codigo)
+                codigo=existente.codigo,
+                doc_tipo=existente.doc_tipo if doc_tipo is None else doc_tipo,
+                doc_nro=existente.doc_nro if doc_nro is None else doc_nro,
+                cond_iva=existente.cond_iva if cond_iva is None else cond_iva,
+                email=existente.email if email is None else email)
             self._clientes.actualizar(actualizado)
             return actualizado
-        return self._clientes.agregar(Cliente(nombre, telefono=telefono, limite=limite, activo=activo))
+        return self._clientes.agregar(Cliente(
+            nombre, telefono=telefono, limite=limite, activo=activo,
+            doc_tipo=99 if doc_tipo is None else doc_tipo,
+            doc_nro="" if doc_nro is None else doc_nro,
+            cond_iva=5 if cond_iva is None else cond_iva,
+            email="" if email is None else email))
 
     def desactivar(self, codigo: str) -> None:
         cliente = self._clientes.buscar(codigo)

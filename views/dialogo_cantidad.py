@@ -1,17 +1,25 @@
+"""Diálogo para pedir una cantidad en la unidad del producto elegido."""
+
 from __future__ import annotations
 
-from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QHBoxLayout,
-    QLabel,
-    QVBoxLayout,
-    QWidget,
-)
+from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QWidget
+from qfluentwidgets import BodyLabel, LineEdit, PrimaryPushButton, PushButton
 
+from ui.fluent import color
 from ui.manual.campo_cantidad import CampoCantidad
 from views.ventana_base import VentanaBase
+
+
+class CampoCantidadFluent(LineEdit, CampoCantidad):
+    """Campo de cantidad con la piel de los campos de Fluent.
+
+    Une el ``LineEdit`` de Fluent (con su estilo y su alto) con la semántica de
+    ``CampoCantidad``: texto con coma o punto decimal, ``value()`` numérico y
+    ``es_valido()``.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
 
 
 class DialogoCantidad(QDialog, VentanaBase):
@@ -23,43 +31,62 @@ class DialogoCantidad(QDialog, VentanaBase):
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle(titulo)
+        self.setObjectName("dlgCantidad")
+        self._aplicar_tema()
         texto = f"{pregunta} ({unidad}):" if unidad else f"{pregunta}:"
-        etiqueta = QLabel(texto, self)
+        etiqueta = BodyLabel(texto, self)
+        etiqueta.setObjectName("lblPregunta")
         etiqueta.setFont(self._fuente())
 
-        self.campo = CampoCantidad(self)
+        self.campo = CampoCantidadFluent(self)
+        self.campo.setObjectName("campoCantidad")
         self.campo.setMaximum(self.MAXIMO_CANTIDAD)
         self.campo.setValue(1)
         self.campo.setFixedHeight(self._alto_campo())
-        self.campo.setFont(self._fuente())
+        self.campo.setPlaceholderText("0")
 
         fila = QHBoxLayout()
         fila.setSpacing(10)
         fila.addWidget(etiqueta)
         fila.addWidget(self.campo, stretch=1)
 
-        self.botones = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, self)
-        self.botones.button(QDialogButtonBox.StandardButton.Ok).setText("OK")
-        self.botones.button(QDialogButtonBox.StandardButton.Ok).setDefault(True)
-        self.botones.button(QDialogButtonBox.StandardButton.Cancel).setAutoDefault(False)
+        self.botones = self._armar_botones()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(12)
         layout.addLayout(fila)
-        layout.addWidget(self.botones)
-        self.botones.accepted.connect(self.validar)
-        self.botones.rejected.connect(self.reject)
+        layout.addLayout(self.botones)
         self.campo.returnPressed.connect(self.validar)
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema claro/oscuro."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
+        )
+
+    def _armar_botones(self) -> QHBoxLayout:
+        botones = QHBoxLayout()
+        botones.setSpacing(8)
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnAceptar = PrimaryPushButton("Aceptar", self)
+        self.btnCancelar.setAutoDefault(False)
+        self.btnAceptar.setDefault(True)
+        botones.addStretch(1)
+        botones.addWidget(self.btnCancelar)
+        botones.addWidget(self.btnAceptar)
+
+        self.btnCancelar.clicked.connect(self.reject)
+        self.btnAceptar.clicked.connect(self.validar)
+        return botones
 
     def _fuente(self):
         from ui.estilos import TAMANO_BODY, fuente
         return fuente(TAMANO_BODY, tabular=True)
 
     def _alto_campo(self) -> int:
-        from ui.estilos import TAMANO_BODY
-        return round(TAMANO_BODY * 2.2)
+        """Alto del campo de texto, el mismo que usan los campos de Fluent."""
+        return 33
 
     def cantidad(self) -> float:
         return self.campo.value()

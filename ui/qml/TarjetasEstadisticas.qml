@@ -5,7 +5,7 @@ import QtQuick.Shapes
 
 Rectangle {
     id: raiz
-    color: Tema.color("blanco")
+    color: Tema.color("superficie")
     property int altoTarjetas: Tema.medida("alto_tarjeta")
     property int altoBanda: Tema.medida("alto_banda")
     property int tarjetaActiva: -1
@@ -226,7 +226,7 @@ Rectangle {
             id: tarjetaVentas
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Tema.color("blanco")
+            color: Tema.color("tarjeta_fondo")
             radius: Tema.radio("tarjeta")
             border.color: Tema.color("borde_tarjeta")
             border.width: Tema.medida("grosor_borde")
@@ -311,7 +311,7 @@ Rectangle {
             id: tarjetaUnidades
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Tema.color("blanco")
+            color: Tema.color("tarjeta_fondo")
             radius: Tema.radio("tarjeta")
             border.color: Tema.color("borde_tarjeta")
             border.width: Tema.medida("grosor_borde")
@@ -396,7 +396,7 @@ Rectangle {
             id: tarjetaTotal
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Tema.color("blanco")
+            color: Tema.color("tarjeta_fondo")
             radius: Tema.radio("tarjeta")
             border.color: Tema.color("borde_tarjeta")
             border.width: Tema.medida("grosor_borde")
@@ -481,7 +481,7 @@ Rectangle {
             id: tarjetaTicket
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Tema.color("blanco")
+            color: Tema.color("tarjeta_fondo")
             radius: Tema.radio("tarjeta")
             border.color: Tema.color("borde_tarjeta")
             border.width: Tema.medida("grosor_borde")
@@ -578,7 +578,7 @@ Rectangle {
             x: Math.max(Tema.espaciado("basico"), Math.min(raiz.xTarjeta(raiz.tarjetaActiva), banda.width - width - Tema.espaciado("basico")))
             y: Tema.espaciado("micro")
             radius: Tema.radio("panel")
-            color: Tema.color("panel_fondo")
+            color: Tema.oscuro() ? Tema.color("gris_boton") : Tema.color("panel_fondo")
             border.width: Tema.medida("grosor_borde")
             border.color: Tema.color("panel_borde")
             layer.enabled: true

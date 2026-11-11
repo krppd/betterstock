@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from string import Template
 
-from PyQt6.QtCore import QObject, pyqtSlot
+from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot
 
 
 def _ruta_tokens() -> Path:
@@ -21,6 +21,7 @@ with RUTA_TOKENS.open(encoding="utf-8") as archivo:
     tokens: dict = json.load(archivo)
 
 COLORES: dict[str, str] = tokens["colores"]
+COLORES_OSCUROS: dict[str, str] = tokens.get("colores_oscuros", {})
 RADIOS: dict[str, int] = tokens["radios"]
 TIPOGRAFIA: dict = tokens["tipografia"]
 ESPACIADO: dict[str, int] = tokens["espaciado"]
@@ -60,6 +61,33 @@ def _clave_tamano(nombre: str) -> str:
 
 def color(nombre: str) -> str:
     return COLORES[nombre]
+
+
+def color_tema(nombre: str) -> str:
+    """Devuelve el color del token ``nombre`` según el tema Fluent activo."""
+    if _tema_oscuro():
+        return COLORES_OSCUROS.get(nombre, COLORES.get(nombre, nombre))
+    return COLORES.get(nombre, nombre)
+
+
+def _tema_oscuro() -> bool:
+    try:
+        from qfluentwidgets import isDarkTheme
+
+        return bool(isDarkTheme())
+    except Exception:
+        return False
+
+
+VERDE_FLUENT = COLORES["acento_fluent"]
+VERDE_FLUENT_OSCURO = COLORES_OSCUROS.get("acento_fluent", COLORES["verde_claro"])
+
+
+def color_fluent(oscuro: bool | None = None) -> str:
+    """Devuelve el verde de acento de Fluent según el tema activo."""
+    if oscuro is None:
+        oscuro = _tema_oscuro()
+    return VERDE_FLUENT_OSCURO if oscuro else VERDE_FLUENT
 
 
 def radio(nombre: str) -> int:
@@ -216,6 +244,13 @@ PASTILLA_SKY = COLORES["pastilla_sky"]
 ACENTO_TEAL = COLORES["acento_teal"]
 ACENTO_SKY = COLORES["acento_sky"]
 ACENTO_AMBAR = COLORES["acento_ambar"]
+ACENTO_ESMERALDA = COLORES["acento_esmeralda"]
+PASTILLA_ESMERALDA = COLORES["pastilla_esmeralda"]
+ACENTO_BOSQUE = COLORES["acento_bosque"]
+PASTILLA_BOSQUE = COLORES["pastilla_bosque"]
+ACENTO_LIMA = COLORES["acento_lima"]
+PASTILLA_LIMA = COLORES["pastilla_lima"]
+PASTILLA_AMBAR = COLORES["pastilla_ambar"]
 ROJO_ALERTA = COLORES["rojo_alerta"]
 ROJO_OSCURO = COLORES["rojo_oscuro"]
 AMBAR_ALERTA = COLORES["ambar_alerta"]
@@ -272,8 +307,11 @@ BOTONES_DESTRUCTIVOS = (
 )
 
 
-def _contexto() -> dict[str, str]:
-    contexto = {nombre: str(valor) for nombre, valor in COLORES.items()}
+def _contexto(oscuro: bool = False) -> dict[str, str]:
+    base = dict(COLORES)
+    if oscuro:
+        base.update(COLORES_OSCUROS)
+    contexto = {nombre: str(valor) for nombre, valor in base.items()}
     contexto.update({f"rad_{nombre}": str(valor) for nombre, valor in RADIOS.items()})
     contexto.update({f"esp_{nombre}": str(valor) for nombre, valor in ESPACIADO.items()})
     contexto.update({f"med_{nombre}": str(valor) for nombre, valor in MEDIDAS.items()})
@@ -382,6 +420,14 @@ QLineEdit:focus, QTextEdit:focus {
 QLabel {
     color: ${texto};
 }
+QDialog, QMessageBox {
+    background-color: ${superficie};
+    color: ${texto};
+}
+QMessageBox QLabel, QDialog QLabel {
+    color: ${texto};
+    background-color: transparent;
+}
 QComboBox QAbstractItemView {
     background-color: ${blanco_css};
     selection-background-color: ${verde_oscuro};
@@ -440,50 +486,85 @@ REGLAS_SCROLL = (
     Template("QScrollBar::sub-page:horizontal { background: ${ninguno}; }"),
 )
 
-def _hoja_primaria(nombre: str) -> str:
+def _hoja_primaria(nombre: str, contexto: dict[str, str]) -> str:
+    verde = contexto["verde"]
+    verde_oscuro = contexto["verde_oscuro"]
+    verde_presionado = contexto["verde_presionado"]
+    fondo_deshabilitado = contexto["fondo_deshabilitado"]
+    gris_deshabilitado = contexto["gris_deshabilitado"]
+    borde = contexto["borde"]
     return (
         f'QPushButton#{nombre} {{'
-        f"background-color: {VERDE}; color: {BLANCO_CSS}; "
-        f"border: 1px solid {VERDE_OSCURO}; border-radius: {RAD_CONTROL}px; "
+        f"background-color: {verde}; color: {contexto['blanco_css']}; "
+        f"border: 1px solid {verde_oscuro}; border-radius: {RAD_CONTROL}px; "
         f"padding: {ESP_PEQUENO}px {ESP_GRANDE}px; font-weight: bold;}}"
-        f'QPushButton#{nombre}:hover {{background-color: {VERDE_OSCURO};}}'
-        f'QPushButton#{nombre}:pressed {{background-color: {VERDE_PRESIONADO};}}'
-        f'QPushButton#{nombre}:disabled {{background-color: {FONDO_DESHABILITADO}; '
-        f"color: {GRIS_DESHABILITADO}; border: 1px solid {BORDE};}}"
+        f'QPushButton#{nombre}:hover {{background-color: {verde_oscuro};}}'
+        f'QPushButton#{nombre}:pressed {{background-color: {verde_presionado};}}'
+        f'QPushButton#{nombre}:disabled {{background-color: {fondo_deshabilitado}; '
+        f"color: {gris_deshabilitado}; border: 1px solid {borde};}}"
     )
 
 
-def _hoja_destructiva(nombre: str) -> str:
+def _hoja_destructiva(nombre: str, contexto: dict[str, str]) -> str:
+    fondo_deshabilitado = contexto["fondo_deshabilitado"]
+    gris_deshabilitado = contexto["gris_deshabilitado"]
+    borde = contexto["borde"]
     return (
         f'QPushButton#{nombre} {{'
-        f"background-color: {BLANCO}; "
-        f"color: {ROJO}; border: 1px solid {ROJO}; border-radius: {RAD_CONTROL}px; "
+        f"background-color: {contexto['superficie']}; "
+        f"color: {contexto['rojo']}; border: 1px solid {contexto['rojo']}; "
+        f"border-radius: {RAD_CONTROL}px; "
         f"padding: {ESP_PEQUENO}px {ESP_GRANDE}px; font-weight: bold;}}"
-        f'QPushButton#{nombre}:hover {{background-color: {ROJO_SUAVE};}}'
-        f'QPushButton#{nombre}:pressed {{background-color: {ROJO_PRESIONADO};}}'
-        f'QPushButton#{nombre}:disabled {{background-color: {FONDO_DESHABILITADO}; '
-        f"color: {GRIS_DESHABILITADO}; border: 1px solid {BORDE};}}"
+        f'QPushButton#{nombre}:hover {{background-color: {contexto["rojo_suave"]};}}'
+        f'QPushButton#{nombre}:pressed {{background-color: {contexto["rojo_presionado"]};}}'
+        f'QPushButton#{nombre}:disabled {{background-color: {fondo_deshabilitado}; '
+        f"color: {gris_deshabilitado}; border: 1px solid {borde};}}"
     )
 
 
-def qss() -> str:
-    contexto = _contexto()
+def qss(oscuro: bool = False) -> str:
+    contexto = _contexto(oscuro)
     base = PLANTILLA_QSS.substitute(contexto)
     scroll = "\n".join(regla.substitute(contexto) for regla in REGLAS_SCROLL)
     botones = "\n".join(
-        [_hoja_primaria(nombre) for nombre in BOTONES_PRIMARIOS]
-        + [_hoja_destructiva(nombre) for nombre in BOTONES_DESTRUCTIVOS]
+        [_hoja_primaria(nombre, contexto) for nombre in BOTONES_PRIMARIOS]
+        + [_hoja_destructiva(nombre, contexto) for nombre in BOTONES_DESTRUCTIVOS]
     )
     return base + "\n" + scroll + "\n" + botones
 
 
 TEMA_APP = qss()
+TEMA_APP_OSCURO = qss(oscuro=True)
 
 
 class Tema(QObject):
+    """Puente de tema para QML: expone los tokens y avisa cuando cambian.
+
+    ``color`` devuelve siempre el valor del tema activo, así que el QML se
+    repinta al conmutar entre modo claro y oscuro.
+    """
+
+    temaCambiado = pyqtSignal()
+
+    def __init__(self, padre: QObject | None = None) -> None:
+        super().__init__(padre)
+        try:
+            from qfluentwidgets import qconfig
+
+            qconfig.themeChanged.connect(self._al_cambiar_tema)
+        except Exception:
+            pass
+
+    def _al_cambiar_tema(self, *_args) -> None:
+        self.temaCambiado.emit()
+
     @pyqtSlot(str, result=str)
     def color(self, nombre: str) -> str:
-        return COLORES[nombre]
+        return color_tema(nombre)
+
+    @pyqtSlot(result=bool)
+    def oscuro(self) -> bool:
+        return _tema_oscuro()
 
     @pyqtSlot(str, result=int)
     def radio(self, nombre: str) -> int:

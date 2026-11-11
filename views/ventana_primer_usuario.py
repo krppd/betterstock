@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import (
-    QDialog,
-    QDialogButtonBox,
-    QFormLayout,
-    QLabel,
-    QLineEdit,
-    QVBoxLayout,
-    QWidget,
+from PyQt6.QtGui import QColor
+from PyQt6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QVBoxLayout, QWidget
+from qfluentwidgets import (
+    BodyLabel,
+    LineEdit,
+    PasswordLineEdit,
+    PrimaryPushButton,
+    PushButton,
+    qconfig,
 )
 
 from models.usuario import Usuario
-from ui.estilos import ROJO_TEXTO, TAMANO_BODY, fuente
 from services.autenticacion import Autenticacion
+from ui.fluent import CLARO, OSCURO, color
 from views.ventana_base import VentanaBase
 
 LARGO_MINIMO_USUARIO = 3
@@ -27,6 +28,11 @@ TEXTO_MENSAJE = (
     "Creá el usuario principal (administrador) para gestionar el local.")
 
 
+def _tinta(nombre: str) -> tuple[QColor, QColor]:
+    """Devuelve el par (claro, oscuro) de un token Fluent para labels adaptativos."""
+    return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
+
+
 class VentanaPrimerUsuario(QDialog, VentanaBase):
     """Alta del primer usuario (administrador) en el primer arranque."""
 
@@ -34,57 +40,72 @@ class VentanaPrimerUsuario(QDialog, VentanaBase):
         super().__init__(parent)
         self._autenticacion = autenticacion
         self.setWindowTitle("Primer inicio — usuario principal")
-
-        self.lblMensaje = QLabel(TEXTO_MENSAJE, self)
-        self.lblMensaje.setFont(fuente(TAMANO_BODY))
-        self.lblMensaje.setWordWrap(True)
-
-        self.txtUsuario = QLineEdit(self)
-        self.txtUsuario.setFont(fuente(TAMANO_BODY, tabular=True))
-        self.txtUsuario.setMaxLength(40)
-
-        self.txtPassword = QLineEdit(self)
-        self.txtPassword.setFont(fuente(TAMANO_BODY, tabular=True))
-        self.txtPassword.setEchoMode(QLineEdit.EchoMode.Password)
-        self.txtPassword.setMaxLength(72)
-
-        self.txtRepetir = QLineEdit(self)
-        self.txtRepetir.setFont(fuente(TAMANO_BODY, tabular=True))
-        self.txtRepetir.setEchoMode(QLineEdit.EchoMode.Password)
-        self.txtRepetir.setMaxLength(72)
-
-        formulario = QFormLayout()
-        formulario.setHorizontalSpacing(16)
-        formulario.setVerticalSpacing(10)
-        formulario.setLabelAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
-        formulario.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
-        formulario.addRow("Usuario:", self.txtUsuario)
-        formulario.addRow("Contraseña:", self.txtPassword)
-        formulario.addRow("Repetir contraseña:", self.txtRepetir)
-
-        self.lblError = QLabel("", self)
-        self.lblError.setStyleSheet(f"color: {ROJO_TEXTO};")
-        self.lblError.setFont(fuente(TAMANO_BODY))
-
-        self.botones = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok, self)
-        btn_crear = self.botones.button(QDialogButtonBox.StandardButton.Ok)
-        btn_crear.setText("Crear usuario")
-        btn_crear.setDefault(True)
-        self.botones.accepted.connect(self.crear)
+        self.setObjectName("dlgPrimerUsuario")
+        self.setMinimumWidth(460)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
-        layout.addWidget(self.lblMensaje)
-        layout.addLayout(formulario)
-        layout.addWidget(self.lblError)
-        layout.addWidget(self.botones)
 
-        self.setFixedWidth(460)
+        self.lblMensaje = BodyLabel(TEXTO_MENSAJE, self)
+        self.lblMensaje.setWordWrap(True)
+        layout.addWidget(self.lblMensaje)
+
+        formulario = QFormLayout()
+        formulario.setHorizontalSpacing(16)
+        formulario.setVerticalSpacing(10)
+        formulario.setLabelAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+        formulario.setFieldGrowthPolicy(
+            QFormLayout.FieldGrowthPolicy.ExpandingFieldsGrow)
+
+        self.txtUsuario = LineEdit(self)
+        self.txtUsuario.setMaxLength(40)
+        self.txtUsuario.setPlaceholderText("Por ejemplo: dueno")
+        formulario.addRow(BodyLabel("Usuario:", self), self.txtUsuario)
+
+        self.txtPassword = PasswordLineEdit(self)
+        self.txtPassword.setMaxLength(72)
+        formulario.addRow(BodyLabel("Contraseña:", self), self.txtPassword)
+
+        self.txtRepetir = PasswordLineEdit(self)
+        self.txtRepetir.setMaxLength(72)
+        formulario.addRow(BodyLabel("Repetir contraseña:", self), self.txtRepetir)
+
+        layout.addLayout(formulario)
+
+        self.lblError = BodyLabel("", self)
+        self.lblError.setWordWrap(True)
+        self.lblError.setTextColor(*_tinta("error"))
+        layout.addWidget(self.lblError)
+
+        botones = QHBoxLayout()
+        botones.addStretch(1)
+
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnCancelar.setAutoDefault(False)
+        self.btnCancelar.clicked.connect(self.reject)
+        botones.addWidget(self.btnCancelar)
+
+        self.btnCrear = PrimaryPushButton("Crear usuario", self)
+        self.btnCrear.setDefault(True)
+        self.btnCrear.clicked.connect(self.crear)
+        botones.addWidget(self.btnCrear)
+
+        layout.addLayout(botones)
+
+        self._aplicar_tema()
+        qconfig.themeChanged.connect(self._aplicar_tema)
+
         self.txtUsuario.returnPressed.connect(self.txtPassword.setFocus)
         self.txtPassword.returnPressed.connect(self.txtRepetir.setFocus)
         self.txtRepetir.returnPressed.connect(self.crear)
         self.txtUsuario.setFocus()
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema Fluent."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
 
     def crear(self) -> None:
         nombre = self.txtUsuario.text().strip().lower()

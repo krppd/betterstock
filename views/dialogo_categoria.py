@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-from PyQt6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QLayout, QLineEdit, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtWidgets import QDialog, QFormLayout, QHBoxLayout, QLayout, QVBoxLayout, QWidget
+from qfluentwidgets import BodyLabel, LineEdit, PrimaryPushButton, PushButton
 
 from services.excepciones import ErrorNegocio
 from services.gestor_stock import GestorStock
+from ui.fluent import color
 from views.ventana_base import VentanaBase
 
 
@@ -18,27 +20,41 @@ class DialogoCategoria(QDialog, VentanaBase):
         self._gestor_stock = gestor_stock
         self._nombre = ""
         self.setWindowTitle("Nueva categoría")
+        self.setObjectName("dlgNuevaCategoria")
+        self._aplicar_tema()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(12)
         layout.addLayout(self._armar_formulario())
         layout.addStretch(1)
         layout.addLayout(self._armar_botones())
         layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
 
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema claro/oscuro."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
+        )
+
     def _armar_formulario(self) -> QFormLayout:
         formulario = QFormLayout()
-        self.txtNombre = QLineEdit(self)
-        formulario.addRow("Nombre:", self.txtNombre)
+        formulario.setHorizontalSpacing(16)
+        formulario.setVerticalSpacing(10)
+        self.txtNombre = LineEdit(self)
+        self.txtNombre.setObjectName("txtNombreCategoria")
+        self.txtNombre.setPlaceholderText("Nombre de la categoría")
+        formulario.addRow(BodyLabel("Nombre:", self), self.txtNombre)
         return formulario
 
     def _armar_botones(self) -> QHBoxLayout:
         botones = QHBoxLayout()
-        self.btnCancelar = QPushButton("Cancelar", self)
-        self.btnGuardar = QPushButton("Guardar", self)
+        botones.setSpacing(8)
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnGuardar = PrimaryPushButton("Guardar", self)
         self.btnCancelar.setAutoDefault(False)
         self.btnGuardar.setDefault(True)
+        botones.addStretch(1)
         botones.addWidget(self.btnCancelar)
         botones.addWidget(self.btnGuardar)
 

@@ -4,27 +4,33 @@ from datetime import datetime
 from pathlib import Path
 
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QFont
+from PyQt6.QtGui import QColor, QDesktopServices, QFont
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
-    QCheckBox,
-    QComboBox,
     QDialog,
-    QDoubleSpinBox,
     QFrame,
-    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
-    QLabel,
-    QLineEdit,
-    QPushButton,
-    QScrollArea,
-    QSpinBox,
-    QTableWidget,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    CardWidget,
+    ComboBox,
+    FluentIcon as FIF,
+    LineEdit,
+    PrimaryPushButton,
+    PushButton,
+    ScrollArea,
+    SubtitleLabel,
+    SwitchButton,
+    TableWidget,
+    Theme,
+    qconfig,
+    setTheme,
 )
 
 from models.usuario import Usuario
@@ -33,25 +39,27 @@ from models.validacion_identificador import (
     normalizar_cuit,
     tipo_de_identificador,
 )
-from services.autenticacion import Autenticacion
 from services.backup import ErrorBackup, ServicioBackup, tamano_legible
+from services.autenticacion import Autenticacion
 from services.gestor_anulaciones import MENSAJE_SIN_SERVICIO, GestorAnulaciones
 from services.gestor_comercio import GestorComercio
 from services.impresion import imprimir_codigo_anulacion
-from config import RECURSOS_DIR
-from services.plan_motor import CONTACTO, texto_limites
+from services.plan_motor import CONTACTO
 from services.preferencias import (
+    guardar_modo_oscuro,
     guardar_posicion_menu,
+    modo_oscuro,
     posicion_menu,
 )
-from ui.estilos import (
-    AMBAR_TEXTO,
-    GRIS_TEXTO,
-    TAMANO_MICRO,
-    VERDE_TEXTO,
-    fuente,
+from ui.fluent import CLARO, OSCURO, color
+from ui.manual.configuracion_ui import (
+    BUTTON_EDICION,
+    BUTTON_INICIAL,
+    TEXTO_EDICION,
+    TEXTO_INICIAL,
+    TITULO_EDICION,
+    TITULO_INICIAL,
 )
-from ui.manual.configuracion_ui import TITULO_EDICION, TITULO_INICIAL, Ui_ConfiguracionForm
 from ui.widgets.notificacion import Notificacion
 from ui.widgets.trabajo_impresion import TrabajoImpresion
 from views.dialogo_password import DialogoCambiarPassword
@@ -61,6 +69,112 @@ MENSAJE_CONFIRMAR = "Esto reemplaza todos los datos actuales. ¿Continuar?"
 SIN_CODIGO = "Todavía no generaste un código."
 FUENTE_MONOESPACADA = "Monospace"
 TAMANO_CODIGO = 26
+ESTILO_SCROLL = (
+    "QScrollArea { border: none; background: transparent; }"
+    "QScrollArea > QWidget { background: transparent; }"
+    "QScrollArea > QWidget > QWidget { background: transparent; }"
+)
+ANCHO_CONTENIDO = 480
+
+
+def _envuelto(etiqueta: BodyLabel, ancho: int = ANCHO_CONTENIDO) -> None:
+    """Fija el alto mínimo de una etiqueta con texto envuelto.
+
+    Qt no recalcula el alto de una etiqueta con ``word wrap`` cuando cambia el
+    ancho disponible, así que el alto se calcula a mano para que no queden
+    líneas cortadas.
+    """
+    etiqueta.setMinimumHeight(max(0, etiqueta.heightForWidth(ancho)))
+
+
+def _tinta(nombre: str) -> tuple[QColor, QColor]:
+    """Devuelve el par (claro, oscuro) de un token Fluent para labels adaptativos."""
+    return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
+
+
+class _UiConfiguracion:
+    """Interfaz Fluent de la configuración.
+
+    Conserva los nombres de widget heredados (``txtNombre``, ``lblError``…) para
+    no romper el código ni los tests que los consultan.
+    """
+
+    def __init__(self, ventana: QWidget) -> None:
+        self.contenido = QWidget(ventana)
+        self.contenido.setObjectName("contenidoConfig")
+
+        self.lblTitulo = SubtitleLabel("", ventana)
+        self.lblTitulo.setObjectName("lblTitulo")
+        self.lblTitulo.setWordWrap(True)
+
+        self.lblNombre = BodyLabel("Nombre de tu comercio/emprendimiento *", ventana)
+        self.lblNombre.setObjectName("lblNombre")
+        self.txtNombre = LineEdit(ventana)
+        self.txtNombre.setObjectName("txtNombre")
+        self.txtNombre.setPlaceholderText("Ej: verdulería de barrio")
+
+        self.lblDireccion = BodyLabel("Dirección", ventana)
+        self.lblDireccion.setObjectName("lblDireccion")
+        self.txtDireccion = LineEdit(ventana)
+        self.txtDireccion.setObjectName("txtDireccion")
+        self.txtDireccion.setPlaceholderText("Ej: artube 1232")
+
+        self.lblCampoCuit = BodyLabel("CUIT", ventana)
+        self.lblCampoCuit.setObjectName("lblCampoCuit")
+        self.txtCuit = LineEdit(ventana)
+        self.txtCuit.setObjectName("txtCuit")
+        self.txtCuit.setPlaceholderText("Ej: 30-12345678-9")
+        self.lblCuit = BodyLabel("", ventana)
+        self.lblCuit.setObjectName("lblCuit")
+        self.lblCuit.setTextColor(*_tinta("texto_secundario"))
+        self.lblCuit.setWordWrap(True)
+
+        self.lblTelefono = BodyLabel("Teléfono", ventana)
+        self.lblTelefono.setObjectName("lblTelefono")
+        self.txtTelefono = LineEdit(ventana)
+        self.txtTelefono.setObjectName("txtTelefono")
+        self.txtTelefono.setPlaceholderText("Ej: 1166666666")
+
+        self.lblError = BodyLabel("", ventana)
+        self.lblError.setObjectName("lblError")
+        self.lblError.setTextColor(*_tinta("error"))
+        self.lblError.setWordWrap(True)
+
+        self.btnGuardar = PrimaryPushButton(BUTTON_INICIAL, ventana)
+        self.btnGuardar.setObjectName("btnGuardar")
+        self.btnGuardar.setAutoDefault(False)
+
+        self.verticalLayout = QVBoxLayout(self.contenido)
+        self.verticalLayout.setContentsMargins(16, 16, 16, 16)
+        self.verticalLayout.setSpacing(12)
+        self.verticalLayout.addWidget(self.lblTitulo)
+        self.verticalLayout.addWidget(self._tarjeta_datos())
+        self.verticalLayout.addStretch(1)
+
+    def _tarjeta_datos(self) -> CardWidget:
+        tarjeta = CardWidget(self.contenido)
+        tarjeta.setObjectName("grpDatos")
+        tarjeta.setBorderRadius(8)
+        disposicion = QVBoxLayout(tarjeta)
+        disposicion.setContentsMargins(16, 14, 16, 14)
+        disposicion.setSpacing(8)
+        disposicion.addWidget(SubtitleLabel("Datos del comercio", tarjeta))
+        disposicion.addWidget(self.lblNombre)
+        disposicion.addWidget(self.txtNombre)
+        disposicion.addWidget(self.lblDireccion)
+        disposicion.addWidget(self.txtDireccion)
+        disposicion.addWidget(self.lblCampoCuit)
+        disposicion.addWidget(self.txtCuit)
+        disposicion.addWidget(self.lblCuit)
+        disposicion.addWidget(self.lblTelefono)
+        disposicion.addWidget(self.txtTelefono)
+        disposicion.addWidget(self.lblError)
+        return tarjeta
+
+    def aplicar_modo(self, edicion: bool) -> None:
+        """Ajusta el título y el botón según sea el alta inicial o la edición."""
+        self.lblTitulo.setText(TEXTO_EDICION if edicion else TEXTO_INICIAL)
+        self.btnGuardar.setText(BUTTON_EDICION if edicion else BUTTON_INICIAL)
 
 
 class VentanaConfiguracion(QDialog, VentanaBase):
@@ -79,13 +193,14 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self._copias: list = []
         self._comercio = getattr(gestor_comercio, "comercio", None)
         self._edicion = self._comercio is not None
-        self.ui = Ui_ConfiguracionForm()
-        self.ui.setupUi(self)
+        self.setObjectName("dlgConfiguracion")
+        self.ui = _UiConfiguracion(self)
         self.ui.btnGuardar.clicked.connect(self.guardar)
         self.ui.lblError.setText("")
+        self.ui.lblCampoCuit.setToolTip(
+            "CUIT de una sociedad (30-…) o CUIL de un monotributista (20-…, 23-…, 24-…).")
         self.ui.lblCuit.setToolTip(
-            "CUIT de una sociedad (30-…) o CUIL de un monotributista (20-…, 23-…, 24-…)."
-        )
+            "CUIT de una sociedad (30-…) o CUIL de un monotributista (20-…, 23-…, 24-…).")
         self._armar_scroll()
         self.ui.aplicar_modo(self._edicion)
         self.setWindowTitle(TITULO_EDICION if self._edicion else TITULO_INICIAL)
@@ -94,11 +209,19 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.ui.txtNombre.setFocus()
         self._armar_seccion_backups()
         self.cargar_backups()
-        self._armar_seccion_interfaz()
         self._armar_seccion_fiado()
         self._armar_seccion_cuenta()
         self._armar_seccion_plan()
         self._armar_seccion_codigos()
+
+        self._aplicar_tema()
+        if hasattr(qconfig, "themeChanged"):
+            qconfig.themeChanged.connect(self._aplicar_tema)
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema Fluent."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo_suave')}; }}")
 
     def _cargar_comercio(self) -> None:
         if self._comercio is None:
@@ -108,38 +231,59 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.ui.txtCuit.setText(self._comercio.cuit)
         self.ui.txtTelefono.setText(self._comercio.telefono)
 
+    def _tarjeta(self, titulo: str) -> tuple[CardWidget, QVBoxLayout]:
+        """Crea una tarjeta Fluent con su título y devuelve el layout del contenido."""
+        tarjeta = CardWidget(self.ui.contenido)
+        tarjeta.setBorderRadius(8)
+        disposicion = QVBoxLayout(tarjeta)
+        disposicion.setContentsMargins(16, 14, 16, 14)
+        disposicion.setSpacing(8)
+        disposicion.addWidget(SubtitleLabel(titulo, tarjeta))
+        return tarjeta, disposicion
+
+    def _agregar_seccion(self, tarjeta: CardWidget) -> None:
+        """Coloca la tarjeta al final del contenido desplazable."""
+        layout = self.ui.verticalLayout
+        layout.insertWidget(layout.count() - 1, tarjeta)
+
     def _armar_scroll(self) -> None:
-        area = QScrollArea(self)
+        area = ScrollArea(self)
         area.setObjectName("sbrConfig")
         area.setWidgetResizable(True)
         area.setFrameShape(QFrame.Shape.NoFrame)
-        contenido = QWidget(area)
-        area.setWidget(contenido)
-        contenido.setLayout(self.ui.verticalLayout)
+        area.setStyleSheet(ESTILO_SCROLL)
+        self.ui.contenido.setAutoFillBackground(False)
+        area.setWidget(self.ui.contenido)
 
         exterior = QVBoxLayout(self)
         exterior.setContentsMargins(0, 0, 0, 0)
         exterior.setSpacing(0)
         exterior.addWidget(area)
 
+        pie = QWidget(self)
+        layout_pie = QHBoxLayout(pie)
+        layout_pie.setContentsMargins(16, 8, 16, 16)
+        layout_pie.addStretch(1)
+        layout_pie.addWidget(self.ui.btnGuardar)
+        exterior.addWidget(pie)
+
         self.setMinimumSize(560, 540)
         self.setMaximumSize(1600, 1400)
         self.resize(560, 900)
 
     def _armar_seccion_backups(self) -> None:
-        grupo = QGroupBox("Copias de seguridad", self)
+        grupo, disposicion = self._tarjeta("Copias de seguridad")
         grupo.setObjectName("grpBackups")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
 
-        self.lblRutaBackups = QLabel(grupo)
+        self.lblRutaBackups = BodyLabel(grupo)
         self.lblRutaBackups.setObjectName("lblRutaBackups")
         self.lblRutaBackups.setWordWrap(True)
+        self.lblRutaBackups.setTextColor(*_tinta("texto_secundario"))
         self.lblRutaBackups.setText(f"Se guardan en: {self._backup.directorio_backups()}")
+        _envuelto(self.lblRutaBackups)
         disposicion.addWidget(self.lblRutaBackups)
 
-        self.tblBackups = QTableWidget(grupo)
+        self.tblBackups = TableWidget(grupo)
         self.tblBackups.setObjectName("tblBackups")
         self.tblBackups.setColumnCount(3)
         self.tblBackups.setHorizontalHeaderLabels(["Copia", "Fecha y hora", "Tamaño"])
@@ -153,49 +297,26 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         encabezado.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         disposicion.addWidget(self.tblBackups)
 
-        self.lblSinBackups = QLabel(grupo)
+        self.lblSinBackups = BodyLabel(grupo)
         self.lblSinBackups.setObjectName("lblSinBackups")
         self.lblSinBackups.setWordWrap(True)
+        self.lblSinBackups.setTextColor(*_tinta("texto_secundario"))
         disposicion.addWidget(self.lblSinBackups)
 
         botones = QHBoxLayout()
-        self.btnCopiarAhora = QPushButton("Hacer copia ahora", grupo)
+        botones.setSpacing(8)
+        self.btnCopiarAhora = PushButton(FIF.SAVE, "Hacer copia ahora", grupo)
         self.btnCopiarAhora.setObjectName("btnCopiarAhora")
-        self.btnCopiarAhora.setMinimumHeight(32)
         self.btnCopiarAhora.clicked.connect(self.hacer_copia)
         botones.addWidget(self.btnCopiarAhora)
-        self.btnRestaurar = QPushButton("Restaurar", grupo)
+        self.btnRestaurar = PushButton(FIF.UPDATE, "Restaurar", grupo)
         self.btnRestaurar.setObjectName("btnRestaurar")
-        self.btnRestaurar.setMinimumHeight(32)
         self.btnRestaurar.clicked.connect(self.restaurar)
         botones.addWidget(self.btnRestaurar)
+        botones.addStretch(1)
         disposicion.addLayout(botones)
 
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
+        self._agregar_seccion(grupo)
 
     def _armar_seccion_fiado(self) -> None:
         return
@@ -206,28 +327,24 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         usuario = self._autenticacion.usuario_actual
         if usuario is None:
             return
-        grupo = QGroupBox("Cuenta", self)
+        grupo, disposicion = self._tarjeta("Cuenta")
         grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
 
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
+        ayuda = BodyLabel(
+            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña.",
             grupo)
         ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
+        ayuda.setTextColor(*_tinta("texto_secundario"))
+        _envuelto(ayuda)
         disposicion.addWidget(ayuda)
 
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
+        self.btnCambiarPassword = PushButton(
+            FIF.PIN, "Cambiar contraseña", grupo)
         self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
         self.btnCambiarPassword.clicked.connect(self._cambiar_password)
         disposicion.addWidget(self.btnCambiarPassword)
 
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
+        self._agregar_seccion(grupo)
 
     def _cambiar_password(self) -> None:
         dialogo = DialogoCambiarPassword(self)
@@ -242,710 +359,48 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
 
     def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
+        grupo, disposicion = self._tarjeta("Edición y funciones")
         grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
 
-        self.lblPlan = QLabel(grupo)
+        self.lblPlan = BodyLabel(grupo)
         self.lblPlan.setObjectName("lblPlan")
         disposicion.addWidget(self.lblPlan)
 
-        self.lblLimites = QLabel(grupo)
+        self.lblLimites = BodyLabel(grupo)
         self.lblLimites.setObjectName("lblLimites")
         self.lblLimites.setWordWrap(True)
         disposicion.addWidget(self.lblLimites)
 
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
+        self.btnVerPlanes = PushButton(FIF.INFO, "Conocé más funciones en la web", grupo)
         self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
         self.btnVerPlanes.clicked.connect(self._ver_planes)
         disposicion.addWidget(self.btnVerPlanes)
 
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_fiado(self) -> None:
-        return
-
-    def _armar_seccion_cuenta(self) -> None:
-        if not self._edicion or self._autenticacion is None:
-            return
-        usuario = self._autenticacion.usuario_actual
-        if usuario is None:
-            return
-        grupo = QGroupBox("Cuenta", self)
-        grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
-            grupo)
-        ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
-        disposicion.addWidget(ayuda)
-
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
-        self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
-        self.btnCambiarPassword.clicked.connect(self._cambiar_password)
-        disposicion.addWidget(self.btnCambiarPassword)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _cambiar_password(self) -> None:
-        dialogo = DialogoCambiarPassword(self)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        actual, nueva = dialogo.datos
-        try:
-            self._autenticacion.cambiar_password(actual, nueva)
-        except ValueError as error:
-            self.mostrar_advertencia("Cuenta", str(error))
-            return
-        self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
-
-    def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
-        grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        self.lblPlan = QLabel(grupo)
-        self.lblPlan.setObjectName("lblPlan")
-        disposicion.addWidget(self.lblPlan)
-
-        self.lblLimites = QLabel(grupo)
-        self.lblLimites.setObjectName("lblLimites")
-        self.lblLimites.setWordWrap(True)
-        disposicion.addWidget(self.lblLimites)
-
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
-        self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
-        self.btnVerPlanes.clicked.connect(self._ver_planes)
-        disposicion.addWidget(self.btnVerPlanes)
-
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_fiado(self) -> None:
-        return
-
-    def _armar_seccion_cuenta(self) -> None:
-        if not self._edicion or self._autenticacion is None:
-            return
-        usuario = self._autenticacion.usuario_actual
-        if usuario is None:
-            return
-        grupo = QGroupBox("Cuenta", self)
-        grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
-            grupo)
-        ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
-        disposicion.addWidget(ayuda)
-
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
-        self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
-        self.btnCambiarPassword.clicked.connect(self._cambiar_password)
-        disposicion.addWidget(self.btnCambiarPassword)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _cambiar_password(self) -> None:
-        dialogo = DialogoCambiarPassword(self)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        actual, nueva = dialogo.datos
-        try:
-            self._autenticacion.cambiar_password(actual, nueva)
-        except ValueError as error:
-            self.mostrar_advertencia("Cuenta", str(error))
-            return
-        self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
-
-    def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
-        grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        self.lblPlan = QLabel(grupo)
-        self.lblPlan.setObjectName("lblPlan")
-        disposicion.addWidget(self.lblPlan)
-
-        self.lblLimites = QLabel(grupo)
-        self.lblLimites.setObjectName("lblLimites")
-        self.lblLimites.setWordWrap(True)
-        disposicion.addWidget(self.lblLimites)
-
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
-        self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
-        self.btnVerPlanes.clicked.connect(self._ver_planes)
-        disposicion.addWidget(self.btnVerPlanes)
-
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_fiado(self) -> None:
-        return
-
-    def _armar_seccion_cuenta(self) -> None:
-        if not self._edicion or self._autenticacion is None:
-            return
-        usuario = self._autenticacion.usuario_actual
-        if usuario is None:
-            return
-        grupo = QGroupBox("Cuenta", self)
-        grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
-            grupo)
-        ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
-        disposicion.addWidget(ayuda)
-
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
-        self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
-        self.btnCambiarPassword.clicked.connect(self._cambiar_password)
-        disposicion.addWidget(self.btnCambiarPassword)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _cambiar_password(self) -> None:
-        dialogo = DialogoCambiarPassword(self)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        actual, nueva = dialogo.datos
-        try:
-            self._autenticacion.cambiar_password(actual, nueva)
-        except ValueError as error:
-            self.mostrar_advertencia("Cuenta", str(error))
-            return
-        self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
-
-    def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
-        grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        self.lblPlan = QLabel(grupo)
-        self.lblPlan.setObjectName("lblPlan")
-        disposicion.addWidget(self.lblPlan)
-
-        self.lblLimites = QLabel(grupo)
-        self.lblLimites.setObjectName("lblLimites")
-        self.lblLimites.setWordWrap(True)
-        disposicion.addWidget(self.lblLimites)
-
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
-        self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
-        self.btnVerPlanes.clicked.connect(self._ver_planes)
-        disposicion.addWidget(self.btnVerPlanes)
-
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_fiado(self) -> None:
-        return
-
-    def _armar_seccion_cuenta(self) -> None:
-        if not self._edicion or self._autenticacion is None:
-            return
-        usuario = self._autenticacion.usuario_actual
-        if usuario is None:
-            return
-        grupo = QGroupBox("Cuenta", self)
-        grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
-            grupo)
-        ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
-        disposicion.addWidget(ayuda)
-
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
-        self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
-        self.btnCambiarPassword.clicked.connect(self._cambiar_password)
-        disposicion.addWidget(self.btnCambiarPassword)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _cambiar_password(self) -> None:
-        dialogo = DialogoCambiarPassword(self)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        actual, nueva = dialogo.datos
-        try:
-            self._autenticacion.cambiar_password(actual, nueva)
-        except ValueError as error:
-            self.mostrar_advertencia("Cuenta", str(error))
-            return
-        self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
-
-    def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
-        grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        self.lblPlan = QLabel(grupo)
-        self.lblPlan.setObjectName("lblPlan")
-        disposicion.addWidget(self.lblPlan)
-
-        self.lblLimites = QLabel(grupo)
-        self.lblLimites.setObjectName("lblLimites")
-        self.lblLimites.setWordWrap(True)
-        disposicion.addWidget(self.lblLimites)
-
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
-        self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
-        self.btnVerPlanes.clicked.connect(self._ver_planes)
-        disposicion.addWidget(self.btnVerPlanes)
-
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_fiado(self) -> None:
-        return
-
-    def _armar_seccion_cuenta(self) -> None:
-        if not self._edicion or self._autenticacion is None:
-            return
-        usuario = self._autenticacion.usuario_actual
-        if usuario is None:
-            return
-        grupo = QGroupBox("Cuenta", self)
-        grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
-            grupo)
-        ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
-        disposicion.addWidget(ayuda)
-
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
-        self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
-        self.btnCambiarPassword.clicked.connect(self._cambiar_password)
-        disposicion.addWidget(self.btnCambiarPassword)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _cambiar_password(self) -> None:
-        dialogo = DialogoCambiarPassword(self)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        actual, nueva = dialogo.datos
-        try:
-            self._autenticacion.cambiar_password(actual, nueva)
-        except ValueError as error:
-            self.mostrar_advertencia("Cuenta", str(error))
-            return
-        self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
-
-    def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
-        grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        self.lblPlan = QLabel(grupo)
-        self.lblPlan.setObjectName("lblPlan")
-        disposicion.addWidget(self.lblPlan)
-
-        self.lblLimites = QLabel(grupo)
-        self.lblLimites.setObjectName("lblLimites")
-        self.lblLimites.setWordWrap(True)
-        disposicion.addWidget(self.lblLimites)
-
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
-        self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
-        self.btnVerPlanes.clicked.connect(self._ver_planes)
-        disposicion.addWidget(self.btnVerPlanes)
-
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_fiado(self) -> None:
-        return
-
-    def _armar_seccion_cuenta(self) -> None:
-        if not self._edicion or self._autenticacion is None:
-            return
-        usuario = self._autenticacion.usuario_actual
-        if usuario is None:
-            return
-        grupo = QGroupBox("Cuenta", self)
-        grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
-            grupo)
-        ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
-        disposicion.addWidget(ayuda)
-
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
-        self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
-        self.btnCambiarPassword.clicked.connect(self._cambiar_password)
-        disposicion.addWidget(self.btnCambiarPassword)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _cambiar_password(self) -> None:
-        dialogo = DialogoCambiarPassword(self)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        actual, nueva = dialogo.datos
-        try:
-            self._autenticacion.cambiar_password(actual, nueva)
-        except ValueError as error:
-            self.mostrar_advertencia("Cuenta", str(error))
-            return
-        self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
-
-    def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
-        grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        self.lblPlan = QLabel(grupo)
-        self.lblPlan.setObjectName("lblPlan")
-        disposicion.addWidget(self.lblPlan)
-
-        self.lblLimites = QLabel(grupo)
-        self.lblLimites.setObjectName("lblLimites")
-        self.lblLimites.setWordWrap(True)
-        disposicion.addWidget(self.lblLimites)
-
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
-        self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
-        self.btnVerPlanes.clicked.connect(self._ver_planes)
-        disposicion.addWidget(self.btnVerPlanes)
-
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_interfaz(self) -> None:
-        grupo = QGroupBox("Barra lateral y módulos", self)
-        grupo.setObjectName("grpInterfaz")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        fila = QHBoxLayout()
-        lbl = QLabel("Ubicación del menú:", grupo)
-        self.cmbPosicionMenu = QComboBox(grupo)
-        self.cmbPosicionMenu.addItem("Izquierda", "izquierda")
-        self.cmbPosicionMenu.addItem("Derecha", "derecha")
-        pos_actual = posicion_menu()
-        idx = self.cmbPosicionMenu.findData(pos_actual)
-        if idx >= 0:
-            self.cmbPosicionMenu.setCurrentIndex(idx)
-        fila.addWidget(lbl)
-        fila.addWidget(self.cmbPosicionMenu, 1)
-        disposicion.addLayout(fila)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _armar_seccion_fiado(self) -> None:
-        return
-
-    def _armar_seccion_cuenta(self) -> None:
-        if not self._edicion or self._autenticacion is None:
-            return
-        usuario = self._autenticacion.usuario_actual
-        if usuario is None:
-            return
-        grupo = QGroupBox("Cuenta", self)
-        grupo.setObjectName("grpCuenta")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        ayuda = QLabel(
-            f"Conectado como {usuario.nombre}. Podés cambiar tu contraseña, "
-            "los usuarios adicionales son una función del plan de pago.",
-            grupo)
-        ayuda.setWordWrap(True)
-        ayuda.setStyleSheet(f"color: {GRIS_TEXTO};")
-        disposicion.addWidget(ayuda)
-
-        self.btnCambiarPassword = QPushButton("Cambiar contraseña", grupo)
-        self.btnCambiarPassword.setObjectName("btnCambiarPassword")
-        self.btnCambiarPassword.setMinimumHeight(32)
-        self.btnCambiarPassword.clicked.connect(self._cambiar_password)
-        disposicion.addWidget(self.btnCambiarPassword)
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
-
-    def _cambiar_password(self) -> None:
-        dialogo = DialogoCambiarPassword(self)
-        if dialogo.exec() != QDialog.DialogCode.Accepted:
-            return
-        actual, nueva = dialogo.datos
-        try:
-            self._autenticacion.cambiar_password(actual, nueva)
-        except ValueError as error:
-            self.mostrar_advertencia("Cuenta", str(error))
-            return
-        self.mostrar_informacion("Cuenta", "La contraseña se actualizó.")
-
-    def _armar_seccion_plan(self) -> None:
-        grupo = QGroupBox("Plan y límites", self)
-        grupo.setObjectName("grpPlan")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
-
-        self.lblPlan = QLabel(grupo)
-        self.lblPlan.setObjectName("lblPlan")
-        disposicion.addWidget(self.lblPlan)
-
-        self.lblLimites = QLabel(grupo)
-        self.lblLimites.setObjectName("lblLimites")
-        self.lblLimites.setWordWrap(True)
-        disposicion.addWidget(self.lblLimites)
-
-        self.btnVerPlanes = QPushButton("Conocé BetterStock Pro", grupo)
-        self.btnVerPlanes.setObjectName("btnVerPlanes")
-        self.btnVerPlanes.setMinimumHeight(32)
-        self.btnVerPlanes.clicked.connect(self._ver_planes)
-        disposicion.addWidget(self.btnVerPlanes)
-
-
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
+        self._agregar_seccion(grupo)
         self._refrescar_plan()
 
     def _armar_seccion_codigos(self) -> None:
-        grupo = QGroupBox("Códigos de anulación", self)
+        grupo, disposicion = self._tarjeta("Códigos de anulación")
         grupo.setObjectName("grpCodigos")
-        disposicion = QVBoxLayout(grupo)
-        disposicion.setContentsMargins(10, 10, 10, 10)
-        disposicion.setSpacing(6)
 
-        self.lblAyudaCodigos = QLabel(grupo)
+        self.lblAyudaCodigos = BodyLabel(grupo)
         self.lblAyudaCodigos.setObjectName("lblAyudaCodigos")
         self.lblAyudaCodigos.setWordWrap(True)
-        font_ayuda = fuente(TAMANO_MICRO)
-        self.lblAyudaCodigos.setFont(font_ayuda)
-        self.lblAyudaCodigos.setStyleSheet(f"color: {GRIS_TEXTO};")
+        self.lblAyudaCodigos.setTextColor(*_tinta("texto_secundario"))
         self.lblAyudaCodigos.setText(
             "El código lo tiene el supervisor y sirve para anular ventas. "
-            "Se muestra una sola vez, al generarlo: después queda solo el hash."
-        )
+            "Se muestra una sola vez, al generarlo: después queda solo el hash.")
+        _envuelto(self.lblAyudaCodigos)
         disposicion.addWidget(self.lblAyudaCodigos)
 
-        self.lblSinCodigo = QLabel(grupo)
+        self.lblSinCodigo = BodyLabel(grupo)
         self.lblSinCodigo.setObjectName("lblSinCodigo")
         self.lblSinCodigo.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lblSinCodigo.setStyleSheet(f"color: {GRIS_TEXTO};")
+        self.lblSinCodigo.setTextColor(*_tinta("texto_secundario"))
         self.lblSinCodigo.setText(SIN_CODIGO)
         disposicion.addWidget(self.lblSinCodigo)
 
-        self.lblCodigoGenerado = QLabel(grupo)
+        self.lblCodigoGenerado = BodyLabel(grupo)
         self.lblCodigoGenerado.setObjectName("lblCodigoGenerado")
         self.lblCodigoGenerado.setAlignment(Qt.AlignmentFlag.AlignCenter)
         fuente_codigo = QFont(FUENTE_MONOESPACADA)
@@ -956,29 +411,29 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         disposicion.addWidget(self.lblCodigoGenerado)
 
         botones = QHBoxLayout()
-        self.btnGenerarCodigo = QPushButton("Generar código", grupo)
+        botones.setSpacing(8)
+        self.btnGenerarCodigo = PushButton(
+            FIF.ADD, "Generar código", grupo)
         self.btnGenerarCodigo.setObjectName("btnGenerarCodigo")
-        self.btnGenerarCodigo.setMinimumHeight(32)
         self.btnGenerarCodigo.clicked.connect(self.generar_codigo)
         botones.addWidget(self.btnGenerarCodigo)
 
-        self.btnCopiarCodigo = QPushButton("Copiar", grupo)
+        self.btnCopiarCodigo = PushButton(FIF.COPY, "Copiar", grupo)
         self.btnCopiarCodigo.setObjectName("btnCopiarCodigo")
-        self.btnCopiarCodigo.setMinimumHeight(32)
         self.btnCopiarCodigo.setEnabled(False)
         self.btnCopiarCodigo.clicked.connect(self.copiar_codigo)
         botones.addWidget(self.btnCopiarCodigo)
 
-        self.btnImprimirCodigo = QPushButton("Imprimir", grupo)
+        self.btnImprimirCodigo = PushButton(FIF.PRINT, "Imprimir", grupo)
         self.btnImprimirCodigo.setObjectName("btnImprimirCodigo")
-        self.btnImprimirCodigo.setMinimumHeight(32)
         self.btnImprimirCodigo.setEnabled(False)
         self.btnImprimirCodigo.setToolTip("Imprime el código con la impresora del sistema.")
         self.btnImprimirCodigo.clicked.connect(self.imprimir_codigo)
         botones.addWidget(self.btnImprimirCodigo)
+        botones.addStretch(1)
         disposicion.addLayout(botones)
 
-        self.tblCodigos = QTableWidget(grupo)
+        self.tblCodigos = TableWidget(grupo)
         self.tblCodigos.setObjectName("tblCodigos")
         self.tblCodigos.setColumnCount(3)
         self.tblCodigos.setHorizontalHeaderLabels(["Supervisor", "Fecha", "Estado"])
@@ -992,18 +447,17 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         encabezado.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         disposicion.addWidget(self.tblCodigos)
 
-        self.btnRevocarCodigo = QPushButton("Revocar", grupo)
+        self.btnRevocarCodigo = PushButton(FIF.REMOVE, "Revocar", grupo)
         self.btnRevocarCodigo.setObjectName("btnRevocarCodigo")
-        self.btnRevocarCodigo.setMinimumHeight(32)
         self.btnRevocarCodigo.clicked.connect(self.revocar_codigo)
         disposicion.addWidget(self.btnRevocarCodigo)
 
-        layout = self.ui.verticalLayout
-        layout.insertWidget(layout.count() - 1, grupo)
+        self._agregar_seccion(grupo)
         self.cargar_codigos()
 
     def cargar_codigos(self) -> None:
         if self._anulaciones is None:
+            self.btnRevocarCodigo.setEnabled(False)
             return
         codigos = self._anulaciones.listar_codigos()
         self.llenar_tabla(
@@ -1092,8 +546,7 @@ class VentanaConfiguracion(QDialog, VentanaBase):
             return
         codigo = codigos[fila]
         if not codigo.activo:
-            self.mostrar_advertencia(
-                "Revocar código", "Ese código ya está revocado.")
+            self.mostrar_advertencia("Revocar código", "Ese código ya está revocado.")
             return
         if not self.confirmar(
             "Revocar código",
@@ -1103,28 +556,31 @@ class VentanaConfiguracion(QDialog, VentanaBase):
             return
         self._anulaciones.revocar_codigo(codigo.identificador)
         self.cargar_codigos()
-        Notificacion(self).mostrar(
-            "Código revocado", "El código ya no sirve para anular ventas.")
+        Notificacion(self).mostrar("Código revocado", "El código ya no sirve para anular ventas.")
 
     def _refrescar_plan(self) -> None:
-        self.lblPlan.setText("Plan actual: Gratis")
-        self.lblLimites.setText(texto_limites())
+        self.lblPlan.setText("BetterStock — Edición Libre")
+        self.lblLimites.setText("Para conocer más funciones avanzadas, visitá la web oficial de BetterStock Pro.")
+        _envuelto(self.lblLimites)
 
     def _ver_planes(self) -> None:
         QDesktopServices.openUrl(QUrl("https://betterstock.tech"))
 
     def validar_cuit(self, texto: str) -> None:
         if not texto.strip():
-            self.ui.lblCuit.setStyleSheet("")
+            self.ui.lblCuit.setTextColor(*_tinta("texto_secundario"))
+            self.ui.lblCuit.setText("")
             return
         if es_cuit_valido(texto):
             tipo = tipo_de_identificador(texto)
             etiqueta = "sociedad" if tipo == "sociedad" else "monotributista"
-            self.ui.lblCuit.setStyleSheet(f"color: {VERDE_TEXTO};")
+            self.ui.lblCuit.setTextColor(*_tinta("exito"))
             self.ui.lblCuit.setText(f"{normalizar_cuit(texto)} — {etiqueta}")
+            _envuelto(self.ui.lblCuit)
             return
-        self.ui.lblCuit.setStyleSheet(f"color: {AMBAR_TEXTO};")
+        self.ui.lblCuit.setTextColor(*_tinta("alerta"))
         self.ui.lblCuit.setText("Revisá el CUIT: son 11 dígitos y el último es verificador.")
+        _envuelto(self.ui.lblCuit)
 
     def cargar_backups(self) -> None:
         copias = self._backup.listar()
@@ -1143,11 +599,14 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.lblSinBackups.setText(
             "" if hay else "Todavía no hay copias. Se genera sola al cerrar caja."
         )
+        _envuelto(self.lblSinBackups)
         self.btnRestaurar.setEnabled(hay)
 
     def _copia_seleccionada(self):
         fila = self.tblBackups.currentRow()
-        if fila < 0:
+        if fila < 0 and self.tblBackups.selectedItems():
+            fila = self.tblBackups.selectedItems()[0].row()
+        if fila < 0 or fila >= len(self._copias):
             self.mostrar_advertencia("Restaurar", "Elegí una copia de la lista primero.")
             return None
         return self._copias[fila]
@@ -1207,9 +666,12 @@ class VentanaConfiguracion(QDialog, VentanaBase):
             )
         except ValueError as error:
             self.ui.lblError.setText(str(error))
+            _envuelto(self.ui.lblError)
             return
 
         if hasattr(self, "cmbPosicionMenu"):
             pos = self.cmbPosicionMenu.currentData() or "izquierda"
             guardar_posicion_menu(pos)
+        if hasattr(self, "chkModoOscuro"):
+            guardar_modo_oscuro(self.chkModoOscuro.isChecked())
         self.accept()

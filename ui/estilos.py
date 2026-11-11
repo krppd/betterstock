@@ -54,12 +54,14 @@ from ui.tema import (
     TAMANO_SUBTITLE,
     TAMANO_TITLE,
     TEMA_APP,
+    TEMA_APP_OSCURO,
     TEXTO,
     TEXTO_SUAVE,
     VERDE,
     VERDE_OSCURO,
     VERDE_PRESIONADO,
     VERDE_TEXTO,
+    color_fluent,
 )
 
 __all__ = [
@@ -119,6 +121,7 @@ __all__ = [
     "VERDE_PRESIONADO",
     "VERDE_TEXTO",
     "alto_linea",
+    "aplicar_color_fluent",
     "aplicar_escala",
     "aplicar_tema",
     "escala",
@@ -136,7 +139,7 @@ _PATRON_PX = re.compile(r"((?:min-height|min-width):\s*)(\d+(?:\.\d+)?)(\s*px)")
 
 
 def _anotar_fuentes(lineas: list[str]) -> None:
-    """Write a diagnostic log to output/fuentes.log on Windows only."""
+    """Deja un diagnóstico en output/fuentes.log solo en Windows."""
     import sys
     if sys.platform != "win32":
         return
@@ -154,7 +157,7 @@ def _cargar_fuentes() -> str:
     from config import RECURSOS_DIR
     carpeta = RECURSOS_DIR / "fuentes"
     if not carpeta.is_dir():
-        _anotar_fuentes([f"missing folder: {carpeta}"])
+        _anotar_fuentes([f"carpeta inexistente: {carpeta}"])
         return ""
     familias: list[str] = []
     lineas: list[str] = []
@@ -169,14 +172,14 @@ def _cargar_fuentes() -> str:
                 QByteArray(archivo.read_bytes()))
         cargadas = (QFontDatabase.applicationFontFamilies(identificador)
                     if identificador >= 0 else [])
-        lineas.append(f"{archivo.name}: id={identificador} families={cargadas}")
+        lineas.append(f"{archivo.name}: id={identificador} familias={cargadas}")
         for nombre in cargadas:
             limpio = nombre.strip()
             if limpio and limpio not in familias:
                 familias.append(limpio)
     elegida = (FAMILIA_FUENTE if FAMILIA_FUENTE in familias
                else familias[0] if familias else "")
-    lineas.append(f"chosen: {elegida or '(none)'} (expected: {FAMILIA_FUENTE})")
+    lineas.append(f"elegida: {elegida or '(ninguna)'} (esperada: {FAMILIA_FUENTE})")
     _anotar_fuentes(lineas)
     return elegida
 
@@ -256,21 +259,163 @@ def _escalar_qss(hoja: str, valor: float) -> str:
     return _PATRON_PX.sub(_px, _PATRON_PUNTO.sub(_punto, hoja))
 
 
+def _paleta_oscura() -> QPalette:
+    """Paleta equivalent a la clara, pero con superficies y textos de alto contraste."""
+    from ui.tema import COLORES_OSCUROS
+
+    def valor(nombre: str, por_defecto: str) -> str:
+        return str(COLORES_OSCUROS.get(nombre, por_defecto))
+
+    paleta = QPalette()
+    paleta.setColor(QPalette.ColorRole.Window, QColor(valor("superficie", "#1F1F1F")))
+    paleta.setColor(QPalette.ColorRole.WindowText, QColor(valor("texto", "#E6E6E6")))
+    paleta.setColor(QPalette.ColorRole.Base, QColor(valor("superficie", "#1F1F1F")))
+    paleta.setColor(QPalette.ColorRole.AlternateBase, QColor(valor("fondo_fila", "#252525")))
+    paleta.setColor(QPalette.ColorRole.Text, QColor(valor("texto", "#E6E6E6")))
+    paleta.setColor(QPalette.ColorRole.Button, QColor(valor("gris_boton", "#2B2B2B")))
+    paleta.setColor(QPalette.ColorRole.ButtonText, QColor(valor("texto", "#E6E6E6")))
+    paleta.setColor(QPalette.ColorRole.Highlight, QColor(valor("verde", "#2DBC66")))
+    paleta.setColor(QPalette.ColorRole.HighlightedText, QColor("#FFFFFF"))
+    paleta.setColor(QPalette.ColorRole.ToolTipBase, QColor(valor("superficie", "#1F1F1F")))
+    paleta.setColor(QPalette.ColorRole.ToolTipText, QColor(valor("texto", "#E6E6E6")))
+    return paleta
+
+
+def _tema_oscuro() -> bool:
+    try:
+        from qfluentwidgets import isDarkTheme
+
+        return bool(isDarkTheme())
+    except Exception:
+        return False
+
+
+def aplicar_color_fluent(qt: QApplication | None = None, oscuro: bool | None = None) -> None:
+    """Fija el verde de la marca como color de acento de PyQt-Fluent-Widgets.
+
+    La librería usa #009faa (celeste) por defecto para botones primarios,
+    switches, combos y bordes de foco. Se aplica al inicio de la app para que
+    login, primer usuario y ventana principal ya nazcan en verde, y se
+    vuelve a aplicar cada vez que cambia el tema.
+    """
+    try:
+        from qfluentwidgets import qconfig, setThemeColor
+    except Exception:
+        return
+    color = color_fluent(oscuro)
+    try:
+        actual = qconfig.get(qconfig.themeColor)
+        if actual is not None and QColor(actual).name() == QColor(color).name():
+            return
+    except Exception:
+        pass
+    try:
+        setThemeColor(color)
+    except Exception:
+        pass
+
+
 def aplicar_tema(qt: QApplication, escala: float | None = None) -> None:
+    """Aplica la paleta y la hoja de estilos global, adaptadas al tema Fluent activo.
+
+    Tras la migración a Fluent, casi ningún widget usa ya la hoja global: cada
+    componente Fluent trae su propio estilo. Por eso la hoja se mantiene
+    reducida a lo que todavía la necesita (etiquetas, tablas y scrollbars
+    heredados) y se regenera en modo "vacío" cuando no aporta nada, para no
+    pagar el costo de reparsear el QSS en cada cambio de tema.
+    """
     if escala is not None:
         aplicar_escala(escala)
-    qt.setStyle("Fusion")
+    if qt.style() is None or qt.style().objectName().lower() != "fusion":
+        qt.setStyle("Fusion")
     familia = _cargar_fuentes()
-    paleta = QPalette()
-    paleta.setColor(QPalette.ColorRole.Window, QColor(BLANCO))
-    paleta.setColor(QPalette.ColorRole.WindowText, QColor(TEXTO))
-    paleta.setColor(QPalette.ColorRole.Base, QColor(BLANCO))
-    paleta.setColor(QPalette.ColorRole.AlternateBase, QColor(FONDO_FILA))
-    paleta.setColor(QPalette.ColorRole.Text, QColor(TEXTO))
-    paleta.setColor(QPalette.ColorRole.Button, QColor(GRIS_BOTON))
-    paleta.setColor(QPalette.ColorRole.ButtonText, QColor(TEXTO))
-    paleta.setColor(QPalette.ColorRole.Highlight, QColor(VERDE))
-    paleta.setColor(QPalette.ColorRole.HighlightedText, QColor(BLANCO))
-    qt.setPalette(paleta)
-    qt.setStyleSheet(_escalar_qss(TEMA_APP, _escala_activa))
+    oscuro = _tema_oscuro()
+    aplicar_color_fluent(qt, oscuro)
+    if oscuro:
+        qt.setPalette(_paleta_oscura())
+        hoja = _escalar_qss(TEMA_APP_OSCURO, _escala_activa)
+    else:
+        paleta = QPalette()
+        paleta.setColor(QPalette.ColorRole.Window, QColor(BLANCO))
+        paleta.setColor(QPalette.ColorRole.WindowText, QColor(TEXTO))
+        paleta.setColor(QPalette.ColorRole.Base, QColor(BLANCO))
+        paleta.setColor(QPalette.ColorRole.AlternateBase, QColor(FONDO_FILA))
+        paleta.setColor(QPalette.ColorRole.Text, QColor(TEXTO))
+        paleta.setColor(QPalette.ColorRole.Button, QColor(GRIS_BOTON))
+        paleta.setColor(QPalette.ColorRole.ButtonText, QColor(TEXTO))
+        paleta.setColor(QPalette.ColorRole.Highlight, QColor(VERDE))
+        paleta.setColor(QPalette.ColorRole.HighlightedText, QColor(BLANCO))
+        qt.setPalette(paleta)
+        hoja = _escalar_qss(TEMA_APP, _escala_activa)
+    qt.setStyleSheet(hoja + _qss_escala_tactil())
     qt.setFont(fuente(TAMANO_BODY, familia=familia or FAMILIA_FUENTE))
+    _conectar_reaplicacion(qt)
+
+
+def _qss_escala_tactil() -> str:
+    """Reglas que agrandan los controles de Fluent en modo táctil.
+
+    Fluent fija el tamaño de sus widgets en píxeles y no expone una escala
+    global, así que el modo táctil (1.5x) no los afecta. Estas reglas suben el
+    alto mínimo y el cuerpo de la fuente de los controles interactivos, que es
+    lo que hace falta para que el dedo alcance todo.
+    """
+    if _escala_activa <= ESCALA_NORMAL:
+        return ""
+    return """
+QPushButton, QToolButton {
+    min-height: 40px;
+    font-size: 11pt;
+}
+LineEdit, TextEdit, ComboBox, SpinBox, DateEdit {
+    min-height: 38px;
+    font-size: 11pt;
+}
+CheckBox, RadioButton {
+    font-size: 11pt;
+    min-height: 32px;
+}
+"""
+
+
+def _conectar_reaplicacion(qt: QApplication) -> None:
+    """Vuelve a aplicar la hoja global cada vez que Fluent cambia de tema."""
+    if getattr(qt, "_betterstock_tema_conectado", False):
+        return
+    try:
+        from qfluentwidgets import qconfig
+
+        qconfig.themeChanged.connect(lambda *_: aplicar_paleta(qt))
+        qt._betterstock_tema_conectado = True
+    except Exception:
+        pass
+
+
+def _hoja_actual(qt: QApplication) -> str:
+    """Devuelve la hoja global que corresponde al tema Fluent activo."""
+    if _tema_oscuro():
+        return _escalar_qss(TEMA_APP_OSCURO, _escala_activa)
+    return _escalar_qss(TEMA_APP, _escala_activa)
+
+
+def aplicar_paleta(qt: QApplication) -> None:
+    """Repinta la app con la paleta y la hoja de estilos del tema activo."""
+    oscuro = _tema_oscuro()
+    aplicar_color_fluent(qt, oscuro)
+    if oscuro:
+        qt.setPalette(_paleta_oscura())
+        hoja = _escalar_qss(TEMA_APP_OSCURO, _escala_activa)
+    else:
+        paleta = QPalette()
+        paleta.setColor(QPalette.ColorRole.Window, QColor(BLANCO))
+        paleta.setColor(QPalette.ColorRole.WindowText, QColor(TEXTO))
+        paleta.setColor(QPalette.ColorRole.Base, QColor(BLANCO))
+        paleta.setColor(QPalette.ColorRole.AlternateBase, QColor(FONDO_FILA))
+        paleta.setColor(QPalette.ColorRole.Text, QColor(TEXTO))
+        paleta.setColor(QPalette.ColorRole.Button, QColor(GRIS_BOTON))
+        paleta.setColor(QPalette.ColorRole.ButtonText, QColor(TEXTO))
+        paleta.setColor(QPalette.ColorRole.Highlight, QColor(VERDE))
+        paleta.setColor(QPalette.ColorRole.HighlightedText, QColor(BLANCO))
+        qt.setPalette(paleta)
+        hoja = _escalar_qss(TEMA_APP, _escala_activa)
+    qt.setStyleSheet(hoja + _qss_escala_tactil())

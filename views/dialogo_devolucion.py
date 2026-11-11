@@ -1,3 +1,5 @@
+"""Diálogo de devolución parcial de una venta."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -7,21 +9,27 @@ from typing import Any
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import (
     QDialog,
-    QDialogButtonBox,
-    QDoubleSpinBox,
+    QHBoxLayout,
     QHeaderView,
-    QLabel,
-    QLineEdit,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    DoubleSpinBox,
+    LineEdit,
+    PrimaryPushButton,
+    PushButton,
+    SubtitleLabel,
+    TableWidget,
 )
 
 from models.codigo_anulacion import LARGO_CODIGO
 from models.venta_registrada import VentaRegistrada
 from services.devoluciones import cantidades_devueltas
-from ui.estilos import TAMANO_BODY, TAMANO_MICRO, fuente
+from ui.estilos import TAMANO_BODY, fuente
+from ui.fluent import color
 from utils.formato import formatear_cantidad, formatear_dinero
 from views.ventana_base import VentanaBase
 
@@ -40,57 +48,59 @@ class DialogoDevolucion(QDialog, VentanaBase):
         self._venta = venta
         self._validar_codigo = validar_codigo
         self._base = base
-        self.spinboxes: dict[str, QDoubleSpinBox] = {}
+        self.spinboxes: dict[str, DoubleSpinBox] = {}
         self.subtotal_items: dict[str, QTableWidgetItem] = {}
         self._devueltos_previos = cantidades_devueltas(
             venta.identificador, base=self._base
         )
 
         self.setWindowTitle("Devolución parcial")
-        self.setMinimumWidth(640)
+        self.setObjectName("dlgDevolucion")
+        self.setMinimumWidth(700)
         self.setMinimumHeight(460)
+        self._aplicar_tema()
 
-        self.lblCabecera = QLabel(
+        self.lblCabecera = SubtitleLabel(
             f"Devolución parcial - Venta #{venta.identificador} ({venta.fecha_texto})",
             self,
         )
+        self.lblCabecera.setObjectName("lblCabecera")
         self.lblCabecera.setFont(fuente(TAMANO_BODY, negrita=True))
 
-        self.tblItems = QTableWidget(self)
+        self.tblItems = TableWidget(self)
+        self.tblItems.setObjectName("tblItems")
         self.tblItems.setColumnCount(6)
         self.tblItems.setHorizontalHeaderLabels(
             ["Código", "Producto", "Vendida", "Devuelta", "A devolver", "Subtotal"]
         )
-        self.tblItems.horizontalHeader().setSectionResizeMode(
-            1, QHeaderView.ResizeMode.Stretch
-        )
+        encabezado = self.tblItems.horizontalHeader()
+        encabezado.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        for columna, ancho in ((0, 80), (2, 80), (3, 85), (4, 140), (5, 95)):
+            encabezado.setSectionResizeMode(columna, QHeaderView.ResizeMode.Interactive)
+            self.tblItems.setColumnWidth(columna, ancho)
 
-        self.lblTotal = QLabel("Total a devolver: $0,00", self)
-        self.lblTotal.setFont(fuente(TAMANO_BODY, negrita=True))
+        self.lblTotal = BodyLabel("Total a devolver: $0,00", self)
+        self.lblTotal.setObjectName("lblTotal")
+        self.lblTotal.setFont(fuente(TAMANO_BODY, negrita=True, tabular=True))
         self.lblTotal.setAlignment(Qt.AlignmentFlag.AlignRight)
 
-        self.lblCodigo = QLabel("Código del supervisor:", self)
-        self.txtCodigo = QLineEdit(self)
+        self.lblCodigo = BodyLabel("Código del supervisor:", self)
+        self.lblCodigo.setObjectName("lblCodigo")
+        self.txtCodigo = LineEdit(self)
+        self.txtCodigo.setObjectName("txtCodigo")
         self.txtCodigo.setPlaceholderText("Código de 10 dígitos")
         self.txtCodigo.setMaxLength(LARGO_CODIGO)
-        self.txtCodigo.setMinimumHeight(30)
 
-        self.lblMotivo = QLabel("Motivo de la devolución:", self)
-        self.txtMotivo = QLineEdit(self)
+        self.lblMotivo = BodyLabel("Motivo de la devolución:", self)
+        self.lblMotivo.setObjectName("lblMotivo")
+        self.txtMotivo = LineEdit(self)
+        self.txtMotivo.setObjectName("txtMotivo")
         self.txtMotivo.setPlaceholderText("Por ejemplo: producto defectuoso, cambio de talle")
-        self.txtMotivo.setMinimumHeight(30)
 
-        self.botones = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel,
-            self,
-        )
-        self.btnAceptar = self.botones.button(QDialogButtonBox.StandardButton.Ok)
-        self.btnAceptar.setText("Devolver")
-        self.btnCancelar = self.botones.button(QDialogButtonBox.StandardButton.Cancel)
-        self.btnCancelar.setText("Cancelar")
+        self.botones = self._armar_botones()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(8)
         layout.addWidget(self.lblCabecera)
         layout.addWidget(self.tblItems, 1)
@@ -99,13 +109,33 @@ class DialogoDevolucion(QDialog, VentanaBase):
         layout.addWidget(self.txtCodigo)
         layout.addWidget(self.lblMotivo)
         layout.addWidget(self.txtMotivo)
-        layout.addWidget(self.botones)
-
-        self.botones.accepted.connect(self.aceptar)
-        self.botones.rejected.connect(self.reject)
+        layout.addLayout(self.botones)
 
         self._cargar_items()
         self._actualizar_totales()
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema claro/oscuro."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
+        )
+
+    def _armar_botones(self) -> QHBoxLayout:
+        botones = QHBoxLayout()
+        botones.setSpacing(8)
+        self.btnAceptar = PrimaryPushButton("Devolver", self)
+        self.btnAceptar.setObjectName("btnAceptar")
+        self.btnAceptar.setDefault(True)
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnCancelar.setObjectName("btnCancelar")
+        self.btnCancelar.setAutoDefault(False)
+        botones.addStretch(1)
+        botones.addWidget(self.btnCancelar)
+        botones.addWidget(self.btnAceptar)
+
+        self.btnAceptar.clicked.connect(self.aceptar)
+        self.btnCancelar.clicked.connect(self.reject)
+        return botones
 
     def _cargar_items(self) -> None:
         renglones = self._venta.detalle
@@ -132,7 +162,8 @@ class DialogoDevolucion(QDialog, VentanaBase):
             item_devuelta.setFlags(item_devuelta.flags() & ~Qt.ItemFlag.ItemIsEditable)
             self.tblItems.setItem(fila, 3, item_devuelta)
 
-            spinbox = QDoubleSpinBox(self.tblItems)
+            spinbox = DoubleSpinBox(self.tblItems)
+            spinbox.setObjectName(f"spnDevolver_{codigo}")
             spinbox.setMinimum(0.0)
             spinbox.setMaximum(disponible)
             spinbox.setDecimals(2)
@@ -149,16 +180,16 @@ class DialogoDevolucion(QDialog, VentanaBase):
             self.tblItems.setItem(fila, 5, item_subtotal)
 
     def _precio_unitario(self, codigo: str) -> float:
-        for r in self._venta.detalle:
-            if r.codigo == codigo:
+        for renglon in self._venta.detalle:
+            if renglon.codigo == codigo:
                 return (
-                    round(r.subtotal / r.cantidad, 2)
-                    if r.cantidad
-                    else r.precio_unitario
+                    round(renglon.subtotal / renglon.cantidad, 2)
+                    if renglon.cantidad
+                    else renglon.precio_unitario
                 )
         return 0.0
 
-    def _actualizar_totales(self) -> None:
+    def _actualizar_totales(self, *_args: object) -> None:
         total = 0.0
         for codigo, spinbox in self.spinboxes.items():
             cant = spinbox.value()

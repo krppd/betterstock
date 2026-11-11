@@ -1,19 +1,27 @@
+"""Diálogo para anular una venta con el código del supervisor."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
 
 from PyQt6.QtWidgets import (
     QDialog,
-    QDialogButtonBox,
-    QLabel,
-    QLineEdit,
-    QTextEdit,
+    QHBoxLayout,
     QVBoxLayout,
     QWidget,
 )
+from qfluentwidgets import (
+    BodyLabel,
+    LineEdit,
+    PrimaryPushButton,
+    PushButton,
+    SubtitleLabel,
+    TextEdit,
+)
 
 from models.codigo_anulacion import LARGO_CODIGO
-from ui.estilos import ROJO_TEXTO, TAMANO_BODY, TAMANO_MICRO, fuente
+from ui.estilos import TAMANO_MICRO, fuente
+from ui.fluent import color
 from views.ventana_base import VentanaBase
 
 AYUDA_CODIGO = "Escaneá el código del supervisor o tipealo."
@@ -31,56 +39,48 @@ class DialogoAnulacion(QDialog, VentanaBase):
         super().__init__(parent)
         self._validar_codigo = validar_codigo
         self.setWindowTitle("Anular venta")
+        self.setObjectName("dlgAnulacion")
         self.setMinimumWidth(440)
+        self._aplicar_tema()
 
-        self.lblCabecera = QLabel(self)
+        self.lblCabecera = SubtitleLabel(self)
         self.lblCabecera.setObjectName("lblCabecera")
         self.lblCabecera.setWordWrap(True)
-        font_cabecera = fuente(TAMANO_BODY, negrita=True)
-        self.lblCabecera.setFont(font_cabecera)
         self.lblCabecera.setText(titulo or "Anular la venta con el código del supervisor.")
 
-        self.lblCodigo = QLabel("Código del supervisor:", self)
+        self.lblCodigo = BodyLabel("Código del supervisor:", self)
         self.lblCodigo.setObjectName("lblCodigo")
-        self.txtCodigo = QLineEdit(self)
+        self.txtCodigo = LineEdit(self)
         self.txtCodigo.setObjectName("txtCodigo")
         self.txtCodigo.setPlaceholderText("Código de 10 dígitos")
         self.txtCodigo.setMaxLength(LARGO_CODIGO)
-        self.txtCodigo.setMinimumHeight(30)
 
-        self.lblAyuda = QLabel(self)
+        self.lblAyuda = BodyLabel(self)
         self.lblAyuda.setObjectName("lblAyuda")
         self.lblAyuda.setWordWrap(True)
         font_ayuda = fuente(TAMANO_MICRO)
         self.lblAyuda.setFont(font_ayuda)
+        self.lblAyuda.setStyleSheet(f"color: {color('texto_suave')};")
         self.lblAyuda.setText(AYUDA_CODIGO)
 
-        self.lblMotivo = QLabel("Motivo de la anulación:", self)
+        self.lblMotivo = BodyLabel("Motivo de la anulación:", self)
         self.lblMotivo.setObjectName("lblMotivo")
-        self.txtMotivo = QTextEdit(self)
+        self.txtMotivo = TextEdit(self)
         self.txtMotivo.setObjectName("txtMotivo")
         self.txtMotivo.setPlaceholderText("Por ejemplo: se cobró mal, el cliente devolvió la mercadería.")
         self.txtMotivo.setFixedHeight(ALTO_MOTIVO)
 
-        self.lblRecordatorio = QLabel(self)
+        self.lblRecordatorio = BodyLabel(self)
         self.lblRecordatorio.setObjectName("lblRecordatorio")
         self.lblRecordatorio.setWordWrap(True)
         self.lblRecordatorio.setFont(font_ayuda)
-        self.lblRecordatorio.setStyleSheet(f"color: {ROJO_TEXTO};")
+        self.lblRecordatorio.setStyleSheet(f"color: {color('error')};")
         self.lblRecordatorio.setText(RECORDATORIO_PLAZO)
 
-        self.botones = QDialogButtonBox(
-            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel, self)
-        self.btnAceptar = self.botones.button(QDialogButtonBox.StandardButton.Ok)
-        self.btnAceptar.setText("Anular")
-        self.btnAceptar.setObjectName("btnAceptar")
-        self.btnAceptar.setDefault(True)
-        self.btnCancelar = self.botones.button(QDialogButtonBox.StandardButton.Cancel)
-        self.btnCancelar.setText("Cancelar")
-        self.btnCancelar.setAutoDefault(False)
+        self.botones = self._armar_botones()
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setContentsMargins(20, 18, 20, 18)
         layout.setSpacing(8)
         layout.addWidget(self.lblCabecera)
         layout.addWidget(self.lblCodigo)
@@ -89,14 +89,35 @@ class DialogoAnulacion(QDialog, VentanaBase):
         layout.addWidget(self.lblMotivo)
         layout.addWidget(self.txtMotivo)
         layout.addWidget(self.lblRecordatorio)
-        layout.addWidget(self.botones)
+        layout.addLayout(self.botones)
 
         self.txtCodigo.textChanged.connect(self.actualizar)
         self.txtCodigo.returnPressed.connect(self.aceptar)
-        self.botones.accepted.connect(self.aceptar)
-        self.botones.rejected.connect(self.reject)
         self.actualizar()
         self.txtCodigo.setFocus()
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema claro/oscuro."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
+        )
+
+    def _armar_botones(self) -> QHBoxLayout:
+        botones = QHBoxLayout()
+        botones.setSpacing(8)
+        self.btnAceptar = PrimaryPushButton("Anular", self)
+        self.btnAceptar.setObjectName("btnAceptar")
+        self.btnAceptar.setDefault(True)
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnCancelar.setObjectName("btnCancelar")
+        self.btnCancelar.setAutoDefault(False)
+        botones.addStretch(1)
+        botones.addWidget(self.btnCancelar)
+        botones.addWidget(self.btnAceptar)
+
+        self.btnAceptar.clicked.connect(self.aceptar)
+        self.btnCancelar.clicked.connect(self.reject)
+        return botones
 
     @property
     def codigo(self) -> str:

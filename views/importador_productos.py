@@ -7,23 +7,29 @@ from PyQt6.QtGui import QBrush, QColor, QDesktopServices
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QButtonGroup,
-    QCheckBox,
-    QComboBox,
     QDialog,
     QFileDialog,
-    QGroupBox,
     QHBoxLayout,
     QHeaderView,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QPushButton,
-    QRadioButton,
     QStackedWidget,
-    QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    CheckBox,
+    ComboBox,
+    FluentIcon as FIF,
+    LineEdit,
+    MessageBox,
+    PrimaryPushButton,
+    PushButton,
+    RadioButton,
+    SimpleCardWidget,
+    SubtitleLabel,
+    TableWidget,
+    qconfig,
 )
 
 from config import OUTPUT_DIR
@@ -43,8 +49,8 @@ from services.importador.modelo import (
     ResultadoImportacion,
 )
 from services.importador.servicio import ServicioImportacion
-from services.plan_motor import CONTACTO, limite
-from ui.estilos import AMBAR_TEXTO, ROJO_TEXTO
+from services.plan_motor import CONTACTO, limite, plan_actual
+from ui.fluent import CLARO, OSCURO, color
 from utils.formato import formatear_dinero
 
 CAMPOS = (
@@ -65,9 +71,38 @@ MODOS_SECCION = (
 
 SIN_COLUMNAS = "— no importar —"
 FORMATO_CSV = "CSV o TXT (columnas separadas por coma, punto y coma o tab)"
+ANCHO_CONTENIDO = 720
+ANCHO_AVISO = 400
+
+
+def _envuelto(etiqueta: BodyLabel, ancho: int = ANCHO_CONTENIDO) -> None:
+    """Fija el alto mínimo de una etiqueta con texto envuelto.
+
+    Qt no recalcula el alto de una etiqueta con ``word wrap`` cuando cambia el
+    ancho disponible, así que el alto se calcula a mano para que no queden
+    líneas cortadas.
+    """
+    etiqueta.setMinimumHeight(max(0, etiqueta.heightForWidth(ancho)))
+
+
+def _tinta(nombre: str) -> tuple[QColor, QColor]:
+    """Devuelve el par (claro, oscuro) de un token Fluent para labels adaptativos."""
+    return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
+
+
+def _tarjeta(titulo: str, parent: QWidget) -> tuple[SimpleCardWidget, QVBoxLayout]:
+    """Crea una tarjeta Fluent con su título y devuelve el layout para el contenido."""
+    tarjeta = SimpleCardWidget(parent)
+    tarjeta.setBorderRadius(8)
+    disposicion = QVBoxLayout(tarjeta)
+    disposicion.setContentsMargins(16, 14, 16, 14)
+    disposicion.setSpacing(8)
+    disposicion.addWidget(SubtitleLabel(titulo, tarjeta))
+    return tarjeta, disposicion
 
 
 class ImportadorProductos(QDialog):
+    """Asistente para importar una lista de productos desde un archivo."""
 
     FILAS_MUESTRA = 8
     FILAS_PREVIA = 10
@@ -82,9 +117,10 @@ class ImportadorProductos(QDialog):
         self._deteccion: Deteccion | None = None
         self._resultado: ResultadoImportacion | None = None
         self._opciones = Opciones()
-        self._combos_columna: dict[str, QComboBox] = {}
-        self._combos_seccion: list[QComboBox] = []
+        self._combos_columna: dict[str, ComboBox] = {}
+        self._combos_seccion: list[ComboBox] = []
         self.setWindowTitle("Importar lista de productos")
+        self.setObjectName("dlgImportador")
         self.setMinimumSize(780, 560)
         self.resize(900, 640)
 
@@ -99,6 +135,14 @@ class ImportadorProductos(QDialog):
         self._paginas.addWidget(self._pagina_resultado())
         layout.addLayout(self._armar_botones())
         self._actualizar_botones()
+
+        self._aplicar_tema()
+        qconfig.themeChanged.connect(self._aplicar_tema)
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del asistente sigue al tema Fluent."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo_suave')}; }}")
 
     def exec(self) -> int:
         if self._servicio.limite_alcanzado():
@@ -187,26 +231,38 @@ class ImportadorProductos(QDialog):
             + "\n\nSe deshizo la importación: la base de datos volvió al estado "
               "anterior a importarla."
         )
-        self.lblResultado.setStyleSheet(f"color: {AMBAR_TEXTO};")
+        self.lblResultado.setTextColor(*_tinta("alerta"))
+        _envuelto(self.lblResultado)
         self.tblErrores.setRowCount(0)
         self.btnDeshacer.setEnabled(False)
 
     def _pagina_archivo(self) -> QWidget:
         pagina = QWidget(self)
         layout = QVBoxLayout(pagina)
+        layout.setSpacing(10)
+
         fila = QHBoxLayout()
-        self.txtArchivo = QLineEdit(pagina)
+        fila.setSpacing(8)
+        self.txtArchivo = LineEdit(pagina)
+        self.txtArchivo.setObjectName("txtArchivo")
         self.txtArchivo.setReadOnly(True)
         self.txtArchivo.setPlaceholderText("Elegí el archivo con la lista de productos")
-        self.btnElegir = QPushButton("Elegir archivo…", pagina)
+        self.btnElegir = PushButton(FIF.FOLDER, "Elegir archivo…", pagina)
+        self.btnElegir.setObjectName("btnElegir")
         self.btnElegir.clicked.connect(self.elegir_archivo)
         fila.addWidget(self.txtArchivo, 1)
         fila.addWidget(self.btnElegir)
         layout.addLayout(fila)
-        self.lblResumen = QLabel("", pagina)
+
+        self.lblResumen = BodyLabel("", pagina)
+        self.lblResumen.setObjectName("lblResumen")
+        self.lblResumen.setTextColor(*_tinta("texto_secundario"))
         self.lblResumen.setWordWrap(True)
+        _envuelto(self.lblResumen)
         layout.addWidget(self.lblResumen)
-        self.tblMuestra = QTableWidget(pagina)
+
+        self.tblMuestra = TableWidget(pagina)
+        self.tblMuestra.setObjectName("tblMuestra")
         self.tblMuestra.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tblMuestra.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.ResizeToContents)
@@ -216,12 +272,14 @@ class ImportadorProductos(QDialog):
 
     def _fila_formato(self) -> QHBoxLayout:
         fila = QHBoxLayout()
-        self.cmbFormato = QComboBox(self)
-        self.cmbFormato.addItem(FORMATO_CSV, None)
+        fila.setSpacing(8)
+        self.cmbFormato = ComboBox(self)
+        self.cmbFormato.setObjectName("cmbFormato")
+        self.cmbFormato.addItem(FORMATO_CSV, userData=None)
         for extra in self._servicio.importadores_disponibles():
-            self.cmbFormato.addItem(extra["nombre"], extra["clase"])
+            self.cmbFormato.addItem(extra["nombre"], userData=extra["clase"])
         self.cmbFormato.currentIndexChanged.connect(self._cambio_formato)
-        fila.addWidget(QLabel("Formato del archivo:", self))
+        fila.addWidget(BodyLabel("Formato del archivo:", self))
         fila.addWidget(self.cmbFormato, 1)
         return fila
 
@@ -233,11 +291,11 @@ class ImportadorProductos(QDialog):
     def _pagina_mapeo(self) -> QWidget:
         pagina = QWidget(self)
         layout = QVBoxLayout(pagina)
-        layout.setSpacing(8)
+        layout.setSpacing(10)
 
-        caja_secciones = QGroupBox("Secciones del archivo", pagina)
-        secciones = QVBoxLayout(caja_secciones)
-        self.tblSecciones = QTableWidget(caja_secciones)
+        caja_secciones, secciones = _tarjeta("Secciones del archivo", pagina)
+        self.tblSecciones = TableWidget(caja_secciones)
+        self.tblSecciones.setObjectName("tblSecciones")
         self.tblSecciones.setColumnCount(3)
         self.tblSecciones.setHorizontalHeaderLabels(["Sección", "Filas", "Qué hacer"])
         self.tblSecciones.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -246,9 +304,9 @@ class ImportadorProductos(QDialog):
         secciones.addWidget(self.tblSecciones)
         layout.addWidget(caja_secciones, 1)
 
-        caja_columnas = QGroupBox("Columnas del archivo", pagina)
-        columnas = QVBoxLayout(caja_columnas)
-        self.tblMapeo = QTableWidget(caja_columnas)
+        caja_columnas, columnas = _tarjeta("Columnas del archivo", pagina)
+        self.tblMapeo = TableWidget(caja_columnas)
+        self.tblMapeo.setObjectName("tblMapeo")
         self.tblMapeo.setColumnCount(3)
         self.tblMapeo.setHorizontalHeaderLabels(["Campo", "Columna", "Ejemplos"])
         self.tblMapeo.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -258,12 +316,15 @@ class ImportadorProductos(QDialog):
         layout.addWidget(caja_columnas, 1)
 
         fila = QHBoxLayout()
-        self.cmbTipoPrecio = QComboBox(pagina)
-        self.cmbTipoPrecio.addItem("Venta", PRECIO_VENTA)
-        self.cmbTipoPrecio.addItem("Costo", PRECIO_COSTO)
-        self.cmbTipoPrecio.addItem("Con IVA (se divide por 1,21)", PRECIO_CON_IVA)
+        fila.setSpacing(8)
+        self.cmbTipoPrecio = ComboBox(pagina)
+        self.cmbTipoPrecio.setObjectName("cmbTipoPrecio")
+        self.cmbTipoPrecio.addItem("Venta", userData=PRECIO_VENTA)
+        self.cmbTipoPrecio.addItem("Costo", userData=PRECIO_COSTO)
+        self.cmbTipoPrecio.addItem(
+            "Con IVA (se divide por 1,21)", userData=PRECIO_CON_IVA)
         self.cmbTipoPrecio.currentIndexChanged.connect(self._cambio_tipo_precio)
-        fila.addWidget(QLabel("¿El precio del archivo es?", pagina))
+        fila.addWidget(BodyLabel("¿El precio del archivo es?", pagina))
         fila.addWidget(self.cmbTipoPrecio)
         fila.addStretch(1)
         layout.addLayout(fila)
@@ -272,15 +333,14 @@ class ImportadorProductos(QDialog):
     def _pagina_opciones(self) -> QWidget:
         pagina = QWidget(self)
         layout = QVBoxLayout(pagina)
-        layout.setSpacing(8)
+        layout.setSpacing(10)
 
-        caja = QGroupBox("Productos que ya existen", pagina)
-        opciones = QVBoxLayout(caja)
-        self.rbActualizarTodo = QRadioButton(
+        caja, opciones = _tarjeta("Productos que ya existen", pagina)
+        self.rbActualizarTodo = RadioButton(
             "Actualizar todo (nombre, categoría, unidad y precios)", caja)
-        self.rbActualizarPrecios = QRadioButton(
+        self.rbActualizarPrecios = RadioButton(
             "Actualizar solo los precios", caja)
-        self.rbOmitir = QRadioButton(
+        self.rbOmitir = RadioButton(
             "Omitir (dejarlos como están)", caja)
         self.rbActualizarTodo.setChecked(True)
         self._grupoExistentes = QButtonGroup(caja)
@@ -290,15 +350,15 @@ class ImportadorProductos(QDialog):
         opciones.addWidget(self.rbActualizarTodo)
         opciones.addWidget(self.rbActualizarPrecios)
         opciones.addWidget(self.rbOmitir)
-        self.chkCrearNuevos = QCheckBox(
+        self.chkCrearNuevos = CheckBox(
             "Crear los productos que todavía no existen", caja)
         self.chkCrearNuevos.setChecked(True)
         opciones.addWidget(self.chkCrearNuevos)
         layout.addWidget(caja)
 
-        caja_previa = QGroupBox("Previsualización", pagina)
-        previa = QVBoxLayout(caja_previa)
-        self.tblPrevia = QTableWidget(caja_previa)
+        caja_previa, previa = _tarjeta("Previsualización", pagina)
+        self.tblPrevia = TableWidget(caja_previa)
+        self.tblPrevia.setObjectName("tblPrevia")
         self.tblPrevia.setColumnCount(8)
         self.tblPrevia.setHorizontalHeaderLabels(
             ["Línea", "Código", "Nombre", "Categoría", "Unidad", "Costo", "Venta", "Aviso"])
@@ -312,21 +372,32 @@ class ImportadorProductos(QDialog):
     def _pagina_resultado(self) -> QWidget:
         pagina = QWidget(self)
         layout = QVBoxLayout(pagina)
-        layout.setSpacing(8)
-        self.lblResultado = QLabel("", pagina)
+        layout.setSpacing(10)
+
+        self.lblResultado = BodyLabel("", pagina)
+        self.lblResultado.setObjectName("lblResultado")
         self.lblResultado.setWordWrap(True)
+        _envuelto(self.lblResultado)
         layout.addWidget(self.lblResultado)
-        self.tblErrores = QTableWidget(pagina)
+
+        caja, contenido = _tarjeta("Errores de la importación", pagina)
+        self.tblErrores = TableWidget(caja)
+        self.tblErrores.setObjectName("tblErrores")
         self.tblErrores.setColumnCount(2)
         self.tblErrores.setHorizontalHeaderLabels(["Línea", "Motivo"])
         self.tblErrores.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tblErrores.horizontalHeader().setSectionResizeMode(
             QHeaderView.ResizeMode.Stretch)
-        layout.addWidget(self.tblErrores, 1)
+        contenido.addWidget(self.tblErrores)
+        layout.addWidget(caja, 1)
+
         fila = QHBoxLayout()
-        self.btnDeshacer = QPushButton("Deshacer esta importación", pagina)
+        fila.setSpacing(8)
+        self.btnDeshacer = PushButton(FIF.SKIP_BACK, "Deshacer esta importación", pagina)
+        self.btnDeshacer.setObjectName("btnDeshacer")
         self.btnDeshacer.clicked.connect(self.deshacer)
-        self.btnCerrar = QPushButton("Cerrar", pagina)
+        self.btnCerrar = PrimaryPushButton("Cerrar", pagina)
+        self.btnCerrar.setObjectName("btnCerrar")
         self.btnCerrar.setDefault(True)
         self.btnCerrar.clicked.connect(self.accept)
         fila.addWidget(self.btnDeshacer)
@@ -337,10 +408,15 @@ class ImportadorProductos(QDialog):
 
     def _armar_botones(self) -> QHBoxLayout:
         botones = QHBoxLayout()
-        self.btnAtras = QPushButton("Atrás", self)
-        self.btnCancelar = QPushButton("Cancelar", self)
-        self.btnSiguiente = QPushButton("Siguiente", self)
-        self.btnImportar = QPushButton("Importar", self)
+        botones.setSpacing(8)
+        self.btnAtras = PushButton("Atrás", self)
+        self.btnAtras.setObjectName("btnAtras")
+        self.btnCancelar = PushButton("Cancelar", self)
+        self.btnCancelar.setObjectName("btnCancelar")
+        self.btnSiguiente = PrimaryPushButton("Siguiente", self)
+        self.btnSiguiente.setObjectName("btnSiguiente")
+        self.btnImportar = PrimaryPushButton("Importar", self)
+        self.btnImportar.setObjectName("btnImportar")
         for boton in (self.btnAtras, self.btnCancelar, self.btnSiguiente, self.btnImportar):
             boton.setAutoDefault(False)
         self.btnAtras.clicked.connect(self.atras)
@@ -403,9 +479,10 @@ class ImportadorProductos(QDialog):
             self.tblSecciones.setItem(indice, 0, QTableWidgetItem(titulo))
             self.tblSecciones.setItem(
                 indice, 1, QTableWidgetItem(str(len(seccion.filas))))
-            combo = QComboBox(self.tblSecciones)
+            combo = ComboBox(self.tblSecciones)
+            combo.setObjectName(f"cmbSeccion{indice}")
             for modo, etiqueta in MODOS_SECCION:
-                combo.addItem(etiqueta, modo)
+                combo.addItem(etiqueta, userData=modo)
             posicion = combo.findData(seccion.tipo_sugerido)
             combo.setCurrentIndex(posicion if posicion >= 0 else 0)
             combo.currentIndexChanged.connect(self._cambio_seccion)
@@ -417,12 +494,13 @@ class ImportadorProductos(QDialog):
         self.tblMapeo.setRowCount(len(CAMPOS))
         for indice, (campo, etiqueta) in enumerate(CAMPOS):
             self.tblMapeo.setItem(indice, 0, QTableWidgetItem(etiqueta))
-            combo = QComboBox(self.tblMapeo)
-            combo.addItem(SIN_COLUMNAS, -1)
+            combo = ComboBox(self.tblMapeo)
+            combo.setObjectName(f"cmbColumna_{campo}")
+            combo.addItem(SIN_COLUMNAS, userData=-1)
             for columna in deteccion.columnas:
-                combo.addItem(columna.nombre, columna.indice)
-            Automatico = deteccion.mapeo.get(campo, -1)
-            posicion = combo.findData(Automatico)
+                combo.addItem(columna.nombre, userData=columna.indice)
+            automatico = deteccion.mapeo.get(campo, -1)
+            posicion = combo.findData(automatico)
             combo.setCurrentIndex(posicion if posicion >= 0 else 0)
             combo.currentIndexChanged.connect(
                 lambda _indice, el_campo=campo: self._cambio_columna(el_campo))
@@ -509,7 +587,7 @@ class ImportadorProductos(QDialog):
         for indice, fila in enumerate(mostrar):
             codigo = fila.valores.get("codigo", "")
             actual = self._servicio.producto_por_codigo(codigo) if codigo else None
-            color = self._color_de_fila(fila, actual)
+            color_fila = self._color_de_fila(fila, actual)
             valores = [
                 str(fila.numero),
                 codigo,
@@ -522,8 +600,8 @@ class ImportadorProductos(QDialog):
             ]
             for columna, texto in enumerate(valores):
                 item = QTableWidgetItem(texto)
-                if color:
-                    item.setForeground(QBrush(QColor(color)))
+                if color_fila:
+                    item.setForeground(QBrush(QColor(color_fila)))
                 self.tblPrevia.setItem(indice, columna, item)
 
     def _precio_texto(self, fila, campo: str) -> str:
@@ -533,24 +611,24 @@ class ImportadorProductos(QDialog):
 
     def _color_de_fila(self, fila, actual) -> str | None:
         if fila.errores:
-            return ROJO_TEXTO
+            return color("error")
         if fila.avisos:
-            return AMBAR_TEXTO
+            return color("alerta")
         for campo in ("precio_venta", "precio_costo"):
             nuevo = fila.precios.get(campo)
             if nuevo is None:
                 continue
             if nuevo <= 0:
-                return AMBAR_TEXTO
+                return color("alerta")
             if actual is None:
                 continue
             viejo = float(getattr(actual, campo, 0.0) or 0.0)
             if viejo > 0 and (nuevo < viejo / 2 or nuevo > viejo * 2):
-                return AMBAR_TEXTO
+                return color("alerta")
         return None
 
     def _llenar_resultado(self, resultado: ResultadoImportacion) -> None:
-        self.lblResultado.setStyleSheet("")
+        self.lblResultado.setTextColor(*_tinta("texto"))
         self.lblResultado.setText(
             f"Importación terminada.\n"
             f"Creados: {resultado.creados} · "
@@ -558,43 +636,53 @@ class ImportadorProductos(QDialog):
             f"Omitidos: {resultado.omitidos} · "
             f"Errores: {len(resultado.errores)}"
         )
+        _envuelto(self.lblResultado)
         self.tblErrores.setRowCount(len(resultado.errores))
         for indice, (numero, motivo) in enumerate(resultado.errores):
             self.tblErrores.setItem(indice, 0, QTableWidgetItem(str(numero)))
             self.tblErrores.setItem(indice, 1, QTableWidgetItem(motivo))
         self.btnDeshacer.setEnabled(resultado.creados + resultado.actualizados > 0)
 
+    def _caja_mensaje(self, titulo: str, mensaje: str) -> MessageBox:
+        """Crea una caja de mensaje Fluent, centrada sobre el asistente."""
+        caja = MessageBox(titulo, mensaje, self)
+        centro = self.mapToGlobal(self.rect().center())
+        caja.move(centro.x() - caja.width() // 2, centro.y() - caja.height() // 2)
+        return caja
+
     def _avisar(self, titulo: str, mensaje: str) -> None:
-        QMessageBox.warning(self, titulo, mensaje)
+        caja = self._caja_mensaje(titulo, mensaje)
+        caja.yesButton.setText("Entendido")
+        caja.hideCancelButton()
+        caja.exec()
 
     def _confirmar(self, titulo: str, pregunta: str) -> bool:
-        respuesta = QMessageBox.question(
-            self, titulo, pregunta,
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
-        )
-        return respuesta == QMessageBox.StandardButton.Yes
+        caja = self._caja_mensaje(titulo, pregunta)
+        caja.yesButton.setText("Sí")
+        caja.cancelButton.setText("No")
+        return bool(caja.exec())
 
 
 class AvisoPlanGratis(QDialog):
+    """Avisa que el plan Gratis ya consumió las importaciones permitidas."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Plan Gratis")
+        self.setObjectName("dlgAvisoPlanGratis")
         self.setMinimumWidth(460)
 
         maximo = limite("importaciones")
-        titulo = "Gratis"
+        titulo = plan_actual().get("titulo", "Gratis")
         permisos = f"{maximo} importación" if maximo is not None else "importaciones sin límite"
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(12)
 
-        titulo_label = QLabel("Llegaste al límite del plan Gratis", self)
-        titulo_label.setStyleSheet("font-size: 14pt; font-weight: bold;")
-        layout.addWidget(titulo_label)
+        layout.addWidget(SubtitleLabel("Llegaste al límite del plan Gratis", self))
 
-        texto = QLabel(
+        texto = BodyLabel(
             f"El plan {titulo} permite {permisos} de "
             "listas de productos, y ya la usaste.\n\n"
             "Las importaciones ilimitadas, con historial y deshacer, son del plan "
@@ -603,11 +691,15 @@ class AvisoPlanGratis(QDialog):
             self,
         )
         texto.setWordWrap(True)
+        _envuelto(texto, ANCHO_AVISO)
         layout.addWidget(texto)
 
         botones = QHBoxLayout()
-        self.btnCorreo = QPushButton(f"Escribir a {CONTACTO}", self)
-        self.btnCerrar = QPushButton("Entendido", self)
+        botones.setSpacing(8)
+        self.btnCorreo = PushButton(f"Escribir a {CONTACTO}", self)
+        self.btnCorreo.setObjectName("btnCorreo")
+        self.btnCerrar = PrimaryPushButton("Entendido", self)
+        self.btnCerrar.setObjectName("btnCerrar")
         self.btnCerrar.setDefault(True)
         self.btnCorreo.clicked.connect(self._escribir)
         self.btnCerrar.clicked.connect(self.accept)
@@ -615,6 +707,14 @@ class AvisoPlanGratis(QDialog):
         botones.addStretch(1)
         botones.addWidget(self.btnCerrar)
         layout.addLayout(botones)
+
+        self._aplicar_tema()
+        qconfig.themeChanged.connect(self._aplicar_tema)
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema Fluent."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo_suave')}; }}")
 
     def _escribir(self) -> None:
         QDesktopServices.openUrl(QUrl(

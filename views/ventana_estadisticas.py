@@ -4,10 +4,31 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QUrl
+from PyQt6 import sip
+from PyQt6.QtCore import QUrl, Qt
 from PyQt6.QtGui import QColor
 from PyQt6.QtQuickWidgets import QQuickWidget
-from PyQt6.QtWidgets import QButtonGroup, QHeaderView, QWidget
+from PyQt6.QtWidgets import (
+    QGridLayout,
+    QHBoxLayout,
+    QHeaderView,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
+from qfluentwidgets import (
+    BodyLabel,
+    CaptionLabel,
+    CardWidget,
+    ComboBox,
+    FluentIcon as FIF,
+    PrimaryPushButton,
+    PushButton,
+    SegmentedWidget,
+    SubtitleLabel,
+    TableWidget,
+    setCustomStyleSheet,
+)
 
 from models import medio_pago
 from services.estadisticas_ventas import (
@@ -16,22 +37,11 @@ from services.estadisticas_ventas import (
     ResumenPeriodo,
 )
 from services.gestor_anulaciones import GestorAnulaciones
-from services.plan_motor import limite
-from ui.estilos import (
-    AMBAR_TEXTO,
-    BORDE,
-    GRIS_BOTON,
-    GRIS_TEXTO,
-    ROJO_TEXTO,
-    TEXTO_SUAVE,
-    VERDE,
-    VERDE_OSCURO,
-    VERDE_TEXTO,
-    escala,
-)
-from ui.manual.estadisticas_ui import Ui_EstadisticasForm
+from services.plan_motor import limite, plan_actual
+from ui.estilos import AMBAR_TEXTO, escala
+from ui.fluent import CLARO, OSCURO, color, conectar_tema
 from ui.qml.bridges.puente_tarjetas import PuenteTarjetas
-from ui.tema import BLANCO, medida, puente_tema
+from ui.tema import medida, puente_tema
 from ui.widgets.grafico_ventas import GraficoVentas
 from ui.widgets.notificacion import Notificacion
 from utils.formato import (
@@ -71,6 +81,180 @@ def _numero(valor: float, decimales: int = 1) -> str:
     return f"{entero.replace(',', SEPARADOR_MILES)}{SEPARADOR_DECIMAL}{fraccion}"
 
 
+def _tintar(etiqueta, token: str) -> None:
+    """Aplica a una etiqueta Fluent el color de un token de ui.fluent (claro y oscuro)."""
+    etiqueta.setTextColor(
+        QColor(CLARO.get(token, "#000000")),
+        QColor(OSCURO.get(token, "#FFFFFF")),
+    )
+
+
+class _TextoMetrica:
+    """Texto de una métrica que se dibuja dentro de las tarjetas QML.
+
+    Las tarjetas se renderizan en QML (``TarjetasEstadisticas.qml``); este
+    objeto conserva el texto y el color de cada métrica para que la API
+    pública de la vista (``ui.lblVentasValor.text()`` y compañía) siga
+    funcionando igual que antes de la migración.
+    """
+
+    def __init__(self, texto: str = "") -> None:
+        self._texto = texto
+        self._color = ""
+
+    def text(self) -> str:
+        return self._texto
+
+    def setText(self, texto: str) -> None:
+        self._texto = texto
+
+    def setTextColor(self, color, _oscuro=None) -> None:
+        self._color = color.name() if isinstance(color, QColor) else str(color)
+
+    def color(self) -> str:
+        return self._color
+
+
+class _UiEstadisticas:
+    """Interfaz Fluent de la ventana de estadísticas.
+
+    Mantiene los nombres de widget heredados (``cmbPeriodo``, ``tblVentas``,
+    ``stackVentas``…) para no romper código ni tests que los consulten.
+    Las cuatro tarjetas de métricas se dibujan en QML.
+    """
+
+    def __init__(self, ventana: QWidget) -> None:
+        self.verticalLayout = QVBoxLayout(ventana)
+        self.verticalLayout.setContentsMargins(16, 10, 16, 10)
+        self.verticalLayout.setSpacing(8)
+
+        self._armar_barra(ventana)
+        self._armar_tarjetas(ventana)
+        self._armar_grafico(ventana)
+        self._armar_tablas(ventana)
+
+    def _armar_barra(self, ventana: QWidget) -> None:
+        barra = QHBoxLayout()
+        barra.setSpacing(8)
+        self.hlyPeriodo = barra
+
+        self.lblTitulo = SubtitleLabel("Estadísticas de ventas", ventana)
+        _tintar(self.lblTitulo, "texto")
+        barra.addWidget(self.lblTitulo)
+        barra.addStretch(1)
+
+        self.lblPeriodo = BodyLabel("Período:", ventana)
+        barra.addWidget(self.lblPeriodo)
+
+        self.cmbPeriodo = ComboBox(ventana)
+        self.cmbPeriodo.setObjectName("cmbPeriodo")
+        self.cmbPeriodo.setMinimumWidth(190)
+        barra.addWidget(self.cmbPeriodo)
+
+        self.btnActualizar = PrimaryPushButton(FIF.SYNC, "Actualizar", ventana)
+        barra.addWidget(self.btnActualizar)
+
+        self.lblPlan = CaptionLabel("", ventana)
+        self.verticalLayout.addLayout(barra)
+        self.verticalLayout.addWidget(self.lblPlan)
+
+        self.lblRango = BodyLabel("", ventana)
+        self.lblRango.setWordWrap(True)
+        self.verticalLayout.addWidget(self.lblRango)
+
+    def _armar_tarjetas(self, ventana: QWidget) -> None:
+        """Deja el hueco donde se incrusta el QML de las cuatro tarjetas."""
+        self.glyTarjetas = QGridLayout()
+        self.glyTarjetas.setSpacing(8)
+        self.verticalLayout.addLayout(self.glyTarjetas)
+
+        self.lblVentasTitulo = _TextoMetrica("Ventas")
+        self.lblVentasValor = _TextoMetrica("0")
+        self.lblVentasVariacion = _TextoMetrica("—")
+        self.lblVentasDetalle = _TextoMetrica("")
+
+        self.lblUnidadesTitulo = _TextoMetrica("Unidades")
+        self.lblUnidadesValor = _TextoMetrica("0")
+        self.lblUnidadesVariacion = _TextoMetrica("—")
+        self.lblUnidadesDetalle = _TextoMetrica("")
+
+        self.lblTotalTitulo = _TextoMetrica("Facturado")
+        self.lblTotalValor = _TextoMetrica("$ 0,00")
+        self.lblTotalVariacion = _TextoMetrica("—")
+        self.lblTotalDetalle = _TextoMetrica("")
+
+        self.lblTicketTitulo = _TextoMetrica("Ticket promedio")
+        self.lblTicketValor = _TextoMetrica("$ 0,00")
+        self.lblTicketVariacion = _TextoMetrica("—")
+        self.lblTicketDetalle = _TextoMetrica("")
+
+    def _armar_grafico(self, ventana: QWidget) -> None:
+        self.grafico = CardWidget(ventana)
+        self.grafico.setObjectName("grafico")
+        self.grafico.setBorderRadius(8)
+        self.grafico.setMinimumHeight(round(140 * escala()))
+
+        self.lyGrafico = QVBoxLayout(self.grafico)
+        self.lyGrafico.setContentsMargins(10, 8, 10, 8)
+        self.verticalLayout.addWidget(self.grafico)
+
+    def _armar_tablas(self, ventana: QWidget) -> None:
+        fila_solapas = QHBoxLayout()
+        fila_solapas.setSpacing(8)
+        self.hlyVentas = fila_solapas
+
+        self.solapas = SegmentedWidget(ventana)
+        self.solapas.addItem("ventas", "Ventas")
+        self.solapas.addItem("ranking", "Más vendidos")
+        self.btnVentas = self.solapas.items["ventas"]
+        self.btnRanking = self.solapas.items["ranking"]
+        fila_solapas.addWidget(self.solapas)
+        fila_solapas.addStretch(1)
+
+        self.btnDetalle = PushButton(FIF.INFO, "Detalles", ventana)
+        fila_solapas.addWidget(self.btnDetalle)
+        self.verticalLayout.addLayout(fila_solapas)
+
+        self.stackVentas = QStackedWidget(ventana)
+        self.stackVentas.setObjectName("stackVentas")
+        self.stackVentas.setMinimumHeight(round(260 * escala()))
+
+        self.tblVentas = TableWidget(ventana)
+        self.tblVentas.setObjectName("tblVentas")
+        self.tblVentas.setColumnCount(6)
+        self.tblVentas.setRowCount(0)
+        self.tblVentas.setHorizontalHeaderLabels(
+            ["Hora", "Unidades", "Total", "Medio", "Detalle", "Estado"])
+        self._estilo_tabla(self.tblVentas)
+
+        self.tblRanking = TableWidget(ventana)
+        self.tblRanking.setObjectName("tblRanking")
+        self.tblRanking.setColumnCount(4)
+        self.tblRanking.setRowCount(0)
+        self.tblRanking.setHorizontalHeaderLabels(
+            ["Producto", "Unidades", "Total", "% del total"])
+        self._estilo_tabla(self.tblRanking)
+
+        self.stackVentas.addWidget(self._tarjeta_tabla(self.tblVentas))
+        self.stackVentas.addWidget(self._tarjeta_tabla(self.tblRanking))
+        self.verticalLayout.addWidget(self.stackVentas, 1)
+
+    @staticmethod
+    def _estilo_tabla(tabla: TableWidget) -> None:
+        tabla.setBorderVisible(True)
+        tabla.setBorderRadius(8)
+        tabla.setWordWrap(False)
+
+    @staticmethod
+    def _tarjeta_tabla(tabla: TableWidget) -> CardWidget:
+        tarjeta = CardWidget(tabla.parentWidget())
+        tarjeta.setBorderRadius(8)
+        lay = QVBoxLayout(tarjeta)
+        lay.setContentsMargins(12, 12, 12, 12)
+        lay.addWidget(tabla)
+        return tarjeta
+
+
 class VentanaEstadisticas(QWidget, VentanaBase):
     MAXIMO_VARIACION = 999.0
 
@@ -82,29 +266,17 @@ class VentanaEstadisticas(QWidget, VentanaBase):
         self._grafico: GraficoVentas | None = None
         self._ventas_mostradas = []
         self._avisadas_lectura: set[str] = set()
-        self.ui = Ui_EstadisticasForm()
-        self.ui.setupUi(self)
+        self._periodo_elegido = ULTIMOS_30
+        self._armando_periodos = False
+        self._ya_mostrada = False
+        self._comparacion_actual: Comparacion | None = None
+        self._series_actual: tuple[list, list, list, list] | None = None
+
+        self.ui = _UiEstadisticas(self)
         self._aviso_ventas_ilegibles = Notificacion(self)
         self._aviso_limite = Notificacion(self)
-        self.setStyleSheet(f"VentanaEstadisticas {{ background-color: {BLANCO}; }}")
-        self._puente = PuenteTarjetas(self)
-        for indice in range(self.ui.glyTarjetas.count()):
-            item = self.ui.glyTarjetas.itemAt(indice)
-            if item is not None and item.widget() is not None:
-                item.widget().hide()
-        self._quick_tarjetas = QQuickWidget(self)
-        self._quick_tarjetas.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._quick_tarjetas.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
-        self._quick_tarjetas.setClearColor(QColor(255, 255, 255, 255))
-        self._quick_tarjetas.rootContext().setContextProperty("puente", self._puente)
-        self._tema = puente_tema(self._quick_tarjetas)
-        self._quick_tarjetas.rootContext().setContextProperty("Tema", self._tema)
-        self._quick_tarjetas.setSource(QUrl.fromLocalFile(str(_ruta_qml("TarjetasEstadisticas.qml"))))
-        self._quick_tarjetas.setMinimumHeight(ALTO_TARJETAS_QML + ALTO_BANDA_QML)
-        self.ui.glyTarjetas.addWidget(self._quick_tarjetas, 1, 0, 1, 4)
-        self.ui.grafico.setMinimumHeight(round(190 * escala()))
-        self.ui.verticalLayout.setStretchFactor(self.ui.grafico, 1)
-        self.ui.verticalLayout.setStretchFactor(self.ui.stackVentas, 2)
+
+        self._armar_tarjetas_qml()
         self.estirar_columnas(self.ui.tblVentas)
         encabezado = self.ui.tblVentas.horizontalHeader()
         encabezado.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
@@ -122,36 +294,66 @@ class VentanaEstadisticas(QWidget, VentanaBase):
             encabezado_tabla.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         self._armar_solapas()
         self.setMinimumSize(700, 620)
-        self._periodo_elegido = ULTIMOS_30
-        self._armando_periodos = False
-        self._ya_mostrada = False
         self.ui.cmbPeriodo.currentIndexChanged.connect(self._al_cambiar_periodo)
         self.ui.btnActualizar.clicked.connect(self.actualizar)
         self.ui.btnDetalle.clicked.connect(self._abrir_detalle)
         self._armar_periodos()
         self.actualizar()
+        conectar_tema(self._aplicar_temas)
+
+    def _armar_tarjetas_qml(self) -> None:
+        """Incrusta las cuatro tarjetas de métricas dibujadas en QML."""
+        self._quick_tarjetas = QQuickWidget(self)
+        self._quick_tarjetas.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self._quick_tarjetas.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
+        self._quick_tarjetas.setClearColor(QColor(0, 0, 0, 0))
+
+        self._puente = PuenteTarjetas(self)
+        self._quick_tarjetas.rootContext().setContextProperty("puente", self._puente)
+
+        self._tema = puente_tema(self._quick_tarjetas)
+        self._quick_tarjetas.rootContext().setContextProperty("Tema", self._tema)
+
+        self._quick_tarjetas.setMinimumHeight(ALTO_TARJETAS_QML + ALTO_BANDA_QML)
+        self._quick_tarjetas.setSource(
+            QUrl.fromLocalFile(str(_ruta_qml("TarjetasEstadisticas.qml"))))
+        self.ui.glyTarjetas.addWidget(self._quick_tarjetas, 0, 0, 1, 4)
+
+        self._tema.temaCambiado.connect(self._aplicar_tema_tarjetas)
+
+    def _aplicar_tema_tarjetas(self) -> None:
+        """Recarga el QML de las tarjetas para que tome la paleta del tema activo."""
+        if sip.isdeleted(self):
+            return
+        self._quick_tarjetas.setSource(
+            QUrl.fromLocalFile(str(_ruta_qml("TarjetasEstadisticas.qml"))))
 
     def _armar_solapas(self) -> None:
-        self._solapas = QButtonGroup(self)
-        self._solapas.setExclusive(True)
-        alto = round(30 * escala())
-        estilo = (
-            "QPushButton { background-color: %s; border: 1px solid %s; "
-            "border-radius: 6px; padding: 4px 12px; }"
-            "QPushButton:hover { background-color: %s; }"
-            "QPushButton:checked { background-color: %s; color: %s; "
-            "border-color: %s; }"
-        ) % (BLANCO, BORDE, GRIS_BOTON, VERDE, BLANCO, VERDE_OSCURO)
-        for indice, boton in enumerate((self.ui.btnVentas, self.ui.btnRanking)):
-            boton.setMinimumHeight(alto)
-            boton.setStyleSheet(estilo)
-            self._solapas.addButton(boton, indice)
-        self.ui.btnVentas.setChecked(True)
-        self._solapas.idClicked.connect(self._mostrar_solapa)
+        self.ui.solapas.currentItemChanged.connect(self._al_cambiar_solapa)
+        self.ui.solapas.setCurrentItem("ventas")
+        self._mostrar_solapa(0)
+
+    def _al_cambiar_solapa(self, clave: str) -> None:
+        self._mostrar_solapa(0 if clave == "ventas" else 1)
 
     def _mostrar_solapa(self, indice: int) -> None:
         self.ui.stackVentas.setCurrentIndex(indice)
         self.ui.btnDetalle.setVisible(indice == 0)
+
+    def _aplicar_temas(self) -> None:
+        """Repinta la ventana con los colores del tema activo."""
+        if sip.isdeleted(self):
+            return
+        try:
+            self._informar_plan()
+            if self._comparacion_actual is not None:
+                self.ui.lblRango.setText(
+                    self._descripcion_periodo_html(self._comparacion_actual.actual))
+            if self._series_actual is not None and self._comparacion_actual is not None:
+                self._pintar_tarjetas(self._comparacion_actual, self._series_actual)
+            self._tematizar_grafico()
+        except RuntimeError:
+            pass
 
     def al_mostrar(self) -> None:
         self._armar_periodos()
@@ -199,21 +401,30 @@ class VentanaEstadisticas(QWidget, VentanaBase):
 
     def _informar_plan(self) -> None:
         maximo = limite("dias_estadisticas")
-        titulo = "Gratis"
+        titulo = plan_actual().get("titulo", "Gratis")
         if maximo is None:
-            texto, color = "", GRIS_TEXTO
+            texto = ""
         elif maximo >= DIAS_12_MESES:
             texto = (f"El plan {titulo} muestra 12 meses de estadísticas. "
                      "Con el plan Mensual ves todo el historial.")
-            color = AMBAR_TEXTO
         else:
             texto = (f"El plan {titulo} muestra {maximo} días de estadísticas. "
                      "Con el plan Mensual ves todo el historial.")
-            color = GRIS_TEXTO
         if self.ui.lblPlan.text() != texto:
             self.ui.lblPlan.setText(texto)
-            self.ui.lblPlan.setStyleSheet(f"color: {color};")
         self.ui.lblPlan.setVisible(bool(texto))
+        if maximo is not None and maximo >= DIAS_12_MESES:
+            setCustomStyleSheet(
+                self.ui.lblPlan,
+                f"color: {AMBAR_TEXTO};",
+                f"color: {OSCURO.get('alerta', AMBAR_TEXTO)};",
+            )
+        else:
+            setCustomStyleSheet(
+                self.ui.lblPlan,
+                f"color: {CLARO.get('texto_suave', '#888888')};",
+                f"color: {OSCURO.get('texto_suave', '#B3B3B3')};",
+            )
 
     def _periodo(self) -> tuple[date, date]:
         hoy = date.today()
@@ -239,7 +450,7 @@ class VentanaEstadisticas(QWidget, VentanaBase):
             return desde, hasta
         if (hasta - desde).days + 1 <= maximo:
             return desde, hasta
-        titulo = "Gratis"
+        titulo = plan_actual().get("titulo", "Gratis")
         self._aviso_limite.mostrar(
             "Límite de estadísticas",
             f"El plan {titulo} muestra los últimos {maximo} días de estadísticas",
@@ -249,14 +460,20 @@ class VentanaEstadisticas(QWidget, VentanaBase):
     @staticmethod
     def _texto_color_variacion(variacion: float | None, nuevo: bool = False) -> tuple[str, str]:
         if nuevo:
-            return "• Nuevo", TEXTO_SUAVE
+            return "• Nuevo", color("texto_suave")
         if variacion is None:
-            return "—", TEXTO_SUAVE
+            return "—", color("texto_suave")
         if variacion > 0:
-            return f"▲ {variacion:.1f}%", VERDE_TEXTO
+            return f"▲ {variacion:.1f}%", color("exito")
         if variacion < 0:
-            return f"▼ {abs(variacion):.1f}%", ROJO_TEXTO
-        return "sin cambio", GRIS_TEXTO
+            return f"▼ {abs(variacion):.1f}%", color("error")
+        return "sin cambio", color("gris_medio")
+
+    @staticmethod
+    def _pintar_variacion(etiqueta, texto: str, color_texto: str) -> None:
+        """Muestra la variación de una métrica con el color del tema activo."""
+        etiqueta.setText(texto)
+        etiqueta.setTextColor(QColor(color_texto), QColor(color_texto))
 
     def _pintar_tarjetas(self, comparacion: Comparacion, series: tuple[list, list, list, list]) -> None:
         actual = comparacion.actual
@@ -279,6 +496,10 @@ class VentanaEstadisticas(QWidget, VentanaBase):
         texto_ticket, color_ticket = self._texto_color_variacion(
             comparacion.variacion_ticket_promedio,
             anterior.ticket_promedio == 0 and actual.ticket_promedio > 0)
+        self._pintar_variacion(self.ui.lblVentasVariacion, texto_ventas, color_ventas)
+        self._pintar_variacion(self.ui.lblUnidadesVariacion, texto_unidades, color_unidades)
+        self._pintar_variacion(self.ui.lblTotalVariacion, texto_total, color_total)
+        self._pintar_variacion(self.ui.lblTicketVariacion, texto_ticket, color_ticket)
         self._puente.actualizar(
             str(actual.cantidad_ventas),
             texto_ventas,
@@ -315,6 +536,15 @@ class VentanaEstadisticas(QWidget, VentanaBase):
             detalles[3],
             self._rango_periodo(resumen),
         )
+        etiquetas = (
+            self.ui.lblVentasDetalle,
+            self.ui.lblUnidadesDetalle,
+            self.ui.lblTotalDetalle,
+            self.ui.lblTicketDetalle,
+        )
+        for etiqueta, detalle in zip(etiquetas, detalles):
+            etiqueta.setText(
+                f"Máx {detalle['maximo']} · Mín {detalle['minimo']} · Prom {detalle['promedio']}")
 
     @staticmethod
     def _detalle_serie(serie: list, dinero: bool) -> dict:
@@ -366,8 +596,8 @@ class VentanaEstadisticas(QWidget, VentanaBase):
             f"{desde.strftime('%d/%m/%Y')} al {hasta.strftime('%d/%m/%Y')}"
         )
         return (
-            f'<b><span style="color:#1E293B;">Del {rango}.</span></b> '
-            '<span style="color:#64748B;">'
+            f'<b><span style="color:{color("texto")};">Del {rango}.</span></b> '
+            f'<span style="color:{color("gris_medio")};">'
             "Se compara contra el período anterior de igual duración.</span>"
         )
 
@@ -382,11 +612,16 @@ class VentanaEstadisticas(QWidget, VentanaBase):
                 sin_licencia = True
                 resumen = self._estadisticas.resumen(desde, hasta)
                 comparacion = Comparacion(actual=resumen, anterior=resumen)
+            self._comparacion_actual = comparacion
             self.ui.lblRango.setText(self._descripcion_periodo_html(comparacion.actual))
             if sin_licencia:
                 self.ui.lblRango.setToolTip(
-                    "La comparación con el período anterior es una función de BetterStock Pro.")
+                    "La comparación con el período anterior es una función premium. "
+                    "Consulte los planes disponibles en Ajustes.")
+            else:
+                self.ui.lblRango.setToolTip("")
             series = self._series_diarias(desde, hasta)
+            self._series_actual = series
             self._pintar_tarjetas(comparacion, series)
             self._puente.actualizar_series(*series)
             self._pintar_grafico(desde, hasta, comparacion)
@@ -435,6 +670,20 @@ class VentanaEstadisticas(QWidget, VentanaBase):
             self.ui.lyGrafico.addWidget(self._grafico)
         else:
             self._grafico.actualizar_puntos(pares, comparacion.variacion_total, titulo)
+        self._tematizar_grafico()
+
+    def _tematizar_grafico(self) -> None:
+        """Adapta los colores del gráfico de matplotlib al tema activo."""
+        if self._grafico is None:
+            return
+        fondo = color("fondo_tarjeta")
+        self._grafico._fig.set_facecolor(fondo)
+        self._grafico._ax.set_facecolor(fondo)
+        self._grafico._ax.title.set_color(color("texto"))
+        self._grafico._ax.tick_params(axis="both", colors=color("gris_medio"))
+        for borde in self._grafico._ax.spines.values():
+            borde.set_color(color("borde_suave"))
+        self._grafico._canvas.draw_idle()
 
     def _ventas_por_hora(self, dia: date) -> list[tuple[str, float]]:
         por_hora = {hora: 0.0 for hora in range(24)}
@@ -462,7 +711,7 @@ class VentanaEstadisticas(QWidget, VentanaBase):
             ]
             for v in self._ventas_mostradas
         ]
-        colores = ["red" if v.anulada else None for v in self._ventas_mostradas]
+        colores = [color("error") if v.anulada else None for v in self._ventas_mostradas]
         self.llenar_tabla(self.ui.tblVentas, filas, colores)
         self._avisar_ventas_ilegibles()
 

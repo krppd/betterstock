@@ -63,7 +63,7 @@ class GraficoVentas(QWidget):
         self._paso = 1
         self._bars: list = []
 
-        self.setMinimumHeight(190)
+        self.setMinimumHeight(140)
 
         self._fig = Figure(facecolor=color("blanco"), edgecolor="none")
         self._canvas = FigureCanvasQTAgg(self._fig)

@@ -1,15 +1,21 @@
 from __future__ import annotations
 
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QPixmap
-from PyQt6.QtWidgets import QCheckBox, QDialog
+from PyQt6.QtGui import QColor, QPixmap
+from PyQt6.QtWidgets import QDialog
+from qfluentwidgets import BodyLabel, CheckBox, qconfig
 
 from config import RECURSOS_DIR
 from services import preferencias
 from services.autenticacion import Autenticacion
-from ui.estilos import ROJO_TEXTO, VERDE
+from ui.fluent import CLARO, OSCURO, color
 from ui.generated.login_ui import Ui_Dialog as Ui_LoginForm
 from views.ventana_base import VentanaBase
+
+
+def _tinta(nombre: str) -> tuple[QColor, QColor]:
+    """Devuelve el par (claro, oscuro) de un token Fluent para labels adaptativos."""
+    return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
 
 
 class VentanaLogin(QDialog, VentanaBase):
@@ -22,6 +28,7 @@ class VentanaLogin(QDialog, VentanaBase):
     INTERVALO_LOGO_MS = 30
     ESPERA_INGRESO_MS = 1300
     ANCHO_FIJO = 400
+    ALTO_MINIMO = 440
     MARGEN_VERTICAL = 20
     TEXTO_MODO_TACTIL = "Modo táctil"
 
@@ -56,32 +63,30 @@ class VentanaLogin(QDialog, VentanaBase):
         self.ui.txtPassword.returnPressed.connect(self.validar_login)
         self.setTabOrder(self.ui.txtUsuario, self.ui.txtPassword)
         self.setTabOrder(self.ui.txtPassword, self.ui.btnIngresar)
-        self.ui.lblError.setStyleSheet(f"color: {ROJO_TEXTO};")
+        self.ui.lblError.setTextColor(*_tinta("error"))
         self.ui.lblError.setText("")
         self._armar_modo_tactil()
         self._ingresando = False
+        self._aplicar_tema()
+        qconfig.themeChanged.connect(self._aplicar_tema)
+
+    def _aplicar_tema(self) -> None:
+        """El fondo del diálogo sigue al tema Fluent."""
+        self.setStyleSheet(
+            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
 
     def _armar_modo_tactil(self) -> None:
-        self.chkModoTactil = QCheckBox(self.TEXTO_MODO_TACTIL, self.ui.layoutWidget)
+        self.chkModoTactil = CheckBox(self.TEXTO_MODO_TACTIL, self.ui.layoutWidget)
         self.chkModoTactil.setObjectName("chkModoTactil")
-        self.chkModoTactil.setStyleSheet(
-            "QCheckBox::indicator {"
-            "  width: 18px; height: 18px;"
-            "  border: 1px solid #CFCFCF; border-radius: 4px;"
-            "  background: #FFFFFF;"
-            "}"
-            "QCheckBox::indicator:checked {"
-            "  background: #FFFFFF;"
-            f"  border: 1px solid {VERDE};"
-            f"  image: url(\"{(RECURSOS_DIR / 'check_verde.png').as_posix()}\");"
-            "}")
         self.chkModoTactil.setChecked(preferencias.modo_tactil())
         self.chkModoTactil.toggled.connect(self._cambiar_modo_tactil)
         self.ui.gridLayout.addWidget(self.chkModoTactil, 7, 0, 1, 1)
         self.ui.gridLayout.activate()
         alto = self.ui.gridLayout.sizeHint().height()
         self.ui.layoutWidget.setGeometry(26, self.MARGEN_VERTICAL, 361, alto)
-        self.setFixedSize(self.ANCHO_FIJO, self.MARGEN_VERTICAL + alto + self.MARGEN_VERTICAL)
+        alto_ventana = self.MARGEN_VERTICAL + alto + self.MARGEN_VERTICAL
+        self.setFixedSize(
+            self.ANCHO_FIJO, max(alto_ventana, self.ALTO_MINIMO))
         self.setTabOrder(self.ui.btnIngresar, self.chkModoTactil)
 
     def _cambiar_modo_tactil(self, activo: bool) -> None:
@@ -102,7 +107,7 @@ class VentanaLogin(QDialog, VentanaBase):
 
         if self._autenticacion.iniciar_sesion(usuario, password):
             self._ingresando = True
-            self.ui.btnIngresar.flash("Ingresando", self.ESPERA_INGRESO_MS)
+            self.ui.btnIngresar.setText("Ingresando…")
             self.ui.btnIngresar.setEnabled(False)
             self.ui.txtUsuario.setEnabled(False)
             self.ui.txtPassword.setEnabled(False)

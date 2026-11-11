@@ -3,33 +3,53 @@ from __future__ import annotations
 from typing import Callable
 
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPainter, QPen
 from PyQt6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QLabel,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
+from qfluentwidgets import (
+    BodyLabel,
+    SimpleCardWidget,
+    SubtitleLabel,
+)
 
 from models.caja_movimiento import CajaMovimiento
 from models.cierre import CierreRegistrado
 from ui.estilos import (
     TAMANO_BODY,
-    TAMANO_MICRO,
     TAMANO_SMALL,
     TAMANO_SUBTITLE,
     escala,
     fuente,
 )
-from ui.tema import color
+from ui.fluent import CLARO, OSCURO, color
 
 
 def _px(valor: int) -> int:
     return round(valor * escala())
 
 
-class TarjetaMovimientoCaja(QFrame):
+def _tinta(nombre: str) -> tuple[QColor, QColor]:
+    """Devuelve el par (claro, oscuro) de un token Fluent para labels adaptativos."""
+    return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
+
+
+def _fuente(punto: int, *, negrita: bool = False, tabular: bool = False,
+            tachado: bool = False):
+    """Fuente del tema con soporte para texto tachado (movimientos anulados)."""
+    resultado = fuente(punto, negrita=negrita, tabular=tabular)
+    if tachado:
+        resultado.setStrikeOut(True)
+    return resultado
+
+
+class TarjetaMovimientoCaja(SimpleCardWidget):
+    """Tarjeta Fluent de un movimiento de caja (activo o anulado)."""
+
     def __init__(
         self,
         movimiento: CajaMovimiento,
@@ -37,14 +57,18 @@ class TarjetaMovimientoCaja(QFrame):
         on_click: Callable[[int], None] | None = None,
         parent: QWidget | None = None,
     ) -> None:
-        super().__init__(parent)
         self.movimiento = movimiento
         self.indice = indice
         self._on_click = on_click
         self._seleccionada = False
+        self._color_borde = QColor(CLARO["borde_suave"])
+
+        super().__init__(parent)
 
         self.setObjectName("tarjetaMovimiento")
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setBorderRadius(_px(12))
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(_px(12), _px(8), _px(12), _px(8))
@@ -56,19 +80,13 @@ class TarjetaMovimientoCaja(QFrame):
 
         tipo_texto = movimiento.tipo.capitalize()
         hora_texto = movimiento.hora[:5] if len(movimiento.hora) >= 5 else movimiento.hora
-        self.lbl_arriba = QLabel(f"{hora_texto} · {tipo_texto}", self)
-        fuente_arr = fuente(TAMANO_SMALL, negrita=True)
-        if movimiento.anulado:
-            fuente_arr.setStrikeOut(True)
-        self.lbl_arriba.setFont(fuente_arr)
+        self.lbl_arriba = BodyLabel(f"{hora_texto} · {tipo_texto}", self)
+        self.lbl_arriba.setFont(_fuente(TAMANO_SMALL, negrita=True, tachado=movimiento.anulado))
         col_izq.addWidget(self.lbl_arriba)
 
         estado_texto = "Anulado" if movimiento.anulado else "Activo"
-        self.lbl_abajo = QLabel(f"{movimiento.concepto} · {estado_texto}", self)
-        fuente_abj = fuente(TAMANO_SMALL)
-        if movimiento.anulado:
-            fuente_abj.setStrikeOut(True)
-        self.lbl_abajo.setFont(fuente_abj)
+        self.lbl_abajo = BodyLabel(f"{movimiento.concepto} · {estado_texto}", self)
+        self.lbl_abajo.setFont(_fuente(TAMANO_SMALL, tachado=movimiento.anulado))
         col_izq.addWidget(self.lbl_abajo)
 
         lay.addLayout(col_izq, 1)
@@ -79,22 +97,15 @@ class TarjetaMovimientoCaja(QFrame):
 
         if movimiento.anulado:
             self.lbl_badge = QLabel("Anulado", self)
-            self.lbl_badge.setFont(fuente(TAMANO_MICRO, negrita=True))
-            self.lbl_badge.setStyleSheet(
-                f"background-color: {color('pastilla_negativa')}; color: {color('rojo_oscuro')}; "
-                f"border: 1px solid {color('borde_negativo')}; border-radius: {_px(6)}px; "
-                f"padding: {_px(2)}px {_px(6)}px;"
-            )
+            self.lbl_badge.setFont(fuente(TAMANO_SMALL, negrita=True))
             self.lbl_badge.setAlignment(Qt.AlignmentFlag.AlignCenter)
             col_der.addWidget(self.lbl_badge)
 
         signo = "-" if movimiento.es_egreso else "+"
         monto_str = f"{signo}$ {movimiento.importe:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-        self.lbl_importe = QLabel(monto_str, self)
-        fuente_imp = fuente(TAMANO_SUBTITLE, negrita=True, tabular=True)
-        if movimiento.anulado:
-            fuente_imp.setStrikeOut(True)
-        self.lbl_importe.setFont(fuente_imp)
+        self.lbl_importe = SubtitleLabel(monto_str, self)
+        self.lbl_importe.setFont(_fuente(TAMANO_SUBTITLE, negrita=True, tabular=True,
+                                         tachado=movimiento.anulado))
         self.lbl_importe.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         col_der.addWidget(self.lbl_importe)
 
@@ -118,43 +129,50 @@ class TarjetaMovimientoCaja(QFrame):
             self.click()
         super().mousePressEvent(event)
 
+    def paintEvent(self, evento) -> None:
+        """Dibuja el relleno y el borde de la tarjeta con los colores del tema."""
+        pintor = QPainter(self)
+        pintor.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pintor.setPen(QPen(self._color_borde, 2 if self._seleccionada else 1))
+        pintor.setBrush(self.backgroundColor)
+        radio = self.borderRadius
+        pintor.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), radio, radio)
+
+    def _updateBackgroundColor(self) -> None:
+        """Mantiene el color propio de la tarjeta (no el genérico de la carta)."""
+        self._aplicar_estilo()
+
     def _aplicar_estilo(self) -> None:
-        radio = _px(12)
         if self.movimiento.anulado:
-            color_txt = color("gris_apagado")
-            color_imp = color("gris_apagado")
-            if self._seleccionada:
-                fondo = color("fondo_insignia")
-                borde = f"2px solid {color('gris_medio')}"
-            else:
-                fondo = color("fondo_suave")
-                borde = f"1px solid {color('borde_suave')}"
+            self.lbl_arriba.setTextColor(*_tinta("gris_apagado"))
+            self.lbl_abajo.setTextColor(*_tinta("gris_apagado"))
+            self.lbl_importe.setTextColor(*_tinta("gris_apagado"))
+            fondo = color("fondo_suave")
+            borde = color("gris_medio") if self._seleccionada else color("borde_suave")
         else:
-            color_txt = color("texto_oscuro")
-            color_imp = color("rojo_oscuro") if self.movimiento.es_egreso else color("verde_acento")
-            if self._seleccionada:
-                fondo = color("pastilla_positiva")
-                borde = f"2px solid {color('verde_acento')}"
-            else:
-                fondo = color("blanco")
-                borde = f"1px solid {color('borde_suave')}"
+            self.lbl_arriba.setTextColor(*_tinta("texto"))
+            self.lbl_abajo.setTextColor(*_tinta("gris_medio"))
+            self.lbl_importe.setTextColor(
+                *_tinta("error" if self.movimiento.es_egreso else "exito"))
+            fondo = color("pastilla_positiva") if self._seleccionada else color("fondo_tarjeta")
+            borde = color("acento") if self._seleccionada else color("borde_suave")
 
-        self.setStyleSheet(
-            f"QFrame#tarjetaMovimiento {{ "
-            f"background-color: {fondo}; "
-            f"border: {borde}; "
-            f"border-radius: {radio}px; "
-            f"}} "
-            f"QFrame#tarjetaMovimiento:hover {{ "
-            f"border-color: {color('borde_destacado')}; "
-            f"}}"
-        )
-        self.lbl_arriba.setStyleSheet(f"color: {color_txt}; background: transparent; border: none;")
-        self.lbl_abajo.setStyleSheet(f"color: {color('gris_medio') if not self.movimiento.anulado else color_txt}; background: transparent; border: none;")
-        self.lbl_importe.setStyleSheet(f"color: {color_imp}; background: transparent; border: none;")
+        self._color_borde = QColor(borde)
+        self.setBackgroundColor(QColor(fondo))
+
+        if hasattr(self, "lbl_badge"):
+            self.lbl_badge.setStyleSheet(
+                f"background-color: {color('pastilla_negativa')}; color: {color('error')}; "
+                f"border: 1px solid {color('borde')}; border-radius: {_px(6)}px; "
+                f"padding: {_px(2)}px {_px(6)}px;"
+            )
+
+        self.update()
 
 
-class TarjetaHistorialCierre(QFrame):
+class TarjetaHistorialCierre(SimpleCardWidget):
+    """Tarjeta Fluent con el resumen de un cierre de caja."""
+
     def __init__(
         self,
         cierre: CierreRegistrado,
@@ -165,6 +183,7 @@ class TarjetaHistorialCierre(QFrame):
         self.cierre = cierre
         self.setObjectName("tarjetaHistorialCierre")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setBorderRadius(_px(8))
 
         from utils.formato import formatear_dinero
 
@@ -176,11 +195,12 @@ class TarjetaHistorialCierre(QFrame):
         col_izq.setContentsMargins(0, 0, 0, 0)
         col_izq.setSpacing(_px(3))
 
-        hora_txt = f" {cierre.hora}" if getattr(cierre, "hora", None) else ""
+        hora_val = getattr(cierre, "hora", None) or ""
+        hora_txt = f" {hora_val[:5]}" if len(hora_val) >= 5 else (f" {hora_val}" if hora_val else "")
         usuario = cierre.usuario or "—"
-        lbl_arr = QLabel(f"{cierre.fecha_texto}{hora_txt} · {usuario}", self)
+        lbl_arr = BodyLabel(f"{cierre.fecha_texto}{hora_txt} · {usuario}", self)
         lbl_arr.setFont(fuente(TAMANO_BODY, negrita=True))
-        lbl_arr.setStyleSheet(f"color: {color('texto_oscuro')}; background: transparent; border: none;")
+        lbl_arr.setTextColor(*_tinta("texto"))
         col_izq.addWidget(lbl_arr)
 
         ventas_txt = f"{cierre.cantidad_ventas} {'venta' if cierre.cantidad_ventas == 1 else 'ventas'}"
@@ -188,9 +208,9 @@ class TarjetaHistorialCierre(QFrame):
             sub = f"{ventas_txt} · Declarado {formatear_dinero(cierre.declarado)}"
         else:
             sub = f"{ventas_txt} · Esperado {formatear_dinero(cierre.total_esperado)}"
-        lbl_abj = QLabel(sub, self)
+        lbl_abj = BodyLabel(sub, self)
         lbl_abj.setFont(fuente(TAMANO_SMALL))
-        lbl_abj.setStyleSheet(f"color: {color('gris_medio')}; background: transparent; border: none;")
+        lbl_abj.setTextColor(*_tinta("gris_medio"))
         col_izq.addWidget(lbl_abj)
 
         lay.addLayout(col_izq, 1)
@@ -199,39 +219,35 @@ class TarjetaHistorialCierre(QFrame):
         col_der.setContentsMargins(0, 0, 0, 0)
         col_der.setSpacing(_px(2))
 
-        lbl_monto = QLabel(formatear_dinero(cierre.declarado), self)
+        lbl_monto = SubtitleLabel(formatear_dinero(cierre.declarado), self)
         lbl_monto.setFont(fuente(TAMANO_BODY, negrita=True, tabular=True))
-        lbl_monto.setStyleSheet(f"color: {color('texto_oscuro')}; background: transparent; border: none;")
+        lbl_monto.setTextColor(*_tinta("texto"))
         lbl_monto.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         col_der.addWidget(lbl_monto)
 
         if cierre.cuadra:
             txt_estado = "Cuadra"
-            col_estado = color("verde_acento")
+            col_estado = "exito"
         elif cierre.sobrante > 0:
             txt_estado = f"+{formatear_dinero(cierre.sobrante)} sobrante"
-            col_estado = color("verde_acento")
+            col_estado = "exito"
         else:
             txt_estado = f"-{formatear_dinero(cierre.faltante)} faltante"
-            col_estado = color("rojo_oscuro")
+            col_estado = "error"
 
-        lbl_estado = QLabel(txt_estado, self)
+        lbl_estado = BodyLabel(txt_estado, self)
         lbl_estado.setFont(fuente(TAMANO_SMALL, negrita=True))
-        lbl_estado.setStyleSheet(f"color: {col_estado}; background: transparent; border: none;")
+        lbl_estado.setTextColor(*_tinta(col_estado))
         lbl_estado.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
         col_der.addWidget(lbl_estado)
 
         lay.addLayout(col_der)
 
-        radio = _px(8)
-        self.setStyleSheet(
-            f"QFrame#tarjetaHistorialCierre {{ "
-            f"background-color: {color('blanco')}; "
-            f"border: 1px solid {color('borde_suave')}; "
-            f"border-radius: {radio}px; "
-            f"}} "
-            f"QFrame#tarjetaHistorialCierre:hover {{ "
-            f"background-color: {color('fondo_suave')}; "
-            f"border-color: {color('borde_destacado')}; "
-            f"}}"
-        )
+        self._aplicar_estilo()
+
+    def _updateBackgroundColor(self) -> None:
+        self._aplicar_estilo()
+
+    def _aplicar_estilo(self) -> None:
+        self.setBackgroundColor(QColor(color("fondo_tarjeta")))
+        self.update()

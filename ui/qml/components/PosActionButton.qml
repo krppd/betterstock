@@ -16,7 +16,7 @@ Rectangle {
     signal clicado
     implicitWidth: Math.ceil(anchoTexto + anchoInsignia + 32)
     implicitHeight: Math.round(Tema.medida("alto_boton") * raiz.escala)
-    color: Tema.color("blanco")
+    color: Tema.color("superficie")
     radius: Tema.radio("panel")
     border.width: Tema.medida("grosor_borde")
     border.color: area.containsMouse ? Tema.color("borde_destacado") : Tema.color("borde_suave")
