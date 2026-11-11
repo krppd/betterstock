@@ -267,11 +267,30 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: Tema.medida("margen_tarjeta")
                 spacing: Tema.espaciado("pico")
-                Text {
-                    text: "Ventas"
-                    font.family: Tema.familia()
-                    font.pointSize: Tema.tamano("micro")
-                    color: Tema.color("texto_secundario")
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: "Ventas"
+                        font.family: Tema.familia()
+                        font.pointSize: Tema.tamano("micro")
+                        color: Tema.color("texto_secundario")
+                    }
+                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        Layout.preferredHeight: Tema.medida("alto_pastilla")
+                        implicitWidth: txtPillVentas.implicitWidth + Tema.medida("margen_pastilla")
+                        radius: Tema.radio("control")
+                        color: (puente && puente.ventasTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.ventasTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
+                        Text {
+                            id: txtPillVentas
+                            anchors.centerIn: parent
+                            font.family: Tema.familia()
+                            font.pointSize: Tema.tamano("micro")
+                            font.weight: Tema.peso("negrita")
+                            color: (puente && puente.ventasTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.ventasTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
+                            text: badgeTexto(puente ? puente.ventasVariacion : "", puente ? puente.ventasTendencia : 0)
+                        }
+                    }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -283,24 +302,10 @@ Rectangle {
                     font.features: Tema.caracteristicas()
                     color: Tema.color("texto_valor")
                 }
-                Rectangle {
-                    Layout.preferredHeight: Tema.medida("alto_pastilla")
-                    implicitWidth: txtPillVentas.implicitWidth + Tema.medida("margen_pastilla")
-                    radius: Tema.radio("control")
-                    color: (puente && puente.ventasTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.ventasTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
-                    Text {
-                        id: txtPillVentas
-                        anchors.centerIn: parent
-                        font.family: Tema.familia()
-                        font.pointSize: Tema.tamano("micro")
-                        font.weight: Tema.peso("negrita")
-                        color: (puente && puente.ventasTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.ventasTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
-                        text: badgeTexto(puente ? puente.ventasVariacion : "", puente ? puente.ventasTendencia : 0)
-                    }
-                }
                 Sparkline {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Tema.medida("alto_sparkline")
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 24
                     valores: (puente ? puente.serieVentas : [])
                     colorLinea: Tema.color("verde_texto")
                 }
@@ -352,11 +357,30 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: Tema.medida("margen_tarjeta")
                 spacing: Tema.espaciado("pico")
-                Text {
-                    text: "Unidades"
-                    font.family: Tema.familia()
-                    font.pointSize: Tema.tamano("micro")
-                    color: Tema.color("texto_secundario")
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: "Unidades"
+                        font.family: Tema.familia()
+                        font.pointSize: Tema.tamano("micro")
+                        color: Tema.color("texto_secundario")
+                    }
+                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        Layout.preferredHeight: Tema.medida("alto_pastilla")
+                        implicitWidth: txtPillUnidades.implicitWidth + Tema.medida("margen_pastilla")
+                        radius: Tema.radio("control")
+                        color: (puente && puente.unidadesTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.unidadesTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
+                        Text {
+                            id: txtPillUnidades
+                            anchors.centerIn: parent
+                            font.family: Tema.familia()
+                            font.pointSize: Tema.tamano("micro")
+                            font.weight: Tema.peso("negrita")
+                            color: (puente && puente.unidadesTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.unidadesTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
+                            text: badgeTexto(puente ? puente.unidadesVariacion : "", puente ? puente.unidadesTendencia : 0)
+                        }
+                    }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -368,24 +392,10 @@ Rectangle {
                     font.features: Tema.caracteristicas()
                     color: Tema.color("texto_valor")
                 }
-                Rectangle {
-                    Layout.preferredHeight: Tema.medida("alto_pastilla")
-                    implicitWidth: txtPillUnidades.implicitWidth + Tema.medida("margen_pastilla")
-                    radius: Tema.radio("control")
-                    color: (puente && puente.unidadesTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.unidadesTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
-                    Text {
-                        id: txtPillUnidades
-                        anchors.centerIn: parent
-                        font.family: Tema.familia()
-                        font.pointSize: Tema.tamano("micro")
-                        font.weight: Tema.peso("negrita")
-                        color: (puente && puente.unidadesTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.unidadesTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
-                        text: badgeTexto(puente ? puente.unidadesVariacion : "", puente ? puente.unidadesTendencia : 0)
-                    }
-                }
                 Sparkline {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Tema.medida("alto_sparkline")
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 24
                     valores: (puente ? puente.serieUnidades : [])
                     colorLinea: Tema.color("serie_azul")
                 }
@@ -437,11 +447,30 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: Tema.medida("margen_tarjeta")
                 spacing: Tema.espaciado("pico")
-                Text {
-                    text: "Facturado"
-                    font.family: Tema.familia()
-                    font.pointSize: Tema.tamano("micro")
-                    color: Tema.color("texto_secundario")
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: "Facturado"
+                        font.family: Tema.familia()
+                        font.pointSize: Tema.tamano("micro")
+                        color: Tema.color("texto_secundario")
+                    }
+                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        Layout.preferredHeight: Tema.medida("alto_pastilla")
+                        implicitWidth: txtPillTotal.implicitWidth + Tema.medida("margen_pastilla")
+                        radius: Tema.radio("control")
+                        color: (puente && puente.totalTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.totalTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
+                        Text {
+                            id: txtPillTotal
+                            anchors.centerIn: parent
+                            font.family: Tema.familia()
+                            font.pointSize: Tema.tamano("micro")
+                            font.weight: Tema.peso("negrita")
+                            color: (puente && puente.totalTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.totalTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
+                            text: badgeTexto(puente ? puente.totalVariacion : "", puente ? puente.totalTendencia : 0)
+                        }
+                    }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -453,24 +482,10 @@ Rectangle {
                     font.features: Tema.caracteristicas()
                     color: Tema.color("texto_valor")
                 }
-                Rectangle {
-                    Layout.preferredHeight: Tema.medida("alto_pastilla")
-                    implicitWidth: txtPillTotal.implicitWidth + Tema.medida("margen_pastilla")
-                    radius: Tema.radio("control")
-                    color: (puente && puente.totalTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.totalTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
-                    Text {
-                        id: txtPillTotal
-                        anchors.centerIn: parent
-                        font.family: Tema.familia()
-                        font.pointSize: Tema.tamano("micro")
-                        font.weight: Tema.peso("negrita")
-                        color: (puente && puente.totalTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.totalTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
-                        text: badgeTexto(puente ? puente.totalVariacion : "", puente ? puente.totalTendencia : 0)
-                    }
-                }
                 Sparkline {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Tema.medida("alto_sparkline")
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 24
                     valores: (puente ? puente.serieFacturado : [])
                     colorLinea: Tema.color("verde")
                 }
@@ -522,11 +537,30 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: Tema.medida("margen_tarjeta")
                 spacing: Tema.espaciado("pico")
-                Text {
-                    text: "Ticket promedio"
-                    font.family: Tema.familia()
-                    font.pointSize: Tema.tamano("micro")
-                    color: Tema.color("texto_secundario")
+                RowLayout {
+                    Layout.fillWidth: true
+                    Text {
+                        text: "Ticket promedio"
+                        font.family: Tema.familia()
+                        font.pointSize: Tema.tamano("micro")
+                        color: Tema.color("texto_secundario")
+                    }
+                    Item { Layout.fillWidth: true }
+                    Rectangle {
+                        Layout.preferredHeight: Tema.medida("alto_pastilla")
+                        implicitWidth: txtPillTicket.implicitWidth + Tema.medida("margen_pastilla")
+                        radius: Tema.radio("control")
+                        color: (puente && puente.ticketTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.ticketTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
+                        Text {
+                            id: txtPillTicket
+                            anchors.centerIn: parent
+                            font.family: Tema.familia()
+                            font.pointSize: Tema.tamano("micro")
+                            font.weight: Tema.peso("negrita")
+                            color: (puente && puente.ticketTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.ticketTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
+                            text: badgeTexto(puente ? puente.ticketVariacion : "", puente ? puente.ticketTendencia : 0)
+                        }
+                    }
                 }
                 Text {
                     Layout.fillWidth: true
@@ -538,24 +572,10 @@ Rectangle {
                     font.features: Tema.caracteristicas()
                     color: Tema.color("texto_valor")
                 }
-                Rectangle {
-                    Layout.preferredHeight: Tema.medida("alto_pastilla")
-                    implicitWidth: txtPillTicket.implicitWidth + Tema.medida("margen_pastilla")
-                    radius: Tema.radio("control")
-                    color: (puente && puente.ticketTendencia > 0) ? Tema.color("pastilla_positiva") : ((puente && puente.ticketTendencia < 0) ? Tema.color("pastilla_negativa") : Tema.color("pastilla_neutra"))
-                    Text {
-                        id: txtPillTicket
-                        anchors.centerIn: parent
-                        font.family: Tema.familia()
-                        font.pointSize: Tema.tamano("micro")
-                        font.weight: Tema.peso("negrita")
-                        color: (puente && puente.ticketTendencia > 0) ? Tema.color("verde_texto") : ((puente && puente.ticketTendencia < 0) ? Tema.color("rojo_texto") : Tema.color("texto_secundario"))
-                        text: badgeTexto(puente ? puente.ticketVariacion : "", puente ? puente.ticketTendencia : 0)
-                    }
-                }
                 Sparkline {
                     Layout.fillWidth: true
-                    Layout.preferredHeight: Tema.medida("alto_sparkline")
+                    Layout.fillHeight: true
+                    Layout.minimumHeight: 24
                     valores: (puente ? puente.serieTicket : [])
                     colorLinea: Tema.color("serie_violeta")
                 }

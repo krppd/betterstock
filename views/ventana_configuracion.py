@@ -47,8 +47,10 @@ from services.impresion import imprimir_codigo_anulacion
 from services.plan_motor import CONTACTO
 from services.preferencias import (
     guardar_modo_oscuro,
+    guardar_mostrar_reloj,
     guardar_posicion_menu,
     modo_oscuro,
+    mostrar_reloj,
     posicion_menu,
 )
 from ui.fluent import CLARO, OSCURO, color
@@ -207,6 +209,7 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self._cargar_comercio()
         self.ui.txtCuit.textChanged.connect(self.validar_cuit)
         self.ui.txtNombre.setFocus()
+        self._armar_seccion_interfaz()
         self._armar_seccion_backups()
         self.cargar_backups()
         self._armar_seccion_fiado()
@@ -270,6 +273,27 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.setMinimumSize(560, 540)
         self.setMaximumSize(1600, 1400)
         self.resize(560, 900)
+
+    def _armar_seccion_interfaz(self) -> None:
+        grupo, disposicion = self._tarjeta("Interfaz")
+        grupo.setObjectName("grpInterfaz")
+
+        fila = QHBoxLayout()
+        fila.setSpacing(12)
+        lbl = BodyLabel("Mostrar fecha y hora en la barra superior", grupo)
+        lbl.setTextColor(*_tinta("texto_secundario"))
+        fila.addWidget(lbl)
+        fila.addStretch(1)
+
+        self.swMostrarReloj = SwitchButton(grupo)
+        self.swMostrarReloj.setObjectName("swMostrarReloj")
+        self.swMostrarReloj.setOnText("Visible")
+        self.swMostrarReloj.setOffText("Oculto")
+        self.swMostrarReloj.setChecked(mostrar_reloj())
+        fila.addWidget(self.swMostrarReloj)
+        disposicion.addLayout(fila)
+
+        self._agregar_seccion(grupo)
 
     def _armar_seccion_backups(self) -> None:
         grupo, disposicion = self._tarjeta("Copias de seguridad")
@@ -674,4 +698,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
             guardar_posicion_menu(pos)
         if hasattr(self, "chkModoOscuro"):
             guardar_modo_oscuro(self.chkModoOscuro.isChecked())
+        if hasattr(self, "swMostrarReloj"):
+            guardar_mostrar_reloj(self.swMostrarReloj.isChecked())
         self.accept()

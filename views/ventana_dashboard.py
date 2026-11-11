@@ -731,7 +731,10 @@ class WorkerCargaDashboard(QRunnable):
             "filas_alertas": filas_alertas,
             "filas_clientes": filas_clientes,
         }
-        self.signals.datos_listos.emit(datos)
+        try:
+            self.signals.datos_listos.emit(datos)
+        except RuntimeError:
+            pass
 
 
 class DashboardPrincipalWidget(QWidget):
@@ -803,12 +806,14 @@ class DashboardPrincipalWidget(QWidget):
         fila_sup_header.addStretch()
 
         self.lbl_logo = QLabel()
-        ruta_logo = RECURSOS_DIR / "logo_sf.png"
+        ruta_logo = RECURSOS_DIR / "logo_sf_crop.png"
         if not ruta_logo.is_file():
-            ruta_logo = RECURSOS_DIR / "logo_sf_crop.png"
+            ruta_logo = RECURSOS_DIR / "logo_sf.png"
         pix_logo = QPixmap(str(ruta_logo))
         if not pix_logo.isNull():
-            alto_logo = _px(38)
+            if ruta_logo.name == "logo_sf.png":
+                pix_logo = pix_logo.copy(117, 374, 752, 265)
+            alto_logo = _px(44)
             self.lbl_logo.setPixmap(
                 pix_logo.scaledToHeight(
                     alto_logo,

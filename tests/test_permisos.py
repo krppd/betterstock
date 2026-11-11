@@ -48,8 +48,9 @@ def _botones_de_productos(ventana: VentanaProductos) -> list:
         ventana.btnAgregarCategoria,
         ventana.btnReponer,
         ventana.btnRecuento,
-        ventana.btnImportarLista,
     ]
+    if hasattr(ventana, "btnImportarLista"):
+        botones.append(ventana.btnImportarLista)
     premium = getattr(ventana, "btnActualizarPrecios", None)
     if premium is not None:
         botones.append(premium)

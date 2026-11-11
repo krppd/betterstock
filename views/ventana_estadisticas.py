@@ -192,10 +192,10 @@ class _UiEstadisticas:
         self.grafico = CardWidget(ventana)
         self.grafico.setObjectName("grafico")
         self.grafico.setBorderRadius(8)
-        self.grafico.setMinimumHeight(round(140 * escala()))
+        self.grafico.setMinimumHeight(round(150 * escala()))
 
         self.lyGrafico = QVBoxLayout(self.grafico)
-        self.lyGrafico.setContentsMargins(10, 8, 10, 8)
+        self.lyGrafico.setContentsMargins(12, 10, 12, 10)
         self.verticalLayout.addWidget(self.grafico)
 
     def _armar_tablas(self, ventana: QWidget) -> None:

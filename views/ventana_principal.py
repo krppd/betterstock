@@ -87,6 +87,24 @@ from views.ventana_reportes import VentanaReportes
 from views.ventana_ventas import VentanaVentas
 
 
+class TarjetaTiendaWidget(NavigationAvatarWidget):
+    def __init__(self, name: str, avatar=None, parent=None):
+        super().__init__(name, avatar, parent)
+        self.setCursor(Qt.CursorShape.ArrowCursor)
+
+    def mousePressEvent(self, e):
+        e.ignore()
+
+    def mouseReleaseEvent(self, e):
+        e.ignore()
+
+    def enterEvent(self, e):
+        pass
+
+    def leaveEvent(self, e):
+        pass
+
+
 class _BotonCompat(QPushButton):
     """Boton proxy para mantener compatibilidad con tests que inspeccionan self.ui.btn*."""
 
@@ -215,11 +233,16 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         layout = self.titleBar.layout()
         pos = max(0, layout.count() - 1)
         layout.insertWidget(pos, self._reloj)
+        self._aplicar_visibilidad_reloj()
         self._actualizar_reloj()
         temporizador = QtCore.QTimer(self)
         temporizador.setInterval(1000)
         temporizador.timeout.connect(self._actualizar_reloj)
         temporizador.start()
+
+    def _aplicar_visibilidad_reloj(self) -> None:
+        if hasattr(self, "_reloj"):
+            self._reloj.setVisible(preferencias.mostrar_reloj())
 
     def _actualizar_reloj(self) -> None:
         self._reloj.setText(QtCore.QDateTime.currentDateTime().toString("dd/MM/yyyy HH:mm"))
@@ -293,11 +316,11 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
             except (AttributeError, Exception):
                 pass
         avatar_tienda = self._crear_avatar_tienda(preferencias.modo_oscuro())
-        self._card_tienda = NavigationAvatarWidget(nombre_tienda, avatar_tienda)
+        self._card_tienda = TarjetaTiendaWidget(nombre_tienda, avatar_tienda)
         self.navigationInterface.addWidget(
             routeKey="tienda",
             widget=self._card_tienda,
-            onClick=self.mostrar_inicio,
+            onClick=None,
             position=NavigationItemPosition.TOP,
         )
 
@@ -524,6 +547,7 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         )
         if dialogo.exec():
             self._aplicar_posicion_sidebar()
+            self._aplicar_visibilidad_reloj()
 
     def abrir_alertas(self) -> None:
         self._mostrar("alertas", lambda: VentanaAlertas(self._gestor_stock))
