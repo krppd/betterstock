@@ -1,15 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Callable
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import (
     QEvent,
-    QObject,
-    QPropertyAnimation,
     QRect,
-    QSize,
     Qt,
     pyqtSignal,
 )
@@ -26,13 +22,10 @@ from PyQt6.QtGui import (
 )
 from PyQt6.QtWidgets import (
     QApplication,
-    QFrame,
     QHBoxLayout,
     QLabel,
     QMessageBox,
     QPushButton,
-    QStackedWidget,
-    QVBoxLayout,
     QWidget,
 )
 from qfluentwidgets import (
@@ -60,18 +53,12 @@ from services import preferencias
 from services.turnos import ServicioTurnos
 from ui.estilo_ventana import aplicar_estilo_ventana
 from ui.estilos import (
-    ESCALA_NORMAL,
     TAMANO_SMALL,
     aplicar_color_fluent,
     escala,
     fuente,
 )
 from ui.widgets.notificacion import Notificacion
-from ui.widgets.sidebar import (
-    ANCHO_COLAPSADO,
-    ANCHO_EXPANDIDO,
-    ANCHO_ITEM_COLAPSADO,
-)
 from utils.formato import formatear_cantidad
 from views.ventana_alertas import VentanaAlertas
 from views.ventana_base import VentanaBase
@@ -85,24 +72,6 @@ from views.ventana_movimientos import VentanaMovimientos
 from views.ventana_productos import VentanaProductos
 from views.ventana_reportes import VentanaReportes
 from views.ventana_ventas import VentanaVentas
-
-
-class TarjetaTiendaWidget(NavigationAvatarWidget):
-    def __init__(self, name: str, avatar=None, parent=None):
-        super().__init__(name, avatar, parent)
-        self.setCursor(Qt.CursorShape.ArrowCursor)
-
-    def mousePressEvent(self, e):
-        e.ignore()
-
-    def mouseReleaseEvent(self, e):
-        e.ignore()
-
-    def enterEvent(self, e):
-        pass
-
-    def leaveEvent(self, e):
-        pass
 
 
 class _BotonCompat(QPushButton):
@@ -129,8 +98,6 @@ class _UiCompat:
         self.widget = QWidget()
         self.label = QLabel()
         self.horizontalLayout = QHBoxLayout()
-        self.frameSidebar = QFrame()
-        self.frameSidebar.setMinimumWidth(round(ANCHO_EXPANDIDO * escala()))
         self.lblSeccionStock = QLabel("STOCK")
         self.lblSeccionCaja = QLabel("VENTAS Y CAJA")
         self.lblSeccionAnalisis = QLabel("REPORTES")
@@ -155,8 +122,6 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
     MAXIMO_ALERTAS_EN_MENSAJE = ALERTAS_EN_AVISO_STOCK
     LADO_ICONO = 24
-    ANCHO_BARRA_COLAPSADA = ANCHO_COLAPSADO
-    ANCHO_BOTON_COLAPSADO = ANCHO_ITEM_COLAPSADO
     LADO_BOTON_MENU = 24
 
     sesion_cerrada = pyqtSignal()
@@ -203,11 +168,8 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         self._aplicar_tema(preferencias.modo_oscuro())
         self.setMinimumSize(round(980 * escala()), 650)
 
-        self._preparar_animacion()
         self._preparar_reloj()
         self._preparar_navegacion()
-        self.navigationInterface.setMinimumExpandWidth(round(700 * escala()))
-        self.navigationInterface.setExpandWidth(round(260 * escala()))
         self.navigationInterface.panel.expand(useAni=False)
 
         self.ui = _UiCompat(self)
@@ -220,11 +182,23 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
     def _armar_menu_hamburguesa(self) -> None:
         panel = self.navigationInterface.panel
+
+        self._temporizador_menu = QtCore.QTimer(self)
+        self._temporizador_menu.setSingleShot(True)
+        self._temporizador_menu.setInterval(QApplication.doubleClickInterval())
+        self._temporizador_menu.timeout.connect(panel.toggle)
+
+        def al_doble_click(event) -> None:
+            self._temporizador_menu.stop()
+            if panel.isCollapsed():
+                panel.expand(useAni=True)
+
         try:
-            panel.menuButton.clicked.disconnect()
+            panel.menuButton.clicked.disconnect(panel.toggle)
         except (TypeError, RuntimeError):
             pass
-        panel.menuButton.clicked.connect(lambda *_: self._alternar_barra())
+        panel.menuButton.clicked.connect(self._temporizador_menu.start)
+        self._btn_menu.mouseDoubleClickEvent = al_doble_click
 
     def _preparar_reloj(self) -> None:
         self._reloj = QLabel(self)
@@ -256,15 +230,8 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
                 pass
         return _StatusBarDummy(self._reloj)
 
-    def _preparar_animacion(self) -> None:
-        self._animacion = QPropertyAnimation(self, b"windowOpacity")
-        self._animacion.setDuration(200)
-        self._animacion.setStartValue(0.0)
-        self._animacion.setEndValue(1.0)
-        self._animada = False
-
     @staticmethod
-    def _crear_avatar_icono(icono: FIF | str | Path | QPixmap, color_fondo: str, tam: int = 48) -> QPixmap:
+    def _crear_avatar_icono(icono: FIF, color_fondo: str, tam: int = 48) -> QPixmap:
         pix = QPixmap(tam, tam)
         pix.fill(Qt.GlobalColor.transparent)
         p = QPainter(pix)
@@ -272,55 +239,30 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         p.setPen(Qt.PenStyle.NoPen)
         p.setBrush(QBrush(QColor(color_fondo)))
         p.drawEllipse(0, 0, tam, tam)
-        if isinstance(icono, (str, Path)):
-            img = QImage(str(icono))
-        elif isinstance(icono, QPixmap):
-            img = icono.toImage()
-        else:
-            svg_path = icono.path(Theme.DARK) if hasattr(icono, "path") else ""
-            img = QImage(svg_path) if svg_path else QImage()
+        svg_img = QImage(icono.path(Theme.DARK))
         m = round(tam * 0.22)
-        p.drawImage(QRect(m, m, tam - 2 * m, tam - 2 * m), img)
-        p.end()
-        return pix
-
-    @staticmethod
-    def _crear_avatar_tienda(oscuro: bool = False, tam: int = 48) -> QPixmap:
-        pix = QPixmap(tam, tam)
-        pix.fill(Qt.GlobalColor.transparent)
-        base = QPixmap(str(RECURSOS_DIR / "iconos" / "tienda.png"))
-        if base.isNull():
-            return pix
-        m = round(tam * 0.15)
-        icono_escalado = base.scaled(
-            tam - 2 * m, tam - 2 * m, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
-        )
-        p = QPainter(pix)
-        p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
-        p.drawPixmap(m, m, icono_escalado)
-        p.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-        color_tinte = QColor("#FFFFFF") if oscuro else QColor("#202020")
-        p.fillRect(pix.rect(), color_tinte)
+        p.drawImage(QRect(m, m, tam - 2 * m, tam - 2 * m), svg_img)
         p.end()
         return pix
 
     def _preparar_navegacion(self) -> None:
         self.navigationInterface.setReturnButtonVisible(False)
+        self.navigationInterface.panel.setAcrylicEnabled(True)
 
         nombre_tienda = "BetterStock"
         if self._gestor_comercio:
             try:
                 com = self._gestor_comercio.comercio
-                if com and getattr(com, "nombre", None):
-                    nombre_tienda = str(com.nombre)
-            except (AttributeError, Exception):
+                if com and com.nombre:
+                    nombre_tienda = com.nombre
+            except AttributeError:
                 pass
-        avatar_tienda = self._crear_avatar_tienda(preferencias.modo_oscuro())
-        self._card_tienda = TarjetaTiendaWidget(nombre_tienda, avatar_tienda)
+        avatar_tienda = self._crear_avatar_icono(FIF.MARKET, "#1E8149")
+        self._card_tienda = NavigationAvatarWidget(nombre_tienda, avatar_tienda)
         self.navigationInterface.addWidget(
             routeKey="tienda",
             widget=self._card_tienda,
-            onClick=None,
+            onClick=self.mostrar_inicio,
             position=NavigationItemPosition.TOP,
         )
 
@@ -434,8 +376,6 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
     def _aplicar_tema(self, oscuro: bool) -> None:
         setTheme(Theme.DARK if oscuro else Theme.LIGHT)
         aplicar_color_fluent(oscuro=oscuro)
-        if hasattr(self, "_card_tienda"):
-            self._card_tienda.setAvatar(self._crear_avatar_tienda(oscuro))
         self._actualizar_texto_tema()
 
     def _actualizar_texto_tema(self) -> None:
@@ -457,14 +397,8 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         if nombre and self.navigationInterface.widget(nombre) is not None:
             self.navigationInterface.setCurrentItem(nombre)
 
-    def _aplicar_posicion_sidebar(self, posicion: str | None = None) -> None:
-        pass
-
     def showEvent(self, evento: QEvent) -> None:
         super().showEvent(evento)
-        if not self._animada:
-            self._animada = True
-            self._animacion.start()
         self._aplicar_estilo_ventana()
 
     def _aplicar_estilo_ventana(self) -> None:
@@ -546,7 +480,6 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
             autenticacion=self._autenticacion,
         )
         if dialogo.exec():
-            self._aplicar_posicion_sidebar()
             self._aplicar_visibilidad_reloj()
 
     def abrir_alertas(self) -> None:

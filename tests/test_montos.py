@@ -24,11 +24,10 @@ from services.estadisticas_ventas import EstadisticasVentas
 from services.gestor_fiado import GestorFiado
 from services.gestor_stock import GestorStock
 from services.gestor_ventas import GestorVentas
-from ui.manual.cobro_ui import MAXIMO_MONTO
 from utils.formato import a_decimal, diferencia
 from views.formulario_cliente import FormularioCliente
 from views.formulario_producto import FormularioProducto
-from views.ventana_cobro import VentanaCobro
+from views.ventana_cobro import MAXIMO_MONTO, VentanaCobro
 from views.ventana_cierre import VentanaCierre
 
 HOY = date(2026, 10, 19)
@@ -228,8 +227,7 @@ def test_el_cobro_de_un_total_enorme_da_el_vuelto_correcto(aplicacion, tmp_path)
     assert cobro.faltante == 0
 
 
-def test_el_cobro_de_una_venta_de_499_millones_no_se_recorta(aplicacion, tmp_path):
-    stock = armar_stock(tmp_path)
+def test_el_cobro_de_una_venta_de_499_millones_no_se_recorta(aplicacion):
     venta = Venta()
     producto = Producto(
         codigo="1001", nombre="Equipo industrial", precio_venta=99_999_999.99)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import sys
 
 from PyQt6.QtGui import QColor, QFont, QPalette
 from PyQt6.QtWidgets import QApplication
@@ -134,13 +135,13 @@ ESCALA_NORMAL = 1.0
 PUNTO_MINIMO = 8
 
 _escala_activa = ESCALA_NORMAL
+_fuentes_cache: tuple[str, list[str], list[int]] | None = None
 _PATRON_PUNTO = re.compile(r"(font-size:\s*)(\d+(?:\.\d+)?)(\s*pt)")
 _PATRON_PX = re.compile(r"((?:min-height|min-width):\s*)(\d+(?:\.\d+)?)(\s*px)")
 
 
 def _anotar_fuentes(lineas: list[str]) -> None:
     """Deja un diagnóstico en output/fuentes.log solo en Windows."""
-    import sys
     if sys.platform != "win32":
         return
     try:
@@ -153,7 +154,14 @@ def _anotar_fuentes(lineas: list[str]) -> None:
 
 
 def _cargar_fuentes() -> str:
+    global _fuentes_cache
     from PyQt6.QtGui import QFontDatabase
+    if _fuentes_cache is not None:
+        elegida, lineas, identificadores = _fuentes_cache
+        if not identificadores or any(
+                QFontDatabase.applicationFontFamilies(i) for i in identificadores):
+            _anotar_fuentes(lineas + ["(fuentes ya registradas: no se vuelven a cargar)"])
+            return elegida
     from config import RECURSOS_DIR
     carpeta = RECURSOS_DIR / "fuentes"
     if not carpeta.is_dir():
@@ -161,17 +169,22 @@ def _cargar_fuentes() -> str:
         return ""
     familias: list[str] = []
     lineas: list[str] = []
+    identificadores: list[int] = []
     archivos = sorted(
         archivo for archivo in carpeta.iterdir()
         if archivo.suffix.lower() in (".otf", ".ttf"))
     for archivo in archivos:
         identificador = QFontDatabase.addApplicationFont(str(archivo))
-        if identificador < 0:
+        cargadas = (QFontDatabase.applicationFontFamilies(identificador)
+                    if identificador >= 0 else [])
+        if not cargadas:
             from PyQt6.QtCore import QByteArray
             identificador = QFontDatabase.addApplicationFontFromData(
                 QByteArray(archivo.read_bytes()))
-        cargadas = (QFontDatabase.applicationFontFamilies(identificador)
-                    if identificador >= 0 else [])
+            cargadas = (QFontDatabase.applicationFontFamilies(identificador)
+                        if identificador >= 0 else [])
+        if identificador >= 0:
+            identificadores.append(identificador)
         lineas.append(f"{archivo.name}: id={identificador} familias={cargadas}")
         for nombre in cargadas:
             limpio = nombre.strip()
@@ -181,6 +194,7 @@ def _cargar_fuentes() -> str:
                else familias[0] if familias else "")
     lineas.append(f"elegida: {elegida or '(ninguna)'} (esperada: {FAMILIA_FUENTE})")
     _anotar_fuentes(lineas)
+    _fuentes_cache = (elegida, lineas, identificadores)
     return elegida
 
 
@@ -315,6 +329,10 @@ def aplicar_color_fluent(qt: QApplication | None = None, oscuro: bool | None = N
         pass
 
 
+def _estilo_base() -> str:
+    return "windowsvista" if sys.platform == "win32" else "Fusion"
+
+
 def aplicar_tema(qt: QApplication, escala: float | None = None) -> None:
     """Aplica la paleta y la hoja de estilos global, adaptadas al tema Fluent activo.
 
@@ -326,8 +344,7 @@ def aplicar_tema(qt: QApplication, escala: float | None = None) -> None:
     """
     if escala is not None:
         aplicar_escala(escala)
-    if qt.style() is None or qt.style().objectName().lower() != "fusion":
-        qt.setStyle("Fusion")
+    qt.setStyle(_estilo_base())
     familia = _cargar_fuentes()
     oscuro = _tema_oscuro()
     aplicar_color_fluent(qt, oscuro)

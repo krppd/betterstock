@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PyQt6.QtCore import QRegularExpression, Qt
 from PyQt6.QtGui import QRegularExpressionValidator
-from PyQt6.QtWidgets import QLineEdit
+from qfluentwidgets import LineEdit
 
 from utils.formato import DECIMALES_CANTIDAD, formatear_cantidad, redondear_cantidad
 
@@ -10,7 +10,7 @@ MAXIMO_CANTIDAD = 999_999.999
 PATRON_CANTIDAD = QRegularExpression(rf"^\d{{0,9}}([.,]\d{{0,{DECIMALES_CANTIDAD}}})?$")
 
 
-class CampoCantidad(QLineEdit):
+class CampoCantidad(LineEdit):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._maximo = MAXIMO_CANTIDAD

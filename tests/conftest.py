@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
 
@@ -15,9 +13,11 @@ def aplicacion_global():
     de la sesión. Reutilizar una única aplicación evita ese problema.
     """
     from PyQt6.QtWidgets import QApplication
+    from ui.compat_fluent import aplicar_parches
     from ui.estilos import aplicar_color_fluent
 
     app = QApplication.instance() or QApplication([])
+    aplicar_parches()
     aplicar_color_fluent(app)
     return app
 

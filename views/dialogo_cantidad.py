@@ -3,21 +3,14 @@
 from __future__ import annotations
 
 from PyQt6.QtWidgets import QDialog, QHBoxLayout, QVBoxLayout, QWidget
-from qfluentwidgets import BodyLabel, LineEdit, PrimaryPushButton, PushButton
+from qfluentwidgets import BodyLabel, PrimaryPushButton, PushButton
 
 from ui.fluent import color
 from ui.manual.campo_cantidad import CampoCantidad
 from views.ventana_base import VentanaBase
 
 
-class CampoCantidadFluent(LineEdit, CampoCantidad):
-    """Campo de cantidad con la piel de los campos de Fluent.
-
-    Une el ``LineEdit`` de Fluent (con su estilo y su alto) con la semántica de
-    ``CampoCantidad``: texto con coma o punto decimal, ``value()`` numérico y
-    ``es_valido()``.
-    """
-
+class CampoCantidadFluent(CampoCantidad):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
 

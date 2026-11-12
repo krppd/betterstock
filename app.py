@@ -1,11 +1,7 @@
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
-
-if sys.platform == "win32":
-    os.environ.setdefault("QT_QPA_PLATFORM", "windows:fontengine=gdi")
 
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QApplication, QDialog
@@ -34,6 +30,7 @@ from services.gestor_fiado import GestorFiado
 from services.gestor_stock import GestorStock
 from services.gestor_ventas import GestorVentas
 from services.preferencias import escala_modo_tactil
+from ui.compat_fluent import aplicar_parches
 from ui.estilos import ESCALA_NORMAL, aplicar_color_fluent, aplicar_tema
 from ui.scroll_suave import instalar_scroll_suave
 from views.ventana_configuracion import VentanaConfiguracion
@@ -47,6 +44,7 @@ class Aplicacion:
     def __init__(self, argumentos: list[str], carpeta_datos: Path = DATA_DIR) -> None:
         self._qt = QApplication(argumentos)
         self._qt.setWindowIcon(QIcon(str(RECURSOS_DIR / "logo_u.png")))
+        aplicar_parches()
         aplicar_color_fluent(self._qt)
         aplicar_tema(self._qt, ESCALA_NORMAL)
         instalar_scroll_suave(self._qt)
@@ -142,7 +140,6 @@ class Aplicacion:
             permiso=permiso, autenticacion=self._autenticacion,
             turnos=self._turnos, caja=self._caja)
         self._ventana_principal.sesion_cerrada.connect(self._cerrar_sesion)
-        from PyQt6.QtCore import QTimer
         if escala_modo_tactil() > ESCALA_NORMAL:
             self._ventana_principal.showMaximized()
         else:
