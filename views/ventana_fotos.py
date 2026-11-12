@@ -164,56 +164,45 @@ class VentanaFotos(QDialog, VentanaBase):
         self.ui.btnCancelar.clicked.connect(self.reject)
         for indice, boton in enumerate(self.ui.btnFotos):
             boton.clicked.connect(lambda _=False, i=indice: self._elegir(i))
-        if hasattr(qconfig, "themeChanged"):
-            qconfig.themeChanged.connect(self.ui._aplicar_temas)
+        qconfig.themeChanged.connect(self.ui._aplicar_temas)
 
     def buscar(self) -> None:
         texto = self.ui.txtBuscar.text().strip()
         if not texto:
-            self.ui.lblEstado.setText("Escribí algo para buscar.")
+            self.ui.lblEstado.setText("Escribí un nombre o código para buscar.")
             return
-        self.ui.lblEstado.setText(f"Buscando '{texto}'...")
-        self.ui.btnBuscar.setEnabled(False)
+        self.ui.lblEstado.setText("Buscando...")
         self._limpiar_vista()
         try:
             self._candidatas = self._proveedor.buscar(texto, limite=MAX_RESULTADOS)
         except ErrorFoto as error:
             self.ui.lblEstado.setText(str(error))
             self._candidatas = []
-        finally:
-            self.ui.btnBuscar.setEnabled(True)
 
         if not self._candidatas:
-            if not self.ui.lblEstado.text().startswith("No se pudo"):
-                self.ui.lblEstado.setText("No se encontraron fotos.")
-            self._pintar_grilla()
-            return
-
-        self.ui.lblEstado.setText(f"Se encontraron {len(self._candidatas)} fotos.")
-        self._bytes.clear()
+            self.ui.lblEstado.setText("Sin resultados: pegá la URL de una imagen.")
+        else:
+            self.ui.lblEstado.setText("Tocá una foto para verla en grande.")
         self._pintar_grilla()
-        self._elegir(0)
 
     def usar_url(self) -> None:
         url = self.ui.txtUrl.text().strip()
         if not url:
-            self.ui.lblEstado.setText("Pegá una URL primero.")
             return
-        self.ui.lblEstado.setText("Descargando imagen...")
-        self.ui.btnUrl.setEnabled(False)
+        if not url.lower().startswith(("http://", "https://")):
+            self.mostrar_advertencia("Foto", "Solo se admiten enlaces web que empiecen con http:// o https://.")
+            return
         try:
-            contenido = descargar_bytes(url)
+            datos = descargar_bytes(url)
         except ErrorFoto as error:
-            self.ui.lblEstado.setText(str(error))
+            self.mostrar_advertencia("Foto", str(error))
             return
-        finally:
-            self.ui.btnUrl.setEnabled(True)
-        self._bytes[url] = contenido
-        self._mostrar_previa(url, "Imagen desde URL")
-        self.ui.lblEstado.setText("Imagen lista para guardar.")
+        self._bytes[url] = datos
+        self._mostrar_previa(url, "Imagen pegada")
+        self.ui.lblEstado.setText("Revisá la vista previa y guardá si es la correcta.")
 
     def guardar(self) -> None:
-        if not self._elegida or self._elegida not in self._bytes:
+        if self._elegida is None or self._elegida not in self._bytes:
             self.mostrar_advertencia("Foto", "Elegí una foto antes de guardar.")
             return
         try:
@@ -231,9 +220,10 @@ class VentanaFotos(QDialog, VentanaBase):
                 boton.setIcon(QIcon())
                 boton.setEnabled(False)
                 continue
-            miniatura = self._miniatura_de(self._candidatas[indice])
+            candidata = self._candidatas[indice]
+            miniatura = self._miniatura_de(candidata)
             if miniatura is None:
-                boton.setText("Sin vista")
+                boton.setText("X")
                 boton.setIcon(QIcon())
                 boton.setEnabled(False)
                 continue
@@ -265,43 +255,37 @@ class VentanaFotos(QDialog, VentanaBase):
         for url in (candidata.url_miniatura, candidata.url_completa):
             if not url:
                 continue
-            if url not in self._bytes:
-                try:
-                    self._bytes[url] = descargar_bytes(url)
-                except ErrorFoto:
-                    continue
-            pixmap = QPixmap()
-            if pixmap.loadFromData(self._bytes[url]):
-                return pixmap
+            try:
+                datos = self._bytes_de(url)
+            except ErrorFoto:
+                continue
+            retrato = QPixmap()
+            if retrato.loadFromData(datos):
+                return retrato
         return None
 
+    def _bytes_de(self, url: str) -> bytes:
+        if url not in self._bytes:
+            self._bytes[url] = descargar_bytes(url)
+        return self._bytes[url]
+
     def _elegir(self, indice: int) -> None:
-        if indice < 0 or indice >= len(self._candidatas):
+        if not 0 <= indice < len(self._candidatas):
             return
         candidata = self._candidatas[indice]
-        url = candidata.url_completa
-        if url not in self._bytes:
-            self.ui.lblEstado.setText("Descargando tamaño completo...")
-            try:
-                self._bytes[url] = descargar_bytes(url)
-            except ErrorFoto as error:
-                self.ui.lblEstado.setText(str(error))
-                return
-            self.ui.lblEstado.setText("")
-        self._mostrar_previa(url, candidata.titulo)
+        try:
+            self._bytes_de(candidata.url_completa)
+        except ErrorFoto as error:
+            self.mostrar_advertencia("Foto", str(error))
+            return
+        self._mostrar_previa(candidata.url_completa, candidata.titulo)
 
     def _mostrar_previa(self, url: str, titulo: str) -> None:
-        pixmap = QPixmap()
-        if not pixmap.loadFromData(self._bytes[url]):
-            self.ui.lblVista.setText("Formato no soportado")
-            self.ui.btnGuardar.setEnabled(False)
-            return
-        escalado = pixmap.scaled(
-            self.ui.lblVista.size(),
-            Qt.AspectRatioMode.KeepAspectRatio,
-            Qt.TransformationMode.SmoothTransformation,
-        )
-        self.ui.lblVista.setPixmap(escalado)
+        retrato = QPixmap()
+        retrato.loadFromData(self._bytes[url])
+        self.ui.lblVista.setPixmap(retrato.scaled(
+            250, 250, Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation))
         self.ui.lblTitulo.setText(titulo)
         self._elegida = url
         self.ui.btnGuardar.setEnabled(True)

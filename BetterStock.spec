@@ -19,6 +19,7 @@ root = Path(SPECPATH).resolve()
 sys.path.insert(0, str(root))
 
 from config import APP_VERSION  # noqa: E402
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules  # noqa: E402
 from PyInstaller.utils.win32 import versioninfo  # noqa: E402
 
 block_cipher = None
@@ -76,7 +77,7 @@ datas = [
     (str(root / "Recursos"), "Recursos"),
     (str(root / "ui"), "ui"),
     (str(root / "config.py"), "."),
-]
+] + collect_data_files("qfluentwidgets")
 
 # Collect submodules that PyInstaller may miss (Qt backends, crypto, etc.).
 hiddenimports = [
@@ -85,7 +86,12 @@ hiddenimports = [
     "PyQt6.QtSvg",
     "PyQt6.QtPrintSupport",
     "sqlite3",
-]
+    "numpy",
+    "scipy",
+    "scipy.ndimage",
+    "scipy.ndimage.filters",
+    "colorthief",
+] + collect_submodules("qfluentwidgets")
 
 a = Analysis(
     ["app.py"],

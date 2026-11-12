@@ -181,8 +181,7 @@ class FormularioCliente(QDialog, VentanaBase):
 
         self.ui = _UiCliente(self)
         self._aplicar_tema()
-        if hasattr(qconfig, "themeChanged"):
-            qconfig.themeChanged.connect(self._aplicar_tema)
+        qconfig.themeChanged.connect(self._aplicar_tema)
 
     def _aplicar_tema(self) -> None:
         """El fondo del diálogo sigue al tema Fluent."""

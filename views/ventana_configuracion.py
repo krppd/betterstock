@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from pathlib import Path
 
 from PyQt6.QtCore import Qt, QUrl
 from PyQt6.QtGui import QColor, QDesktopServices, QFont
@@ -19,7 +18,6 @@ from PyQt6.QtWidgets import (
 from qfluentwidgets import (
     BodyLabel,
     CardWidget,
-    ComboBox,
     FluentIcon as FIF,
     LineEdit,
     PrimaryPushButton,
@@ -28,9 +26,7 @@ from qfluentwidgets import (
     SubtitleLabel,
     SwitchButton,
     TableWidget,
-    Theme,
     qconfig,
-    setTheme,
 )
 
 from models.usuario import Usuario
@@ -44,24 +40,13 @@ from services.autenticacion import Autenticacion
 from services.gestor_anulaciones import MENSAJE_SIN_SERVICIO, GestorAnulaciones
 from services.gestor_comercio import GestorComercio
 from services.impresion import imprimir_codigo_anulacion
-from services.plan_motor import CONTACTO
 from services.preferencias import (
     guardar_modo_oscuro,
     guardar_mostrar_reloj,
     guardar_posicion_menu,
-    modo_oscuro,
     mostrar_reloj,
-    posicion_menu,
 )
 from ui.fluent import CLARO, OSCURO, color
-from ui.manual.configuracion_ui import (
-    BUTTON_EDICION,
-    BUTTON_INICIAL,
-    TEXTO_EDICION,
-    TEXTO_INICIAL,
-    TITULO_EDICION,
-    TITULO_INICIAL,
-)
 from ui.widgets.notificacion import Notificacion
 from ui.widgets.trabajo_impresion import TrabajoImpresion
 from views.dialogo_password import DialogoCambiarPassword
@@ -77,6 +62,15 @@ ESTILO_SCROLL = (
     "QScrollArea > QWidget > QWidget { background: transparent; }"
 )
 ANCHO_CONTENIDO = 480
+TITULO_INICIAL = "Configuración inicial"
+TITULO_EDICION = "Datos del comercio"
+TEXTO_INICIAL = (
+    "Bienvenido a BetterStock.\nCompletá los datos de tu comercio; "
+    "después no vuelve a pedirselos."
+)
+TEXTO_EDICION = "Datos del comercio.\nModificá los datos cuando los necesites."
+BUTTON_INICIAL = "Guardar y continuar"
+BUTTON_EDICION = "Guardar cambios"
 
 
 def _envuelto(etiqueta: BodyLabel, ancho: int = ANCHO_CONTENIDO) -> None:

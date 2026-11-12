@@ -806,14 +806,12 @@ class DashboardPrincipalWidget(QWidget):
         fila_sup_header.addStretch()
 
         self.lbl_logo = QLabel()
-        ruta_logo = RECURSOS_DIR / "logo_sf_crop.png"
+        ruta_logo = RECURSOS_DIR / "logo_u.png"
         if not ruta_logo.is_file():
-            ruta_logo = RECURSOS_DIR / "logo_sf.png"
+            ruta_logo = RECURSOS_DIR / "logo_sf_crop.png"
         pix_logo = QPixmap(str(ruta_logo))
         if not pix_logo.isNull():
-            if ruta_logo.name == "logo_sf.png":
-                pix_logo = pix_logo.copy(117, 374, 752, 265)
-            alto_logo = _px(44)
+            alto_logo = _px(38)
             self.lbl_logo.setPixmap(
                 pix_logo.scaledToHeight(
                     alto_logo,

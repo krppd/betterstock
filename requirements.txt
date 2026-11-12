@@ -1,6 +1,7 @@
 # Interfaz gráfica (incluye QtPrintSupport, que se usa para generar los PDF)
 PyQt6==6.11.0
-PyQt6-Fluent-Widgets==1.11.3
+PyQt6-Fluent-Widgets[full]==1.11.3
+scipy<2
 
 # Gráfico de ventas por día (el dibujo lo hace matplotlib; QtCharts sólo lo usa un test)
 PyQt6-Charts==6.11.0
