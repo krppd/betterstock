@@ -6,7 +6,7 @@ Data is stored in a SQLite database and passwords are hashed with bcrypt.
 ## Structure
 
 ```
-betterstock-open/
+betterstock/
 ├── app.py              Entry point
 ├── config.py           Project paths
 ├── requirements.txt    Dependencies
@@ -24,14 +24,22 @@ betterstock-open/
 │   ├── qml/            Statistics cards in QML
 │   ├── tema.py         Color and typography tokens (ui/tokens.json)
 │   └── estilos.py      Light/dark theme and typography
-├── scripts/            UI regeneration script
+├── scripts/            UI regeneration script and the visual verifiers
 ├── tests/              pytest suite
 ├── docs/               Architecture overview and edition scope
 ├── Recursos/           Images, fonts and the Qt resource file (Recursos.qrc / Recursos_rc.py)
 └── output/             Exports and backups, inside the per-user data folder
 ```
 
+## Download
+
+The Windows build is published on the [releases page](https://github.com/krppd/betterstock/releases). It is a portable build: unzip it and run `BetterStock.exe`, no installer and no registry entries. The SHA-256 of every published archive is next to it, in `SHA256.txt`.
+
+The executable is not code signed, so Windows SmartScreen shows a warning the first time you run it. See [Code signing](#code-signing).
+
 ## Installation (Windows, PowerShell)
+
+To run it from the source instead:
 
 ```powershell
 py -3.14 -m venv .venv
@@ -76,8 +84,9 @@ the system printer or saves a PDF.
 
 **BetterStock is open source and free.**
 
-This repository contains the complete free edition. It works fully offline and
-does not require a license, a server or any external service.
+This repository is the free edition, and it is where it is developed: fixes and
+improvements land here. It works fully offline and does not require a license, a
+server or any external service.
 
 What the free edition includes:
 
@@ -129,6 +138,17 @@ python -m pytest tests/ -q -p no:randomly
 ```
 
 The interface uses the [Inter](https://github.com/rsms/inter) typeface by Rasmus Andersson, licensed under the [SIL Open Font License 1.1](Recursos/fuentes/OFL.txt).
+
+## Contributing
+
+Pull requests are welcome. The rules that keep the history readable:
+
+- **One commit per pull request.** Squash merge is the only option on this repository, and a single commit keeps the history of `main` to one line per pull request.
+- **No behaviour change without a reason in the commit message.** If a fix changes what the app does, say what it did before and what it does now.
+- **The test suite has to pass.** `python -m pytest tests/ -q -p no:randomly`, and the visual verifiers too: `python scripts/verificar_texto.py` checks that no text gets cut off, `scripts/verificar_contraste.py` that the colour pairs meet WCAG AA, and `scripts/verificar_cifras_tabulares.py` that the amounts do not jump around when they update.
+- **Do not edit `ui/generated/` by hand.** Those files carry a hand written conversion to the Fluent widgets that `pyuic6` does not reproduce; `scripts/regenerar_ui.py` knows how to leave them alone.
+
+The architecture and the conventions are in [`docs/overview.md`](docs/overview.md).
 
 ## Code signing
 
