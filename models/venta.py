@@ -147,9 +147,6 @@ class ItemVenta:
     def neto(self) -> float:
         return self.subtotal - self.iva
 
-    def incrementar(self) -> None:
-        self.cantidad = self._cantidad + 1
-
     def aplicar_descuento(self, descuento: float) -> None:
         if not 0 <= descuento <= 100:
             raise ValueError("El descuento debe estar entre 0 y 100.")
