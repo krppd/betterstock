@@ -63,24 +63,6 @@ class ServicioCaja:
 
         return [m for m in self._repositorio.listar() if dentro(m.fecha, m.hora)]
 
-    def total_egresos(self, dia: date | None = None, turno: Turno | None = None) -> float:
-        if turno is not None:
-            movimientos = self.listar_del_turno(turno)
-        elif dia is not None:
-            movimientos = self.listar_del_dia(dia)
-        else:
-            movimientos = self.listar_del_dia(date.today())
-        return round(sum(m.importe for m in movimientos if m.es_egreso and not m.anulado), 2)
-
-    def total_ingresos(self, dia: date | None = None, turno: Turno | None = None) -> float:
-        if turno is not None:
-            movimientos = self.listar_del_turno(turno)
-        elif dia is not None:
-            movimientos = self.listar_del_dia(dia)
-        else:
-            movimientos = self.listar_del_dia(date.today())
-        return round(sum(m.importe for m in movimientos if m.es_ingreso and not m.anulado), 2)
-
     def registrar(
         self,
         tipo: str,

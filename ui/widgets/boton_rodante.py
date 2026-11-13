@@ -11,8 +11,6 @@ from ui.widgets.rollo_texto import RolloTexto
 class BotonRodante(QPushButton):
     INTERVALO_MS = 16
 
-    REVERSA_MS = 1400
-
     TIEMPO_CARACTER_MS = 220
 
     ESCALON_MS = 30
@@ -58,13 +56,6 @@ class BotonRodante(QPushButton):
                 self._reloj.start()
                 self._temporizador.start()
             self.update()
-
-    def flash(self, texto: str, reversa_ms: int = REVERSA_MS, direccion: str | None = None) -> None:
-        previo = self._rollo.objetivo
-        self.mostrar(texto, direccion=direccion)
-        marca = self._generacion
-        reversa_dir = "down" if direccion == "up" else ("up" if direccion == "down" else None)
-        QTimer.singleShot(reversa_ms, lambda: self._volver(previo, texto, marca, reversa_dir))
 
     def repetir(self, direccion: str | None = None) -> None:
         if direccion is not None:

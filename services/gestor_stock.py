@@ -82,9 +82,6 @@ class GestorStock:
         self._categorias.agregar(Categoria(nombre))
         return nombre
 
-    def tipos_de_movimiento(self) -> list[str]:
-        return Movimiento.tipos_disponibles()
-
     def registrar_movimiento(
         self, tipo: str, codigo_producto: str, cantidad: float, fecha: date, motivo: str = ""
     ) -> Movimiento:

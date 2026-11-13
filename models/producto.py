@@ -173,9 +173,6 @@ class Producto(Entidad):
             return 0.0
         return self._precio_venta - self._precio_venta / (1 + self._alicuota_iva / 100)
 
-    def precio_neto(self) -> float:
-        return self._precio_venta - self.iva_unitario()
-
     def to_dict(self) -> dict[str, str]:
         return {
             "codigo": self._codigo,

@@ -57,6 +57,3 @@ class ComercioRepositorio:
             if datos["nombre"]:
                 return Comercio.from_dict(datos)
         return None
-
-    def esta_configurado(self) -> bool:
-        return self.obtener() is not None

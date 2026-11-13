@@ -141,13 +141,6 @@ class GestorVentas:
         self._fiado.validar_cargo(cliente, fiado.importe)
         return fiado
 
-    def aplicar_descuento_linea(self, codigo: str, descuento: float) -> None:
-        for item in self._venta.items:
-            if item.codigo == codigo:
-                item.aplicar_descuento(descuento)
-                return
-        raise ProductoNoEncontradoError(codigo)
-
     def anular(self, identificador: str, fecha: date, motivo: str = "") -> list[str]:
         comprobante = self._estadisticas.buscar(identificador)
         if comprobante is None:

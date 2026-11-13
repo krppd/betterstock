@@ -27,7 +27,6 @@ TIPOGRAFIA: dict = tokens["tipografia"]
 ESPACIADO: dict[str, int] = tokens["espaciado"]
 MEDIDAS: dict[str, int] = tokens["medidas"]
 SOMBRAS: dict[str, dict] = tokens["sombras"]
-SOMBRAS_WIDGET: dict[str, dict] = tokens["sombras_widget"]
 
 ESCALA: dict[str, dict] = TIPOGRAFIA["escala"]
 PESOS: dict[str, int] = TIPOGRAFIA["pesos"]
@@ -114,20 +113,12 @@ def sombra(nombre: str) -> dict:
     return SOMBRAS[nombre]
 
 
-def sombra_widget(nombre: str) -> dict:
-    return SOMBRAS_WIDGET[nombre]
-
-
 def familia() -> str:
     return FAMILIA_FUENTE
 
 
 def interlinea(nombre: str) -> float:
     return float(ESCALA[_clave_tamano(nombre)].get("interlinea", 1.2))
-
-
-def espaciado_letra(nombre: str) -> float:
-    return float(ESCALA[_clave_tamano(nombre)].get("espaciado", 0.0))
 
 
 TAMANO_MICRO = int(ESCALA["micro"]["punto"])

@@ -21,9 +21,6 @@ class EtiquetaTexto(QLabel):
         self.setToolTip(self._completo)
         self._actualizar()
 
-    def textoCompleto(self) -> str:
-        return self._completo
-
     def _palabra_mas_larga(self) -> str:
         return max(self._completo.split(), key=len, default="")
 
