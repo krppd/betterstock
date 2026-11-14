@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from PyQt6.QtTest import QTest
+from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QApplication
 
 from ui.estilos import ESCALA_NORMAL, aplicar_escala, aplicar_tema
@@ -28,6 +28,7 @@ def escala_normal():
 def _grafico(ancho: int, escala: float) -> GraficoVentas:
     aplicar_tema(QApplication.instance(), escala)
     vista = GraficoVentas(PUNTOS, 12.5)
+    vista.setAttribute(Qt.WidgetAttribute.WA_DontShowOnScreen, True)
     vista.resize(ancho, 285)
     vista.show()
     QApplication.processEvents()
@@ -61,25 +62,14 @@ def test_las_etiquetas_se_recalculan_al_redimensionar() -> None:
     try:
         assert _etiquetas_visibles(vista) == len(PUNTOS)
         vista.resize(890, 285)
-        if not _ancho_aplicado(vista, 890):
-            pytest.skip("El compositor no aplica el cambio de tamaño redimensionar")
+        assert vista.width() == 890
         assert _etiquetas_visibles(vista) == len(PUNTOS) // 2
         vista.resize(1600, 285)
-        if not _ancho_aplicado(vista, 1600):
-            pytest.skip("El compositor no aplica el cambio de tamaño redimensionar")
+        assert vista.width() == 1600
         assert _etiquetas_visibles(vista) == len(PUNTOS)
     finally:
         vista.close()
         vista.deleteLater()
-
-
-def _ancho_aplicado(vista: GraficoVentas, ancho: int) -> bool:
-    for _ in range(50):
-        QApplication.processEvents()
-        if vista.width() == ancho:
-            return True
-        QTest.qWait(20)
-    return False
 
 
 def test_escala_normal_tambien_reparte_las_etiquetas() -> None:

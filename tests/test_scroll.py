@@ -202,11 +202,11 @@ def test_rueda_al_reves_en_el_tope_no_mueve(aplicacion: QApplication, filtro: Fi
 
 def test_rueda_horizontal_sobre_tabla(aplicacion: QApplication, filtro: Espia) -> None:
     tabla = QTableWidget(4, 60)
+    tabla.setFixedWidth(300)
     tabla.show()
     aplicacion.processEvents()
     barra = tabla.horizontalScrollBar()
-    if barra.maximum() <= barra.minimum():
-        pytest.skip("sin desborde horizontal")
+    assert barra.maximum() > barra.minimum()
     assert rueda(tabla.viewport(), dy=0, dx=-120, espiar=filtro) is True
 
 
