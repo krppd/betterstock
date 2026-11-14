@@ -73,6 +73,8 @@ from views.ventana_productos import VentanaProductos
 from views.ventana_reportes import VentanaReportes
 from views.ventana_ventas import VentanaVentas
 
+ANCHO_MINIMO_PARA_PANEL = 900
+
 
 class _BotonCompat(QPushButton):
     """Boton proxy para mantener compatibilidad con tests que inspeccionan self.ui.btn*."""
@@ -170,6 +172,7 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
         self._preparar_reloj()
         self._preparar_navegacion()
+        self.navigationInterface.setMinimumExpandWidth(ANCHO_MINIMO_PARA_PANEL)
         self.navigationInterface.panel.expand(useAni=False)
 
         self.ui = _UiCompat(self)
