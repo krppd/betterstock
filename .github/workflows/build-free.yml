@@ -7,11 +7,15 @@ on:
   workflow_dispatch:
 
 permissions:
+  actions: read
   contents: write
 
 jobs:
   build-windows:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      executable_artifact_id: ${{ steps.upload-executable.outputs.artifact-id }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,24 +35,77 @@ jobs:
           BETTERSTOCK_VERSION: ${{ github.ref_name }}
         run: pyinstaller --noconfirm --clean BetterStock.spec
 
-      - name: Package artifact
+      - name: Read the version
+        id: version
         shell: pwsh
         run: |
           $version = "${{ github.ref_name }}".TrimStart('v')
-          Compress-Archive -Path dist/BetterStock -DestinationPath "dist/BetterStock-$version.zip" -Force
-          $hash = (Get-FileHash -Algorithm SHA256 "dist/BetterStock-$version.zip").Hash
-          "SHA256=$hash" | Out-File -FilePath dist/SHA256.txt -Encoding utf8
-          Get-Content dist/SHA256.txt
+          if ($version -notmatch '^\d+\.\d+\.\d+') {
+            $version = (python -c "import config; print(config.APP_VERSION)")
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Output "version=$version"
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Upload the unsigned executable
+        id: upload-executable
+        uses: actions/upload-artifact@v7
         with:
-          name: BetterStock-Windows
-          path: dist/
+          path: dist/BetterStock/BetterStock.exe
+          if-no-files-found: error
+          archive: false
+
+      - name: Upload the portable build
+        uses: actions/upload-artifact@v7
+        with:
+          name: BetterStock-Package
+          path: dist/BetterStock
           if-no-files-found: error
 
+  publish:
+    needs: build-windows
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: windows-latest
+    steps:
+      - name: Download the portable build
+        uses: actions/download-artifact@v7
+        with:
+          name: BetterStock-Package
+          path: dist/BetterStock
+
+      - name: Submit the signing request
+        id: sign
+        if: vars.SIGNPATH_PROJECT_SLUG != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: ${{ vars.SIGNPATH_PROJECT_SLUG }}
+          signing-policy-slug: ${{ vars.SIGNPATH_SIGNING_POLICY_SLUG }}
+          github-artifact-id: ${{ needs.build-windows.outputs.executable_artifact_id }}
+          wait-for-completion: true
+          wait-for-completion-timeout-in-seconds: "3600"
+          output-artifact-directory: signed
+          skip-decompress: true
+
+      - name: Put the signed executable in the build
+        if: steps.sign.outcome == 'success'
+        shell: pwsh
+        run: |
+          $firmado = Get-ChildItem -Path signed -Filter *.exe -Recurse | Select-Object -First 1
+          if (-not $firmado) { throw "No se encontro el ejecutable firmado" }
+          Copy-Item -Path $firmado.FullName -Destination dist\BetterStock\BetterStock.exe -Force
+          Write-Output "signed: $($firmado.FullName)"
+
+      - name: Package the build
+        shell: pwsh
+        run: |
+          $version = "${{ needs.build-windows.outputs.version }}"
+          Compress-Archive -Path dist\BetterStock -DestinationPath "dist\BetterStock-$version.zip" -Force
+          $hash = (Get-FileHash -Algorithm SHA256 "dist\BetterStock-$version.zip").Hash
+          "SHA256=$hash" | Out-File -FilePath dist\SHA256.txt -Encoding utf8
+          Get-Content dist\SHA256.txt
+
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: |
@@ -56,6 +113,8 @@ jobs:
             dist/SHA256.txt
           generate_release_notes: false
           body: |
-            BetterStock Free (edición libre, MIT).
+            BetterStock Free (edicion libre, MIT).
 
-            Verificación de integridad: SHA-256 publicado en `SHA256.txt` de este release.
+            Verificacion de integridad: SHA-256 publicado en `SHA256.txt` de este release.
+
+            ${{ steps.sign.outcome == 'success' && 'El ejecutable va firmado con el certificado de SignPath Foundation.' || 'El ejecutable no va firmado: Windows SmartScreen avisa la primera vez.' }}
