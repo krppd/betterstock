@@ -22,7 +22,7 @@ def _normalizar(texto: str) -> str:
 
 
 _COLUMNAS = (
-    "codigo, nombre, categoria, unidad_medida, precio_costo, precio_venta,"
+    "codigo, codigo_barras, nombre, categoria, unidad_medida, precio_costo, precio_venta,"
     " stock_actual, stock_minimo, alicuota_iva, precio_oferta,"
     " fecha_vencimiento"
 )
@@ -73,13 +73,14 @@ class ProductoRepositorio:
             return self.listar()
         condicion = " AND ".join(
             "(normalizar(codigo) LIKE ? ESCAPE '\\' COLLATE NOCASE"
+            " OR normalizar(codigo_barras) LIKE ? ESCAPE '\\' COLLATE NOCASE"
             " OR normalizar(nombre) LIKE ? ESCAPE '\\' COLLATE NOCASE)"
             for _ in pares
         )
         parametros: list[str] = []
         for _, normal in pares:
             patron = f"%{_escapar(normal)}%"
-            parametros.extend((patron, patron))
+            parametros.extend((patron, patron, patron))
         conexion = conectar(ruta_db(self._ruta_archivo))
         try:
             conexion.create_function("normalizar", 1, _normalizar)
@@ -95,6 +96,7 @@ class ProductoRepositorio:
             for producto in candidatos
             if all(
                 normal in _normalizar(producto.codigo)
+                or normal in _normalizar(producto.codigo_barras)
                 or normal in _normalizar(producto.nombre)
                 for _, normal in pares
             )
@@ -109,12 +111,12 @@ class ProductoRepositorio:
         conexion = conectar(ruta_db(self._ruta_archivo))
         try:
             conexion.execute(
-                "INSERT INTO productos(codigo, nombre, categoria, unidad_medida,"
+                "INSERT INTO productos(codigo, codigo_barras, nombre, categoria, unidad_medida,"
                 " precio_costo, precio_venta, stock_actual, stock_minimo,"
                 " alicuota_iva, precio_oferta, fecha_vencimiento)"
-                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                 " ON CONFLICT(codigo) DO UPDATE SET"
-                " nombre=excluded.nombre, categoria=excluded.categoria,"
+                " nombre=excluded.nombre, codigo_barras=excluded.codigo_barras, categoria=excluded.categoria,"
                 " unidad_medida=excluded.unidad_medida,"
                 " precio_costo=excluded.precio_costo,"
                 " precio_venta=excluded.precio_venta,"

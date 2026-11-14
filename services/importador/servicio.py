@@ -21,12 +21,12 @@ from services.plan_motor import limite
 from utils.formato import parsear_fecha
 
 _COLUMNAS = (
-    "codigo, nombre, categoria, unidad_medida, precio_costo, precio_venta,"
+    "codigo, codigo_barras, nombre, categoria, unidad_medida, precio_costo, precio_venta,"
     " stock_actual, stock_minimo, alicuota_iva, precio_oferta,"
     " fecha_vencimiento"
 )
 
-_CAMPOS_TEXTO = ("nombre", "categoria", "unidad_medida")
+_CAMPOS_TEXTO = ("nombre", "categoria", "unidad_medida", "codigo_barras")
 _CAMPOS_PRECIO = ("precio_costo", "precio_venta")
 
 
@@ -226,6 +226,7 @@ class ServicioImportacion:
             producto = Producto(
                 codigo=codigo,
                 nombre=str(fila.valores.get("nombre") or codigo),
+                codigo_barras=str(fila.valores.get("codigo_barras") or ""),
                 categoria=str(fila.valores.get("categoria") or ""),
                 unidad_medida=str(fila.valores.get("unidad_medida") or ""),
                 precio_costo=fila.precios.get("precio_costo", 0.0),
@@ -238,7 +239,7 @@ class ServicioImportacion:
         datos = producto.to_dict()
         conexion.execute(
             f"INSERT INTO productos({_COLUMNAS})"
-            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             tuple(datos[columna] for columna in Producto.COLUMNAS),
         )
         return True

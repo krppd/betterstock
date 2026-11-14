@@ -53,6 +53,7 @@ class FormularioProducto(QDialog, VentanaBase):
             if widget is not None:
                 widget.hide()
 
+        self._agregar_campo_codigo_barras()
         self._agregar_boton_categoria()
         self._cargar_categorias(self._categoria_original)
         self._avisar_maximos()
@@ -99,6 +100,18 @@ class FormularioProducto(QDialog, VentanaBase):
         self.ui.gridLayout.addLayout(fila, 2, 1, 1, 1)
         self.setTabOrder(self.ui.cmbCategoria, self.btnNuevaCategoria)
 
+    def _agregar_campo_codigo_barras(self) -> None:
+        """Agrega el campo de codigo de barras (EAN) sin tocar el .ui."""
+        from qfluentwidgets import BodyLabel, LineEdit
+
+        self.lblCodigoBarras = BodyLabel("Código de barras:", self)
+        self.lblCodigoBarras.setObjectName("lblCodigoBarras")
+        self.ui.gridLayout.addWidget(self.lblCodigoBarras, 15, 0, 1, 1)
+        self.txtCodigoBarras = LineEdit(self)
+        self.txtCodigoBarras.setObjectName("txtCodigoBarras")
+        self.txtCodigoBarras.setPlaceholderText("EAN del producto (opcional)")
+        self.ui.gridLayout.addWidget(self.txtCodigoBarras, 15, 1, 1, 1)
+
     def _cargar_categorias(self, seleccionada: str = "") -> None:
         """Recarga el combo con las categorías guardadas y deja elegida ``seleccionada``.
 
@@ -122,6 +135,7 @@ class FormularioProducto(QDialog, VentanaBase):
     def _mostrar_producto(self, producto: Producto) -> None:
         self.ui.txtCodigo.setText(producto.codigo)
         self.ui.txtCodigo.setEnabled(False)
+        self.txtCodigoBarras.setText(producto.codigo_barras)
         self.ui.txtNombre.setText(producto.nombre)
         self.ui.txtUnidad.setText(producto.unidad_medida)
         self._ampliar_spinbox(self.ui.spnPrecioCosto, producto.precio_costo)
@@ -201,6 +215,7 @@ class FormularioProducto(QDialog, VentanaBase):
             producto = Producto(
                 codigo=codigo,
                 nombre=nombre,
+                codigo_barras=self.txtCodigoBarras.text().strip(),
                 categoria=self.ui.cmbCategoria.currentText(),
                 unidad_medida=self.ui.txtUnidad.text().strip(),
                 precio_costo=self.ui.spnPrecioCosto.value(),

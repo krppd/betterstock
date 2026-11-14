@@ -20,7 +20,7 @@ def _miles(valor: float) -> str:
 
 class Producto(Entidad):
     COLUMNAS: tuple[str, ...] = (
-        "codigo", "nombre", "categoria", "unidad_medida",
+        "codigo", "codigo_barras", "nombre", "categoria", "unidad_medida",
         "precio_costo", "precio_venta", "stock_actual", "stock_minimo",
         "alicuota_iva", "precio_oferta", "fecha_vencimiento",
     )
@@ -42,6 +42,7 @@ class Producto(Entidad):
         alicuota_iva: float = ALICUOTA_POR_DEFECTO,
         precio_oferta: float = 0.0,
         fecha_vencimiento: date | None = None,
+        codigo_barras: str = "",
     ) -> None:
         self._codigo = str(codigo)
         self.nombre = nombre
@@ -54,6 +55,7 @@ class Producto(Entidad):
         self.alicuota_iva = alicuota_iva
         self.precio_oferta = precio_oferta
         self.fecha_vencimiento = fecha_vencimiento
+        self.codigo_barras = codigo_barras
 
     @property
     def codigo(self) -> str:
@@ -118,6 +120,14 @@ class Producto(Entidad):
     @fecha_vencimiento.setter
     def fecha_vencimiento(self, valor: date | None) -> None:
         self._fecha_vencimiento = valor
+
+    @property
+    def codigo_barras(self) -> str:
+        return self._codigo_barras
+
+    @codigo_barras.setter
+    def codigo_barras(self, valor: str) -> None:
+        self._codigo_barras = str(valor or "").strip()
 
     def precio_vigente(self) -> float:
         return self._precio_oferta if self._precio_oferta > 0 else self._precio_venta
@@ -185,6 +195,7 @@ class Producto(Entidad):
             "stock_minimo": cantidad_a_texto(self._stock_minimo),
             "alicuota_iva": str(self._alicuota_iva),
             "precio_oferta": str(self._precio_oferta),
+            "codigo_barras": self._codigo_barras,
             "fecha_vencimiento": (
                 self._fecha_vencimiento.isoformat()
                 if self._fecha_vencimiento is not None else ""
@@ -204,6 +215,7 @@ class Producto(Entidad):
         self._nombre = str(datos.get("nombre") or "")
         self._categoria = str(datos.get("categoria") or "")
         self._unidad_medida = str(datos.get("unidad_medida") or "")
+        self._codigo_barras = str(datos.get("codigo_barras") or "").strip()
         self._precio_costo = max(0.0, self._a_decimal(datos.get("precio_costo")))
         self._precio_venta = max(0.0, self._a_decimal(datos.get("precio_venta")))
         self._stock_actual = max(0.0, redondear_cantidad(self._a_decimal(datos.get("stock_actual"))))

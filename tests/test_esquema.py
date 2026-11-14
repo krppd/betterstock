@@ -5,7 +5,7 @@ import sqlite3
 from repositories.sqlite import conectar
 
 COLUMNAS_PRODUCTOS = (
-    "codigo", "nombre", "categoria", "unidad_medida", "precio_costo",
+    "codigo", "codigo_barras", "nombre", "categoria", "unidad_medida", "precio_costo",
     "precio_venta", "stock_actual", "stock_minimo", "alicuota_iva",
     "precio_oferta", "promo_cantidad", "promo_precio", "fecha_vencimiento",
 )

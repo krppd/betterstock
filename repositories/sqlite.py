@@ -6,7 +6,7 @@ from pathlib import Path
 
 DB_NOMBRE = "betterstock.db"
 
-ESQUEMA = """CREATE TABLE IF NOT EXISTS productos(codigo TEXT PRIMARY KEY, nombre TEXT NOT NULL, categoria TEXT DEFAULT '', unidad_medida TEXT DEFAULT '', precio_costo REAL DEFAULT 0, precio_venta REAL DEFAULT 0, stock_actual INTEGER DEFAULT 0, stock_minimo INTEGER DEFAULT 0, alicuota_iva REAL DEFAULT 21.0, precio_oferta REAL DEFAULT 0, promo_cantidad INTEGER DEFAULT 0, promo_precio REAL DEFAULT 0, fecha_vencimiento TEXT DEFAULT '');
+ESQUEMA = """CREATE TABLE IF NOT EXISTS productos(codigo TEXT PRIMARY KEY, codigo_barras TEXT DEFAULT '', nombre TEXT NOT NULL, categoria TEXT DEFAULT '', unidad_medida TEXT DEFAULT '', precio_costo REAL DEFAULT 0, precio_venta REAL DEFAULT 0, stock_actual INTEGER DEFAULT 0, stock_minimo INTEGER DEFAULT 0, alicuota_iva REAL DEFAULT 21.0, precio_oferta REAL DEFAULT 0, promo_cantidad INTEGER DEFAULT 0, promo_precio REAL DEFAULT 0, fecha_vencimiento TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS movimientos(id_movimiento INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT NOT NULL, codigo_producto TEXT NOT NULL, tipo TEXT NOT NULL, cantidad INTEGER NOT NULL, motivo TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS categorias(nombre TEXT PRIMARY KEY COLLATE NOCASE);
 CREATE TABLE IF NOT EXISTS usuarios(usuario TEXT PRIMARY KEY, password_hash TEXT NOT NULL, permiso TEXT DEFAULT 'vendedor', permisos_extra TEXT DEFAULT '');
@@ -82,6 +82,7 @@ def _migrar_cierres(conexion: sqlite3.Connection) -> None:
 def _migrar_productos(conexion: sqlite3.Connection) -> None:
     columnas = [fila["name"] for fila in conexion.execute("PRAGMA table_info(productos)")]
     cambios = (
+        ("codigo_barras", "TEXT DEFAULT ''"),
         ("fecha_vencimiento", "TEXT DEFAULT ''"),
         ("promo_cantidad", "INTEGER DEFAULT 0"),
         ("promo_precio", "REAL DEFAULT 0"),
