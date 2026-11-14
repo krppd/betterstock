@@ -6,10 +6,10 @@ from pathlib import Path
 
 DB_NOMBRE = "betterstock.db"
 
-ESQUEMA = """CREATE TABLE IF NOT EXISTS productos(codigo TEXT PRIMARY KEY, nombre TEXT NOT NULL, categoria TEXT DEFAULT '', unidad_medida TEXT DEFAULT '', precio_costo REAL DEFAULT 0, precio_venta REAL DEFAULT 0, stock_actual INTEGER DEFAULT 0, stock_minimo INTEGER DEFAULT 0, alicuota_iva REAL DEFAULT 21.0, precio_oferta REAL DEFAULT 0, fecha_vencimiento TEXT DEFAULT '');
+ESQUEMA = """CREATE TABLE IF NOT EXISTS productos(codigo TEXT PRIMARY KEY, nombre TEXT NOT NULL, categoria TEXT DEFAULT '', unidad_medida TEXT DEFAULT '', precio_costo REAL DEFAULT 0, precio_venta REAL DEFAULT 0, stock_actual INTEGER DEFAULT 0, stock_minimo INTEGER DEFAULT 0, alicuota_iva REAL DEFAULT 21.0, precio_oferta REAL DEFAULT 0, promo_cantidad INTEGER DEFAULT 0, promo_precio REAL DEFAULT 0, fecha_vencimiento TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS movimientos(id_movimiento INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT NOT NULL, codigo_producto TEXT NOT NULL, tipo TEXT NOT NULL, cantidad INTEGER NOT NULL, motivo TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS categorias(nombre TEXT PRIMARY KEY COLLATE NOCASE);
-CREATE TABLE IF NOT EXISTS usuarios(usuario TEXT PRIMARY KEY, password_hash TEXT NOT NULL, permiso TEXT DEFAULT 'vendedor');
+CREATE TABLE IF NOT EXISTS usuarios(usuario TEXT PRIMARY KEY, password_hash TEXT NOT NULL, permiso TEXT DEFAULT 'vendedor', permisos_extra TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS comercio(nombre TEXT NOT NULL, direccion TEXT DEFAULT '', cuit TEXT DEFAULT '', telefono TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS clientes(codigo INTEGER PRIMARY KEY AUTOINCREMENT, nombre TEXT NOT NULL UNIQUE COLLATE NOCASE, telefono TEXT DEFAULT '', limite REAL DEFAULT 0, activo INTEGER DEFAULT 1, doc_tipo INTEGER DEFAULT 99, doc_nro TEXT DEFAULT '', cond_iva INTEGER DEFAULT 5, email TEXT DEFAULT '');
 CREATE TABLE IF NOT EXISTS cuenta_movimientos(id INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT NOT NULL, cliente TEXT NOT NULL, tipo TEXT NOT NULL, importe REAL NOT NULL, detalle TEXT DEFAULT '', medio TEXT DEFAULT '', usuario TEXT DEFAULT '', hora TEXT DEFAULT '');
@@ -63,43 +63,47 @@ def conectar(origen: str | Path) -> sqlite3.Connection:
 
 def _migrar_usuarios(conexion: sqlite3.Connection) -> None:
     columnas = [fila["name"] for fila in conexion.execute("PRAGMA table_info(usuarios)")]
-    if "permiso" in columnas:
-        return
-    conexion.execute("ALTER TABLE usuarios ADD COLUMN permiso TEXT DEFAULT 'vendedor'")
-    conexion.execute("UPDATE usuarios SET permiso = 'administrador' WHERE usuario = 'admin'")
-    conexion.commit()
+    if "permiso" not in columnas:
+        conexion.execute("ALTER TABLE usuarios ADD COLUMN permiso TEXT DEFAULT 'vendedor'")
+        conexion.execute("UPDATE usuarios SET permiso = 'administrador' WHERE usuario = 'admin'")
+        conexion.commit()
+    if "permisos_extra" not in columnas:
+        conexion.execute("ALTER TABLE usuarios ADD COLUMN permisos_extra TEXT DEFAULT ''")
+        conexion.commit()
 
 
 def _migrar_cierres(conexion: sqlite3.Connection) -> None:
     columnas = [fila["name"] for fila in conexion.execute("PRAGMA table_info(cierres)")]
-    if "usuario" in columnas:
-        return
-    conexion.execute("ALTER TABLE cierres ADD COLUMN usuario TEXT DEFAULT ''")
-    conexion.commit()
+    if "usuario" not in columnas:
+        conexion.execute("ALTER TABLE cierres ADD COLUMN usuario TEXT DEFAULT ''")
+        conexion.commit()
 
 
 def _migrar_productos(conexion: sqlite3.Connection) -> None:
     columnas = [fila["name"] for fila in conexion.execute("PRAGMA table_info(productos)")]
-    if "fecha_vencimiento" in columnas:
-        return
-    conexion.execute("ALTER TABLE productos ADD COLUMN fecha_vencimiento TEXT DEFAULT ''")
+    cambios = (
+        ("fecha_vencimiento", "TEXT DEFAULT ''"),
+        ("promo_cantidad", "INTEGER DEFAULT 0"),
+        ("promo_precio", "REAL DEFAULT 0"),
+    )
+    for columna, definicion in cambios:
+        if columna not in columnas:
+            conexion.execute(f"ALTER TABLE productos ADD COLUMN {columna} {definicion}")
     conexion.commit()
 
 
 def _migrar_ventas(conexion: sqlite3.Connection) -> None:
     columnas = [fila["name"] for fila in conexion.execute("PRAGMA table_info(ventas)")]
-    if "pagos" in columnas:
-        return
-    conexion.execute("ALTER TABLE ventas ADD COLUMN pagos TEXT DEFAULT ''")
-    conexion.commit()
+    if "pagos" not in columnas:
+        conexion.execute("ALTER TABLE ventas ADD COLUMN pagos TEXT DEFAULT ''")
+        conexion.commit()
 
 
 def _migrar_cuenta(conexion: sqlite3.Connection) -> None:
     columnas = [fila["name"] for fila in conexion.execute("PRAGMA table_info(cuenta_movimientos)")]
-    if "hora" in columnas:
-        return
-    conexion.execute("ALTER TABLE cuenta_movimientos ADD COLUMN hora TEXT DEFAULT ''")
-    conexion.commit()
+    if "hora" not in columnas:
+        conexion.execute("ALTER TABLE cuenta_movimientos ADD COLUMN hora TEXT DEFAULT ''")
+        conexion.commit()
 
 
 def _migrar_clientes(conexion: sqlite3.Connection) -> None:
