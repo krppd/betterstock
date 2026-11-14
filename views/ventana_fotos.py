@@ -25,8 +25,14 @@ from services.fotos import (
     descargar_bytes,
     guardar_bytes,
 )
+from services.preferencias import fotos_en_linea
 from ui.fluent import color
 from views.ventana_base import VentanaBase
+
+MENSAJE_BUSQUEDA_APAGADA = (
+    "La búsqueda de fotos en internet está apagada. Activala en Ajustes "
+    "si querés que BetterStock consulte Open Food Facts."
+)
 
 
 class _BotonFoto(ToolButton):
@@ -165,11 +171,22 @@ class VentanaFotos(QDialog, VentanaBase):
         for indice, boton in enumerate(self.ui.btnFotos):
             boton.clicked.connect(lambda _=False, i=indice: self._elegir(i))
         qconfig.themeChanged.connect(self.ui._aplicar_temas)
+        self._aplicar_busqueda_en_linea()
+
+    def _aplicar_busqueda_en_linea(self) -> None:
+        if fotos_en_linea():
+            return
+        self.ui.txtBuscar.setEnabled(False)
+        self.ui.btnBuscar.setEnabled(False)
+        self.ui.lblEstado.setText(MENSAJE_BUSQUEDA_APAGADA)
 
     def buscar(self) -> None:
         texto = self.ui.txtBuscar.text().strip()
         if not texto:
             self.ui.lblEstado.setText("Escribí un nombre o código para buscar.")
+            return
+        if not fotos_en_linea():
+            self.ui.lblEstado.setText(MENSAJE_BUSQUEDA_APAGADA)
             return
         self.ui.lblEstado.setText("Buscando...")
         self._limpiar_vista()

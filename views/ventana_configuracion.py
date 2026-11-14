@@ -41,6 +41,8 @@ from services.gestor_anulaciones import MENSAJE_SIN_SERVICIO, GestorAnulaciones
 from services.gestor_comercio import GestorComercio
 from services.impresion import imprimir_codigo_anulacion
 from services.preferencias import (
+    fotos_en_linea,
+    guardar_fotos_en_linea,
     guardar_modo_oscuro,
     guardar_mostrar_reloj,
     guardar_posicion_menu,
@@ -204,6 +206,7 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.ui.txtCuit.textChanged.connect(self.validar_cuit)
         self.ui.txtNombre.setFocus()
         self._armar_seccion_interfaz()
+        self._armar_seccion_privacidad()
         self._armar_seccion_backups()
         self.cargar_backups()
         self._armar_seccion_fiado()
@@ -285,6 +288,38 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self.swMostrarReloj.setOffText("Oculto")
         self.swMostrarReloj.setChecked(mostrar_reloj())
         fila.addWidget(self.swMostrarReloj)
+        disposicion.addLayout(fila)
+
+        self._agregar_seccion(grupo)
+
+    def _armar_seccion_privacidad(self) -> None:
+        grupo, disposicion = self._tarjeta("Privacidad")
+        grupo.setObjectName("grpPrivacidad")
+
+        ayuda = BodyLabel(
+            "Al buscar una foto de producto, BetterStock manda el nombre o el "
+            "código a Open Food Facts. Con la búsqueda apagada la aplicación no "
+            "consulta ningún servicio externo: podés pegar la URL de una imagen "
+            "y se descarga solo cuando lo pedís.",
+            grupo)
+        ayuda.setWordWrap(True)
+        ayuda.setTextColor(*_tinta("texto_secundario"))
+        _envuelto(ayuda)
+        disposicion.addWidget(ayuda)
+
+        fila = QHBoxLayout()
+        fila.setSpacing(12)
+        lbl = BodyLabel("Buscar fotos de producto en internet", grupo)
+        lbl.setTextColor(*_tinta("texto_secundario"))
+        fila.addWidget(lbl)
+        fila.addStretch(1)
+
+        self.swFotosEnLinea = SwitchButton(grupo)
+        self.swFotosEnLinea.setObjectName("swFotosEnLinea")
+        self.swFotosEnLinea.setOnText("Activado")
+        self.swFotosEnLinea.setOffText("Apagado")
+        self.swFotosEnLinea.setChecked(fotos_en_linea())
+        fila.addWidget(self.swFotosEnLinea)
         disposicion.addLayout(fila)
 
         self._agregar_seccion(grupo)
@@ -675,6 +710,15 @@ class VentanaConfiguracion(QDialog, VentanaBase):
 
     def guardar(self) -> None:
         self.ui.lblError.setText("")
+        if hasattr(self, "cmbPosicionMenu"):
+            pos = self.cmbPosicionMenu.currentData() or "izquierda"
+            guardar_posicion_menu(pos)
+        if hasattr(self, "chkModoOscuro"):
+            guardar_modo_oscuro(self.chkModoOscuro.isChecked())
+        if hasattr(self, "swMostrarReloj"):
+            guardar_mostrar_reloj(self.swMostrarReloj.isChecked())
+        if hasattr(self, "swFotosEnLinea"):
+            guardar_fotos_en_linea(self.swFotosEnLinea.isChecked())
         try:
             self._gestor_comercio.configurar(
                 self.ui.txtNombre.text(),
@@ -686,12 +730,4 @@ class VentanaConfiguracion(QDialog, VentanaBase):
             self.ui.lblError.setText(str(error))
             _envuelto(self.ui.lblError)
             return
-
-        if hasattr(self, "cmbPosicionMenu"):
-            pos = self.cmbPosicionMenu.currentData() or "izquierda"
-            guardar_posicion_menu(pos)
-        if hasattr(self, "chkModoOscuro"):
-            guardar_modo_oscuro(self.chkModoOscuro.isChecked())
-        if hasattr(self, "swMostrarReloj"):
-            guardar_mostrar_reloj(self.swMostrarReloj.isChecked())
         self.accept()

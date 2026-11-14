@@ -10,6 +10,7 @@ CLAVE_MODO_TACTIL = "modo_tactil"
 CLAVE_MODO_OSCURO = "modo_oscuro"
 CLAVE_MOSTRAR_RELOJ = "mostrar_reloj"
 CLAVE_POSICION_MENU = "posicion_menu"
+CLAVE_FOTOS_EN_LINEA = "fotos_en_linea"
 POSICION_IZQUIERDA = "izquierda"
 POSICION_DERECHA = "derecha"
 ESCALA_NORMAL = 1.0
@@ -67,6 +68,16 @@ def mostrar_reloj(ruta: Path | None = None) -> bool:
 def guardar_mostrar_reloj(activo: bool, ruta: Path | None = None) -> bool:
     datos = leer(ruta)
     datos[CLAVE_MOSTRAR_RELOJ] = bool(activo)
+    return guardar(datos, ruta)
+
+
+def fotos_en_linea(ruta: Path | None = None) -> bool:
+    return bool(leer(ruta).get(CLAVE_FOTOS_EN_LINEA, False))
+
+
+def guardar_fotos_en_linea(activo: bool, ruta: Path | None = None) -> bool:
+    datos = leer(ruta)
+    datos[CLAVE_FOTOS_EN_LINEA] = bool(activo)
     return guardar(datos, ruta)
 
 
