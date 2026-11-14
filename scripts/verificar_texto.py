@@ -141,12 +141,21 @@ def _revisar_rodante(widget: BotonRodante | EtiquetaRodante, problemas: list[str
     texto = widget.text()
     if not texto or widget.width() <= 0:
         return
-    ancho = QFontMetrics(widget.font()).boundingRect(texto).width()
+    metricas = QFontMetrics(widget.font())
+    ancho = metricas.boundingRect(texto).width()
     disponible = _ancho_disponible(widget)
     if ancho > disponible:
         problemas.append(
             f"{widget.objectName() or widget.__class__.__name__}: "
             f"texto de {ancho}px en {disponible}px disponibles -> {texto!r}")
+    alto_necesario = metricas.height()
+    if isinstance(widget, EtiquetaRodante):
+        alto_necesario = widget._alto_caja(metricas)
+    if alto_necesario > widget.height():
+        problemas.append(
+            f"{widget.objectName() or widget.__class__.__name__}: "
+            f"texto de {alto_necesario}px de alto en {widget.height()}px disponibles "
+            f"-> {texto!r}")
     detalle.append(
         f"    {widget.objectName() or widget.__class__.__name__}: "
         f"{ancho}px en {disponible}px -> {texto!r}")

@@ -39,22 +39,35 @@ class EtiquetaRodante(QWidget):
         self.update()
 
     def mostrar(self, texto: str, direccion: str | None = None) -> None:
+        metricas = QFontMetrics(self.font())
         if self._temporizador.isActive():
             if self._rollo.mostrar(texto, direccion=direccion):
+                self._fijo = self._medida_animacion(metricas)
+                self.updateGeometry()
                 self.update()
             return
-        anterior = QFontMetrics(self.font()).boundingRect(self._rollo.objetivo or " ").size()
         if self._rollo.mostrar(texto, direccion=direccion):
-            self._fijo = anterior
+            self._fijo = self._medida_animacion(metricas)
             self._reloj.start()
             self._temporizador.start()
+            self.updateGeometry()
             self.update()
 
     def sizeHint(self) -> QSize:
         if self._fijo is not None and self._temporizador.isActive():
             return self._fijo
-        metricas = QFontMetrics(self.font())
-        return metricas.boundingRect(self._rollo.objetivo or " ").size()
+        return self._medida(QFontMetrics(self.font()))
+
+    def _medida(self, metricas: QFontMetrics) -> QSize:
+        ancho = metricas.horizontalAdvance(self._rollo.objetivo or " ")
+        return QSize(ancho, self._alto_caja(metricas))
+
+    def _medida_animacion(self, metricas: QFontMetrics) -> QSize:
+        ancho = max(
+            metricas.horizontalAdvance(self._rollo.objetivo or " "),
+            self._rollo.ancho_bloque(metricas),
+        )
+        return QSize(ancho, self._alto_caja(metricas))
 
     def _avanzar(self) -> None:
         if self._reloj.elapsed() >= self._rollo.duracion_total():
