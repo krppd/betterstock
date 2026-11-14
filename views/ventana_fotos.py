@@ -174,10 +174,12 @@ class VentanaFotos(QDialog, VentanaBase):
         self.ui.lblEstado.setText("Buscando...")
         self._limpiar_vista()
         try:
-            self._candidatas = self._proveedor.buscar(texto, limite=MAX_RESULTADOS)
+            self._candidatas = self._proveedor.buscar(texto)[:MAX_RESULTADOS]
         except ErrorFoto as error:
             self.ui.lblEstado.setText(str(error))
             self._candidatas = []
+            self._pintar_grilla()
+            return
 
         if not self._candidatas:
             self.ui.lblEstado.setText("Sin resultados: pegá la URL de una imagen.")
@@ -207,7 +209,7 @@ class VentanaFotos(QDialog, VentanaBase):
             return
         try:
             self.ruta_guardada = guardar_bytes(
-                self._codigo, self._bytes[self._elegida], self._destino)
+                self._bytes[self._elegida], self._codigo, self._destino)
         except ErrorFoto as error:
             self.mostrar_advertencia("Foto", str(error))
             return

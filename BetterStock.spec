@@ -58,7 +58,7 @@ VERSIONINFO = versioninfo.VSVersionInfo(
                     u"040904B0",
                     [
                         versioninfo.StringStruct(u"CompanyName", "BetterStock"),
-                        versioninfo.StringStruct(u"FileDescription", "BetterStock Free"),
+                        versioninfo.StringStruct(u"FileDescription", "BetterStock"),
                         versioninfo.StringStruct(u"FileVersion", VERSION),
                         versioninfo.StringStruct(u"InternalName", "BetterStock"),
                         versioninfo.StringStruct(u"LegalCopyright", "MIT License"),
