@@ -32,10 +32,12 @@ keys/
 licencia*.bin
 data/licencia*.bin
 
-# Plugins instalados (el premium se descarga y queda acá)
+# Plugins opcionales que el usuario puede instalar.
 data/plugins/
+data/plugins-desactivado/
 
-# Build del núcleo premium en Rust (crate premium/core) y paquete firmado.
+# Build del núcleo Rust (premium/core) y paquete firmado: no aplican a esta
+# edicion, pero si alguien los genera localmente no se suben.
 premium/core/target/
 premium/core/dist/
 dist/
@@ -73,8 +75,5 @@ Thumbs.db
 
 # Notas e ideas de trabajo del redactor (no publicar).
 ideas.md
-
-# Plugins de prueba por instalación.
-data/plugins-desactivado/
 
 docs/superpowers/

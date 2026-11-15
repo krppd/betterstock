@@ -1,0 +1,53 @@
+name: Bug report
+description: Something does not work as it should.
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happens
+      description: What you did, what you expected, and what happened instead.
+      placeholder: I opened Settings and changed the tax condition...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: error
+    attributes:
+      label: Error message
+      description: If the program showed an error, copy it here.
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: The version in Help, or the name of the release you downloaded.
+      placeholder: 1.0.1
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - Windows 7 or 8
+        - Linux
+        - macOS
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: If the problem is about what you see, a screenshot helps a lot.

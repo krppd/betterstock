@@ -1,7 +1,5 @@
 # BetterStock — Inventory Control
 
-![The main window of BetterStock](docs/capturas/captura-inicio.png)
-
 A desktop application for stock control in a convenience store, built with Python 3 + PyQt6.
 Data is stored in a SQLite database and passwords are hashed with bcrypt.
 
@@ -9,10 +7,7 @@ Everything runs on the computer of the shop: there is no server, no account and 
 activation. The whole application is MIT licensed and this repository is where it
 is developed.
 
-| | |
-|---|---|
-| ![Products](docs/capturas/captura-stock.png) | ![Sales](docs/capturas/captura-ventas.png) |
-| ![Statistics](docs/capturas/captura-estadisticas.png) | ![Cash register](docs/capturas/captura-cierre.png) |
+<!-- Demo video goes here -->
 
 ## What it does
 
@@ -50,6 +45,10 @@ py -3.14 -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
+
+## Documentation
+
+See [docs/overview.md](docs/overview.md) and [docs/interface.md](docs/interface.md).
 
 ## Running
 
