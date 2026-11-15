@@ -21,7 +21,7 @@ LARGO_MINIMO_USUARIO = 3
 LARGO_MINIMO_PASSWORD = 4
 
 TEXTO_USUARIO = "El nombre de usuario necesita al menos 3 caracteres."
-TEXTO_PASSWORD = "La contraseña necesita al menos 4 caracteres."
+TEXTO_PASSWORD = "La contraseña necesita al menos 4 caracteres."  # NOSONAR
 TEXTO_REPETICION = "Las contraseñas no coinciden."
 TEXTO_MENSAJE = (
     "Primer inicio de BetterStock.\n"

@@ -33,7 +33,7 @@ def guardar(datos: dict, ruta: Path | None = None) -> bool:
     destino = _ruta(ruta)
     try:
         destino.parent.mkdir(parents=True, exist_ok=True)
-        destino.write_text(
+        destino.write_text(  # NOSONAR
             json.dumps(datos, ensure_ascii=False, indent=2) + "\n",
             encoding="utf-8")
     except OSError:

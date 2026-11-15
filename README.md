@@ -1,5 +1,9 @@
 # BetterStock — Inventory Control
 
+[![REUSE status](https://api.reuse.software/badge/github.com/krppd/betterstock)](https://api.reuse.software/info/github.com/krppd/betterstock)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=krppd_betterstock&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=krppd_betterstock)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=krppd_betterstock&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=krppd_betterstock)
+
 A desktop application for stock control in a convenience store, built with Python 3 + PyQt6.
 Data is stored in a SQLite database and passwords are hashed with bcrypt.
 
