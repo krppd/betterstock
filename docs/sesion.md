@@ -22,12 +22,23 @@ user's computer: no server, license or activation is required.
 - Optional premium features. They are not part of this repository, and this
   repository has no plugin loader: the plan is always the free one.
 
-## Limits
+## What this edition does not limit
 
-The free plan allows up to 50 products and one year (365 days) of statistics.
-Imports are not limited. These limits live in `services/planes.py` and are
-enforced when a product is added (`views/ventana_productos.py`) and when a
-statistics period is chosen (`views/ventana_estadisticas.py`).
+There are no hard limits on this edition. The product list is not capped, the
+CSV import is not capped, and the statistics cover every month the database
+holds.
+
+The plan values in `services/planes.py` are the ones the paid edition checks
+against. In this edition they only shape what the interface offers:
+
+- The statistics period offers the last 12 months, which is what this edition
+  shows (`views/ventana_estadisticas.py`).
+- The product counter is only a notice: when it is reached the app offers to
+  continue anyway (`views/ventana_productos.py`).
+
+Nothing here is a restriction you can run into: this program is MIT licensed,
+so its source is public and every one of these checks can be read and changed
+by whoever runs it.
 
 ## Tests
 

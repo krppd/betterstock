@@ -1,0 +1,32 @@
+name: Feature request
+description: An idea for something the program could do.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do that is hard today? Describe the situation, not the solution.
+      placeholder: When I close the till I have to write the cash count on paper...
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you have in mind
+      description: How you imagine it working. A rough idea is fine.
+  - type: dropdown
+    id: edition
+    attributes:
+      label: Which edition are you using?
+      options:
+        - The free one from this repository
+        - The paid one
+        - I am not sure
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you tried
+      description: If you found a way around it, that is worth knowing.
