@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
-from PyQt6.QtWidgets import QDialog, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PyQt6.QtCore import Qt, QSize, QUrl
+from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap, QDragEnterEvent, QDropEvent
+from PyQt6.QtWidgets import QDialog, QFileDialog, QGridLayout, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from qfluentwidgets import (
     BodyLabel,
     FluentIcon as FIF,
@@ -17,6 +17,7 @@ from qfluentwidgets import (
 )
 
 from services.fotos import (
+    MAX_BYTES,
     MAX_RESULTADOS,
     Candidata,
     ErrorFoto,
@@ -79,7 +80,7 @@ class _UiFotos:
         self.lblVista.setObjectName("lblVista")
         self.lblVista.setMinimumSize(250, 250)
         self.lblVista.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.lblVista.setText("Sin vista previa")
+        self.lblVista.setText("Sin vista previa\nArrastrá una imagen aquí")
 
         self.lblTitulo = BodyLabel("", ventana)
         self.lblTitulo.setObjectName("lblTitulo")
@@ -161,6 +162,7 @@ class VentanaFotos(QDialog, VentanaBase):
         self.ui = _UiFotos(self)
         self.setWindowTitle("Buscar Foto")
         self.setMinimumSize(640, 600)
+        self.setAcceptDrops(True)
         self.ui.txtBuscar.setText(nombre or codigo)
         self.ui.btnBuscar.clicked.connect(self.buscar)
         self.ui.txtBuscar.returnPressed.connect(self.buscar)
@@ -220,6 +222,37 @@ class VentanaFotos(QDialog, VentanaBase):
         self._mostrar_previa(url, "Imagen pegada")
         self.ui.lblEstado.setText("Revisá la vista previa y guardá si es la correcta.")
 
+    def dragEnterEvent(self, evento: QDragEnterEvent) -> None:
+        if evento.mimeData().hasUrls():
+            for url in evento.mimeData().urls():
+                if url.isLocalFile() and url.toLocalFile().lower().endswith(
+                        (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")):
+                    evento.acceptProposedAction()
+                    return
+        evento.ignore()
+
+    def dropEvent(self, evento: QDropEvent) -> None:
+        for url in evento.mimeData().urls():
+            if not url.isLocalFile():
+                continue
+            ruta = url.toLocalFile()
+            if not ruta.lower().endswith((".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")):
+                continue
+            try:
+                datos = Path(ruta).read_bytes()
+            except OSError as error:
+                self.mostrar_advertencia("Foto", str(error))
+                continue
+            if len(datos) > MAX_BYTES:
+                self.mostrar_advertencia("Foto", "La imagen supera los 5 MB.")
+                continue
+            clave = f"archivo:{ruta}"
+            self._bytes[clave] = datos
+            self._mostrar_previa(clave, Path(ruta).name)
+            self.ui.lblEstado.setText("Revisá la vista previa y guardá si es la correcta.")
+            evento.acceptProposedAction()
+            return
+        evento.ignore()
     def guardar(self) -> None:
         if self._elegida is None or self._elegida not in self._bytes:
             self.mostrar_advertencia("Foto", "Elegí una foto antes de guardar.")
@@ -312,6 +345,6 @@ class VentanaFotos(QDialog, VentanaBase):
 
     def _limpiar_vista(self) -> None:
         self.ui.lblVista.setPixmap(QPixmap())
-        self.ui.lblVista.setText("Sin vista previa")
+        self.ui.lblVista.setText("Sin vista previa\nArrastrá una imagen aquí")
         self.ui.lblTitulo.setText("")
         self._pintar_grilla()
