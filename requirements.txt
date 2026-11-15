@@ -4,7 +4,7 @@ PyQt6-Fluent-Widgets[full]==1.11.3
 scipy<2
 
 # Gráfico de ventas por día (el dibujo lo hace matplotlib; QtCharts sólo lo usa un test)
-PyQt6-Charts==6.11.0
+PyQt6-Charts==6.12.0
 matplotlib==3.11.2
 
 # Fotos y miniaturas de productos (services/fotos.py importa PIL al cargar)
