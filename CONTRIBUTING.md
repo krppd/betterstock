@@ -41,6 +41,15 @@ python scripts/verificar_cifras_tabulares.py
 
 Running `scripts/verificar_todo.py` executes all three checks at once. They are enforced in CI, so any pull request that fails them will not pass.
 
+## Code style
+
+The code is checked with `ruff`:
+
+```bash
+ruff check .
+```
+
+New major functionality must come with tests in `tests/`. Pull requests that add features without tests will not be accepted.
 ## How the code is laid out
 
 ```text

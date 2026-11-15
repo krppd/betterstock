@@ -27,6 +27,10 @@ BetterStock makes no outbound network requests by default. Network activity only
 - **Product Photos**: When enabled in **Settings**, the photo search queries the Open Food Facts API. This feature is disabled by default; while turned off, the application makes no external queries.
 - **External Links**: Links in **Settings** open the official project website in the system's default browser.
 
+## Secure development
+
+The maintainer is familiar with secure software design and common vulnerability classes for desktop applications.
+
 ## Out of Scope
 
 The following are outside the scope of this security policy:

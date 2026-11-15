@@ -2,3 +2,7 @@
 
 # Suite de tests
 pytest==9.0.2
+
+# Analisis estatico
+ruff==0.17.5
+bandit==1.9.4

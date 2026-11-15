@@ -1,0 +1,16 @@
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+exclude = ["ui/generated", "__pycache__", ".pytest_cache"]
+
+[tool.ruff.lint]
+select = ["F", "B", "S"]
+ignore = ["S101", "S105", "S110", "S112", "S310", "S603", "S607", "S608"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101", "S105", "S106"]
+"scripts/*" = ["S603", "S607"]
+
+[tool.bandit]
+exclude_dirs = ["tests", "ui/generated"]
+skips = ["B608", "B310"]
