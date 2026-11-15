@@ -79,6 +79,7 @@ class Usuario(Entidad):
 
     @staticmethod
     def hashear_password_viejo(password: str) -> str:
+        # codeql[py/weak-sensitive-data-hashing]: legacy migration hash, replaced by bcrypt on login
         return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
     def to_dict(self) -> dict[str, str]:

@@ -54,14 +54,14 @@ jobs:
 
       - name: Upload the unsigned executable
         id: upload-executable
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           path: dist/BetterStock/BetterStock.exe
           if-no-files-found: error
           archive: false
 
       - name: Upload the portable build
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: BetterStock-Package
           path: dist/BetterStock
@@ -77,7 +77,7 @@ jobs:
       id-token: write
     steps:
       - name: Download the portable build
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
         with:
           name: BetterStock-Package
           path: dist/BetterStock
@@ -85,7 +85,7 @@ jobs:
       - name: Submit the signing request
         id: sign
         if: vars.SIGNPATH_PROJECT_SLUG != ''
-        uses: signpath/github-action-submit-signing-request@v3
+        uses: signpath/github-action-submit-signing-request@f6d04783b4569d051e0c80105fe66e82819d0092 # v3
         with:
           api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
           organization-id: ${{ vars.SIGNPATH_ORGANIZATION_ID }}
@@ -116,12 +116,12 @@ jobs:
           Get-Content dist\SHA256.txt
 
       - name: Attest build provenance
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@8beda2b7ed98355c0e97c0a63bec38ae472e66c4 # v4
         with:
           subject-path: 'dist/BetterStock-*.zip'
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        uses: softprops/action-gh-release@40c2ca6ddd77ba2a30bbea8f67409c0f76868d67 # v3
         with:
           files: |
             dist/BetterStock-*.zip
