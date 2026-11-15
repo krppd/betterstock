@@ -8,7 +8,7 @@ PyQt6-Charts==6.12.0
 matplotlib==3.11.2
 
 # Fotos y miniaturas de productos (services/fotos.py importa PIL al cargar)
-Pillow==12.1.1
+Pillow==13.0.0
 
 # Hash de contraseñas (SHA-256 es demasiado rápido y no frena la fuerza bruta)
 bcrypt==5.0.0
