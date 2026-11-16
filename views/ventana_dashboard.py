@@ -1014,13 +1014,14 @@ class DashboardPrincipalWidget(QWidget):
         tarjeta.setBorderRadius(8)
 
         lay = QVBoxLayout(tarjeta)
-        lay.setContentsMargins(_px(16), _px(12), _px(16), _px(12))
+        lay.setContentsMargins(_px(14), _px(12), _px(14), _px(12))
         lay.setSpacing(_px(8))
 
         fila_header = QHBoxLayout()
         fila_header.setContentsMargins(0, 0, 0, 0)
 
         lbl_tit = StrongBodyLabel(titulo, tarjeta)
+        lbl_tit.setMinimumWidth(_px(130))
         _tintar(lbl_tit, "texto")
         fila_header.addWidget(lbl_tit)
         fila_header.addStretch()
