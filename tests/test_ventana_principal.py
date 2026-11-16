@@ -89,3 +89,25 @@ def test_el_panel_no_queda_flotuando_sobre_el_contenido(principal) -> None:
     QApplication.processEvents()
     assert principal.navigationInterface.width() >= \
         principal.navigationInterface.panel.width()
+
+
+def test_avatar_comercio_configurado(principal) -> None:
+    assert hasattr(principal, "_card_tienda")
+    avatar = principal._card_tienda.avatar
+    assert not avatar.image.isNull()
+    pix = principal._crear_avatar_comercio("#1E8149")
+    assert not pix.isNull()
+    assert pix.width() == 64
+
+
+def test_alternar_tema_ejecuta_transicion(principal) -> None:
+    from qfluentwidgets import isDarkTheme
+    principal.show()
+    QApplication.processEvents()
+    inicial = isDarkTheme()
+    principal._alternar_tema()
+    QApplication.processEvents()
+    assert isDarkTheme() != inicial
+    # Restaurar
+    principal._alternar_tema()
+    QApplication.processEvents()

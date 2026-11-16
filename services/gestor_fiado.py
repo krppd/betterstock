@@ -83,12 +83,15 @@ class GestorFiado:
             m.signo * m.importe for m in self._cuenta.por_cliente(codigo)), 2)
 
     def deudores(self) -> list[tuple[Cliente, float]]:
-        
-        raise PermissionError("Funciones de fiado avanzado requieren BetterStock Pro.")
+        lista = []
+        for c in self.listar_clientes():
+            s = self.saldo(c.identificador)
+            if s > 0:
+                lista.append((c, s))
+        return sorted(lista, key=lambda item: item[1], reverse=True)
 
     def total_por_cobrar(self) -> float:
-        
-        raise PermissionError("Funciones de fiado avanzado requieren BetterStock Pro.")
+        return round(sum(s for _, s in self.deudores()), 2)
 
     def movimientos_de(self, codigo: str) -> list[MovimientoCuenta]:
         return self._cuenta.por_cliente(codigo)

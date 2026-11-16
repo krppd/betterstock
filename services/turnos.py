@@ -111,6 +111,10 @@ class ServicioTurnos:
                 if m.es_egreso:
                     egresos += m.importe
                 elif m.es_ingreso:
+                    cat_l = (m.categoria or "").casefold()
+                    conc_l = (m.concepto or "").casefold()
+                    if turno.fondo_inicial > 0 and (cat_l == "apertura" or "fondo" in conc_l):
+                        continue
                     ingresos += m.importe
 
             if egresos > 0:
