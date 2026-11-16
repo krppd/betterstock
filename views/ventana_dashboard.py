@@ -43,6 +43,7 @@ from qfluentwidgets import (
     StrongBodyLabel,
     SubtitleLabel,
     TitleLabel,
+    TransparentPushButton,
     isDarkTheme,
     themeColor,
 )
@@ -816,6 +817,9 @@ class WorkerCargaDashboard(QRunnable):
 class DashboardPrincipalWidget(QWidget):
     """Vista principal con métricas clave, gráfico interactivo y listas de actividad."""
 
+    solicitar_ver_ventas = pyqtSignal()
+    solicitar_ver_ranking = pyqtSignal()
+
     def __init__(
         self,
         gestor_stock: GestorStock,
@@ -975,8 +979,20 @@ class DashboardPrincipalWidget(QWidget):
 
         grid_actividad = QGridLayout()
         grid_actividad.setSpacing(_px(14))
-        grid_actividad.addWidget(self._crear_tarjeta_actividad("Últimas ventas", self.tablaVentas), 0, 0)
-        grid_actividad.addWidget(self._crear_tarjeta_actividad("Top productos", self.tablaTop), 0, 1)
+        grid_actividad.addWidget(
+            self._crear_tarjeta_actividad(
+                "Últimas ventas", self.tablaVentas, self.solicitar_ver_ventas.emit
+            ),
+            0,
+            0,
+        )
+        grid_actividad.addWidget(
+            self._crear_tarjeta_actividad(
+                "Top productos", self.tablaTop, self.solicitar_ver_ranking.emit
+            ),
+            0,
+            1,
+        )
         grid_actividad.addWidget(self._crear_tarjeta_actividad("Alertas de stock", self.tablaAlertas), 1, 0)
         grid_actividad.addWidget(self._crear_tarjeta_actividad("Clientes con saldo", self.tablaClientes), 1, 1)
 
@@ -987,7 +1003,12 @@ class DashboardPrincipalWidget(QWidget):
         contenedor.setAutoFillBackground(False)
         layout_raiz.addWidget(scroll)
 
-    def _crear_tarjeta_actividad(self, titulo: str, widget_lista: QWidget) -> QFrame:
+    def _crear_tarjeta_actividad(
+        self,
+        titulo: str,
+        widget_lista: QWidget,
+        on_ver_mas=None,
+    ) -> QFrame:
         tarjeta = CardWidget()
         tarjeta.setObjectName("tarjetaActividad")
         tarjeta.setBorderRadius(8)
@@ -996,9 +1017,21 @@ class DashboardPrincipalWidget(QWidget):
         lay.setContentsMargins(_px(16), _px(12), _px(16), _px(12))
         lay.setSpacing(_px(8))
 
+        fila_header = QHBoxLayout()
+        fila_header.setContentsMargins(0, 0, 0, 0)
+
         lbl_tit = StrongBodyLabel(titulo, tarjeta)
         _tintar(lbl_tit, "texto")
-        lay.addWidget(lbl_tit)
+        fila_header.addWidget(lbl_tit)
+        fila_header.addStretch()
+
+        if on_ver_mas is not None:
+            btn_ver = TransparentPushButton("Ver más ↗", tarjeta)
+            btn_ver.setFixedHeight(_px(26))
+            btn_ver.clicked.connect(on_ver_mas)
+            fila_header.addWidget(btn_ver)
+
+        lay.addLayout(fila_header)
         lay.addWidget(widget_lista)
         lay.addStretch()
         return tarjeta

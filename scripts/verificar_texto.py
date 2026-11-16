@@ -38,7 +38,6 @@ from views.ventana_clientes import VentanaClientes
 from views.ventana_cobro import VentanaCobro
 from views.ventana_consulta import VentanaConsulta
 from views.ventana_detalle_venta import VentanaDetalleVenta
-from views.ventana_estadisticas import VentanaEstadisticas
 from views.ventana_login import VentanaLogin
 from views.ventana_movimientos import VentanaMovimientos
 from views.ventana_principal import VentanaPrincipal
@@ -200,7 +199,6 @@ def main() -> int:
         ventanas = {
             "cobro": lambda: VentanaCobro(ventas.venta, fiado),
             "productos": lambda: VentanaProductos(stock),
-            "estadisticas": lambda: VentanaEstadisticas(estadisticas),
             "consulta": lambda: VentanaConsulta(stock),
             "login": lambda: VentanaLogin(autenticacion),
             "clientes": lambda: VentanaClientes(fiado, "cajero"),

@@ -185,6 +185,9 @@ class EstadisticasVentas:
     def ventas_del_dia(self, dia: date) -> list[VentaRegistrada]:
         return self._ventas.del_dia(dia)
 
+    def todas_las_ventas(self) -> list[VentaRegistrada]:
+        return sorted(self._ventas.listar(), key=lambda v: (v.fecha, v.hora), reverse=True)
+
     def ventas_del_periodo(self, desde: date, hasta: date) -> list[VentaRegistrada]:
         ventas = [v for v in self._ventas.listar() if desde <= v.fecha <= hasta]
         return sorted(ventas, key=lambda v: (v.fecha, v.hora), reverse=True)

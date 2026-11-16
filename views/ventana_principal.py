@@ -72,7 +72,6 @@ from views.ventana_clientes import VentanaClientes
 from views.ventana_configuracion import VentanaConfiguracion
 from views.ventana_consulta import VentanaConsulta
 from views.ventana_dashboard import DashboardPrincipalWidget
-from views.ventana_estadisticas import VentanaEstadisticas
 from views.ventana_movimientos import VentanaMovimientos
 from views.ventana_productos import VentanaProductos
 from views.ventana_reportes import VentanaReportes
@@ -311,6 +310,8 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
             parent=self,
         )
         self._dashboard.setObjectName("inicio")
+        self._dashboard.solicitar_ver_ventas.connect(self._mostrar_aviso_completo)
+        self._dashboard.solicitar_ver_ranking.connect(self._mostrar_aviso_completo)
         self.addSubInterface(self._dashboard, FIF.HOME, "Inicio")
         self._indices["inicio"] = 0
         self._paginas_instanciadas["inicio"] = self._dashboard
@@ -337,12 +338,6 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         )
         self.navigationInterface.addItem(
             "consulta", FIF.SEARCH, "Consulta precio (F7)", self.abrir_consulta, position=NavigationItemPosition.SCROLL
-        )
-
-        self.navigationInterface.addSeparator(NavigationItemPosition.SCROLL)
-        self.navigationInterface.addItemHeader("REPORTES", NavigationItemPosition.SCROLL)
-        self.navigationInterface.addItem(
-            "estadisticas", FIF.PIE_SINGLE, "Estadísticas (F8)", self.abrir_estadisticas, position=NavigationItemPosition.SCROLL
         )
 
         self.navigationInterface.addItem(
@@ -590,11 +585,19 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
         self._mostrar("reportes", fabricar)
 
-    def abrir_estadisticas(self) -> None:
-        self._mostrar(
-            "estadisticas",
-            lambda: VentanaEstadisticas(self._estadisticas, self._anulaciones),
+    def abrir_estadisticas(self, *args, **kwargs) -> None:
+        self._mostrar_aviso_completo()
+
+    def _mostrar_aviso_completo(self) -> None:
+        from qfluentwidgets import MessageBox
+        box = MessageBox(
+            "BetterStock",
+            "Consulta en la web sobre el producto completo.",
+            self,
         )
+        box.yesButton.setText("Aceptar")
+        box.cancelButton.hide()
+        box.exec()
 
     def abrir_productos(self) -> None:
         self._mostrar(
@@ -604,7 +607,11 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
     def abrir_movimientos(self) -> None:
         def fabricar() -> VentanaMovimientos:
-            pagina = VentanaMovimientos(self._gestor_stock)
+            pagina = VentanaMovimientos(
+                self._gestor_stock,
+                estadisticas=self._estadisticas,
+                anulaciones=self._anulaciones,
+            )
             pagina.ir_a_reportes.connect(self.abrir_reportes)
             pagina.ir_a_clientes.connect(self.abrir_clientes)
             return pagina
