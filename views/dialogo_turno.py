@@ -50,7 +50,7 @@ class DialogoAbrirTurno(_FondoDeTema, QDialog, VentanaBase):
                  parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._datos: tuple[float, str] = (0.0, "")
-        self.setWindowTitle("Abrir caja")
+        self.setWindowTitle("Abrir turno")
         self.setObjectName("dlgAbrirTurno")
         self._aplicar_tema()
         qconfig.themeChanged.connect(self._aplicar_tema)
@@ -82,7 +82,7 @@ class DialogoAbrirTurno(_FondoDeTema, QDialog, VentanaBase):
     def _armar_botones(self) -> QHBoxLayout:
         botones = QHBoxLayout()
         self.btnCancelar = PushButton("Cancelar", self)
-        self.btnAbrir = PrimaryPushButton("Abrir caja", self)
+        self.btnAbrir = PrimaryPushButton("Abrir turno", self)
         self.btnCancelar.setAutoDefault(False)
         self.btnAbrir.setDefault(True)
         botones.addWidget(self.btnCancelar)

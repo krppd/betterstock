@@ -77,16 +77,21 @@ class VentanaBase:
         tabla: QTableWidget, filas: Sequence[Sequence[str]], colores: Sequence[str | None] | None = None
     ) -> None:
         tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        tabla.setRowCount(0)
-        for indice_fila, valores in enumerate(filas):
-            tabla.insertRow(indice_fila)
-            color = colores[indice_fila] if colores else None
-            for indice_columna, valor in enumerate(valores):
-                item = QTableWidgetItem(valor)
-                item.setFont(fuente(TAMANO_SMALL, tabular=es_numerico(valor)))
-                if color:
-                    item.setForeground(QBrush(QColor(color)))
-                tabla.setItem(indice_fila, indice_columna, item)
+        tabla.setUpdatesEnabled(False)
+        tabla.blockSignals(True)
+        try:
+            tabla.setRowCount(len(filas))
+            for indice_fila, valores in enumerate(filas):
+                color = colores[indice_fila] if colores else None
+                for indice_columna, valor in enumerate(valores):
+                    item = QTableWidgetItem(valor)
+                    item.setFont(fuente(TAMANO_SMALL, tabular=es_numerico(valor)))
+                    if color:
+                        item.setForeground(QBrush(QColor(color)))
+                    tabla.setItem(indice_fila, indice_columna, item)
+        finally:
+            tabla.blockSignals(False)
+            tabla.setUpdatesEnabled(True)
 
     def _como_widget(self) -> QWidget:
         assert isinstance(self, QWidget), "VentanaBase debe combinarse con una clase de Qt"

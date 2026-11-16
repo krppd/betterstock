@@ -4,8 +4,11 @@ from typing import Callable
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import (
+    QEasingCurve,
     QEvent,
+    QPropertyAnimation,
     QRect,
+    QRectF,
     Qt,
     pyqtSignal,
 )
@@ -20,8 +23,10 @@ from PyQt6.QtGui import (
     QPixmap,
     QShortcut,
 )
+from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QApplication,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -234,6 +239,33 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         return _StatusBarDummy(self._reloj)
 
     @staticmethod
+    def _crear_avatar_comercio(color_fondo: str = "#1E8149", tam: int = 64) -> QPixmap:
+        """Genera un avatar nítido con un icono vectorial de comercio/tienda."""
+        svg_tienda = (
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" '
+            'stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">'
+            '<path d="M3 21h18"/>'
+            '<path d="M3 7v1.5a3 3 0 0 0 6 0V7m0 1.5a3 3 0 0 0 6 0V7m0 1.5a3 3 0 0 0 6 0V7"/>'
+            '<path d="M5 21V11"/>'
+            '<path d="M19 21V11"/>'
+            '<path d="M9 21v-4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v4"/>'
+            '<path d="M2 7l1.5-4h17L22 7"/>'
+            '</svg>'
+        )
+        pix = QPixmap(tam, tam)
+        pix.fill(Qt.GlobalColor.transparent)
+        p = QPainter(pix)
+        p.setRenderHints(QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(QBrush(QColor(color_fondo)))
+        p.drawEllipse(0, 0, tam, tam)
+        renderer = QSvgRenderer(svg_tienda.encode("utf-8"))
+        m = round(tam * 0.18)
+        renderer.render(p, QRectF(m, m, tam - 2 * m, tam - 2 * m))
+        p.end()
+        return pix
+
+    @staticmethod
     def _crear_avatar_icono(icono: FIF, color_fondo: str, tam: int = 48) -> QPixmap:
         pix = QPixmap(tam, tam)
         pix.fill(Qt.GlobalColor.transparent)
@@ -260,8 +292,10 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
                     nombre_tienda = com.nombre
             except AttributeError:
                 pass
-        avatar_tienda = self._crear_avatar_icono(FIF.MARKET, "#1E8149")
+        avatar_tienda = self._crear_avatar_comercio("#1E8149")
         self._card_tienda = NavigationAvatarWidget(nombre_tienda, avatar_tienda)
+        self._card_tienda.setToolTip(f"{nombre_tienda} (Ir a Inicio)")
+        self._card_tienda.setCursor(Qt.CursorShape.PointingHandCursor)
         self.navigationInterface.addWidget(
             routeKey="tienda",
             widget=self._card_tienda,
@@ -377,7 +411,7 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
                 panel._onExpandAniFinished()
 
     def _aplicar_tema(self, oscuro: bool) -> None:
-        setTheme(Theme.DARK if oscuro else Theme.LIGHT)
+        setTheme(Theme.DARK if oscuro else Theme.LIGHT, lazy=True)
         aplicar_color_fluent(oscuro=oscuro)
         self._actualizar_texto_tema()
 
@@ -393,8 +427,56 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
     def _alternar_tema(self) -> None:
         oscuro = not isDarkTheme()
+        if self.isVisible() and not self.rect().isEmpty():
+            self._transicionar_tema(oscuro)
+        else:
+            self._aplicar_tema(oscuro)
+            preferencias.guardar_modo_oscuro(oscuro)
+
+    def _transicionar_tema(self, oscuro: bool) -> None:
+        """Transición suave con cross-fade optimizado para cambio de tema."""
+        if getattr(self, "_animacion_tema", None) is not None:
+            self._animacion_tema.stop()
+        if getattr(self, "_overlay_tema", None) is not None:
+            self._overlay_tema.deleteLater()
+            self._overlay_tema = None
+
+        overlay = QLabel(self)
+        overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        overlay.setGeometry(self.rect())
+        overlay.setPixmap(self.grab())
+        overlay.show()
+        overlay.raise_()
+
+        self.setUpdatesEnabled(False)
         self._aplicar_tema(oscuro)
         preferencias.guardar_modo_oscuro(oscuro)
+        self.setUpdatesEnabled(True)
+        self.update()
+        QApplication.processEvents()
+
+        efecto = QGraphicsOpacityEffect(overlay)
+        overlay.setGraphicsEffect(efecto)
+        anim = QPropertyAnimation(efecto, b"opacity", self)
+        anim.setDuration(240)
+        anim.setStartValue(1.0)
+        anim.setEndValue(0.0)
+        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
+
+        def al_terminar() -> None:
+            overlay.deleteLater()
+            self._overlay_tema = None
+            self._animacion_tema = None
+
+        anim.finished.connect(al_terminar)
+        self._overlay_tema = overlay
+        self._animacion_tema = anim
+        anim.start()
+
+    def resizeEvent(self, evento: QtCore.QResizeEvent) -> None:
+        super().resizeEvent(evento)
+        if getattr(self, "_overlay_tema", None) is not None:
+            self._overlay_tema.setGeometry(self.rect())
 
     def _marcar_activa(self, nombre: str) -> None:
         if nombre and self.navigationInterface.widget(nombre) is not None:
@@ -484,6 +566,18 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         )
         if dialogo.exec():
             self._aplicar_visibilidad_reloj()
+            self._actualizar_nombre_comercio()
+
+    def _actualizar_nombre_comercio(self) -> None:
+        if not self._gestor_comercio or not hasattr(self, "_card_tienda"):
+            return
+        try:
+            com = self._gestor_comercio.comercio
+            if com and com.nombre:
+                self._card_tienda.setName(com.nombre)
+                self._card_tienda.setToolTip(f"{com.nombre} (Ir a Inicio)")
+        except Exception:
+            pass
 
     def abrir_alertas(self) -> None:
         self._mostrar("alertas", lambda: VentanaAlertas(self._gestor_stock))

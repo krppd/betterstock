@@ -343,7 +343,6 @@ QPushButton {
 }
 QPushButton:hover {
     background-color: ${gris_hover};
-    font-weight: bold;
 }
 QPushButton:pressed {
     background-color: ${gris_presionado};

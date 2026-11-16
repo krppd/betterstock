@@ -43,6 +43,8 @@ from qfluentwidgets import (
     StrongBodyLabel,
     SubtitleLabel,
     TitleLabel,
+    isDarkTheme,
+    themeColor,
 )
 
 from config import RECURSOS_DIR
@@ -185,7 +187,7 @@ class KPICard(CardWidget):
         self.tipo_icono = tipo_icono
         self.setObjectName("tarjetaMetrica")
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setMinimumHeight(_px(112))
+        self.setMinimumHeight(_px(118))
         self.setBorderRadius(8)
 
         layout = QVBoxLayout(self)
@@ -259,11 +261,11 @@ class KPICard(CardWidget):
         if "," in valor:
             entero, _, dec = valor.partition(",")
             txt_html = (
-                f"<span style='font-size: {_px(22)}px; font-weight: 700; color: {color('texto')};'>{entero}</span>"
-                f"<span style='font-size: {_px(14)}px; font-weight: 600; color: {color('gris_medio')};'>,{dec}</span>"
+                f"<span style='font-size: {_px(25)}px; font-weight: 700; color: {color('texto')};'>{entero}</span>"
+                f"<span style='font-size: {_px(16)}px; font-weight: 600; color: {color('gris_medio')};'>,{dec}</span>"
             )
         else:
-            txt_html = f"<span style='font-size: {_px(22)}px; font-weight: 700; color: {color('texto')};'>{valor}</span>"
+            txt_html = f"<span style='font-size: {_px(25)}px; font-weight: 700; color: {color('texto')};'>{valor}</span>"
         self.lbl_valor.setText(txt_html)
         self.lbl_valor.adjustSize()
         self._aplicar_estilos()
@@ -300,13 +302,6 @@ class GraficoTendenciaWidget(QWidget):
 
         w = float(self.width())
         h = float(self.height())
-        pad_izq = float(_px(68))
-        pad_der = float(_px(25))
-        pad_arr = float(_px(22))
-        pad_abj = float(_px(36))
-
-        ancho_util = max(10.0, w - pad_izq - pad_der)
-        alto_util = max(10.0, h - pad_arr - pad_abj)
 
         if not self._datos:
             p.setPen(QColor(color("gris_medio")))
@@ -317,6 +312,17 @@ class GraficoTendenciaWidget(QWidget):
 
         valores = [d[1] for d in self._datos]
         val_max = max(valores) if valores and max(valores) > 0 else 100.0
+
+        fm_y = p.fontMetrics()
+        txt_max = f"$ {int(val_max):_}".replace("_", ".")
+        ancho_num = fm_y.horizontalAdvance(txt_max)
+        pad_izq = max(float(_px(80)), float(ancho_num + _px(18)))
+        pad_der = float(_px(25))
+        pad_arr = float(_px(22))
+        pad_abj = float(_px(36))
+
+        ancho_util = max(10.0, w - pad_izq - pad_der)
+        alto_util = max(10.0, h - pad_arr - pad_abj)
 
         lineas = 4
         alt_txt = float(_px(18))
@@ -330,7 +336,7 @@ class GraficoTendenciaWidget(QWidget):
             p.setPen(QColor(color("gris_linea")))
             p.setFont(fuente(TAMANO_SMALL, tabular=True))
             p.drawText(
-                QRectF(0, y - alt_txt / 2.0, pad_izq - float(_px(8)), alt_txt),
+                QRectF(float(_px(2)), y - alt_txt / 2.0, pad_izq - float(_px(8)), alt_txt),
                 Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
                 f"$ {int(val):_}".replace("_", "."),
             )
@@ -351,7 +357,7 @@ class GraficoTendenciaWidget(QWidget):
             y = (pad_arr + alto_util) - (frac * alto_util)
             puntos.append(QPointF(x, y))
 
-            if n <= 10 or idx % max(1, n // 7) == 0:
+            if n <= 12 or idx % max(1, n // 7) == 0:
                 p.setPen(QColor(color("gris_linea")))
                 p.setFont(fuente(TAMANO_SMALL))
                 p.drawText(
@@ -416,15 +422,55 @@ class PillGroup(SegmentedWidget):
     def __init__(self, opciones: list[tuple[str, str]], parent=None) -> None:
         super().__init__(parent)
         self.setObjectName("pillGroupRango")
+        self.hBoxLayout.setContentsMargins(_px(2), _px(2), _px(2), _px(2))
+        self.hBoxLayout.setSpacing(_px(2))
         self._botones: dict[str, QPushButton] = {}
         self._clave_activa = opciones[0][0] if opciones else ""
 
+        from PyQt6.QtGui import QFontMetrics
+        fm_bold = QFontMetrics(fuente(TAMANO_BODY, negrita=True))
         for clave, texto in opciones:
-            self._botones[clave] = self.addItem(clave, texto)
+            btn = self.addItem(clave, texto)
+            btn.setStyleSheet(
+                "SegmentedItem { padding: 4px 10px; margin: 0px; border-radius: 5px; border: none; }"
+                "SegmentedItem:hover { font-weight: normal; }"
+            )
+            ancho_min = fm_bold.horizontalAdvance(texto) + _px(26)
+            btn.setMinimumWidth(ancho_min)
+            self._botones[clave] = btn
 
         self.currentItemChanged.connect(self._al_cambiar_item)
         if self._clave_activa:
             self.setCurrentItem(self._clave_activa)
+
+    def paintEvent(self, e) -> None:
+        QWidget.paintEvent(self, e)
+        item = self.currentItem()
+        if not item:
+            return
+
+        painter = QPainter(self)
+        painter.setRenderHints(
+            QPainter.RenderHint.Antialiasing | QPainter.RenderHint.SmoothPixmapTransform
+        )
+
+        if isDarkTheme():
+            painter.setPen(QColor(255, 255, 255, 16))
+            painter.setBrush(QColor(255, 255, 255, 22))
+        else:
+            painter.setPen(QColor(0, 0, 0, 18))
+            painter.setBrush(QColor(255, 255, 255, 245))
+
+        x = int(self.slideAni.value())
+        rect = QRectF(x, 2, item.width(), self.height() - 4)
+        painter.drawRoundedRect(rect, 5, 5)
+
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(themeColor())
+        ind_w = 16
+        ind_x = x + (item.width() - ind_w) / 2
+        ind_y = self.height() - 5.5
+        painter.drawRoundedRect(QRectF(ind_x, ind_y, ind_w, 2.5), 1.25, 1.25)
 
     def _al_cambiar_item(self, clave: str) -> None:
         self._clave_activa = clave
@@ -632,16 +678,46 @@ class WorkerCargaDashboard(QRunnable):
         puntos_grafico: list[tuple[str, float]] = []
         if self._estadisticas:
             try:
-                totales_dia = self._estadisticas.total_por_dia(desde, hasta)
-                for dia, total in totales_dia:
-                    puntos_grafico.append((dia.strftime("%d/%m"), float(total)))
+                if self.periodo == "12m":
+                    meses_abr = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+                    puntos_mes: list[tuple[str, float]] = []
+                    anio_cur, mes_cur = hoy.year, hoy.month
+                    for offset in range(11, -1, -1):
+                        m = mes_cur - offset
+                        a = anio_cur
+                        while m <= 0:
+                            m += 12
+                            a -= 1
+                        m_desde, m_hasta = EstadisticasVentas.del_mes(a, m)
+                        if m_hasta > hoy:
+                            m_hasta = hoy
+                        tot_mes = self._estadisticas.resumen(m_desde, m_hasta).total
+                        tag = f"{meses_abr[m]} '{str(a)[2:]}" if anio_cur != a else meses_abr[m]
+                        puntos_mes.append((tag, float(tot_mes)))
+                    puntos_grafico = puntos_mes
+                else:
+                    totales_dia = self._estadisticas.total_por_dia(desde, hasta)
+                    for dia, total in totales_dia:
+                        puntos_grafico.append((dia.strftime("%d/%m"), float(total)))
             except Exception:
                 pass
 
         if not puntos_grafico:
-            for i in range(min(7, dias_atras)):
-                d = hoy - timedelta(days=(min(7, dias_atras) - 1 - i))
-                puntos_grafico.append((d.strftime("%d/%m"), 0.0))
+            if self.periodo == "12m":
+                meses_abr = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+                anio_cur, mes_cur = hoy.year, hoy.month
+                for offset in range(11, -1, -1):
+                    m = mes_cur - offset
+                    a = anio_cur
+                    while m <= 0:
+                        m += 12
+                        a -= 1
+                    tag = f"{meses_abr[m]} '{str(a)[2:]}" if anio_cur != a else meses_abr[m]
+                    puntos_grafico.append((tag, 0.0))
+            else:
+                for i in range(min(7, dias_atras)):
+                    d = hoy - timedelta(days=(min(7, dias_atras) - 1 - i))
+                    puntos_grafico.append((d.strftime("%d/%m"), 0.0))
 
         filas_ventas: list[dict[str, Any]] = []
         if self._estadisticas:

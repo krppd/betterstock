@@ -8,6 +8,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QTableWidgetItem,
     QVBoxLayout,
@@ -120,7 +121,15 @@ class VentanaMovimientos(QWidget, VentanaBase):
         layout_principal.addWidget(tarjeta, 1)
 
         self.ui = _UiCompat(self.tblHistorial)
-        self.estirar_columnas(self.ui.tblHistorial)
+        self.tblHistorial.setAlternatingRowColors(True)
+        encabezado = self.tblHistorial.horizontalHeader()
+        encabezado.setStretchLastSection(False)
+        encabezado.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        encabezado.setSectionResizeMode(4, QHeaderView.ResizeMode.Stretch)
+        self.tblHistorial.setColumnWidth(0, 120)
+        self.tblHistorial.setColumnWidth(1, 85)
+        self.tblHistorial.setColumnWidth(2, 155)
+        self.tblHistorial.setColumnWidth(3, 95)
         self.setMinimumSize(560, 480)
 
     def _acomodar_widgets(self) -> None:

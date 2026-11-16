@@ -497,12 +497,21 @@ class VentanaCaja(QWidget, VentanaBase):
         self.ui.hlyMedios.addStretch(1)
 
     def _mostrar_esperado(self, arqueo: Cierre) -> None:
+        v_efec = formatear_dinero(arqueo.ventas_efectivo)
+        c_fiad = formatear_dinero(arqueo.cobros_fiado_efectivo)
+        e_egr = formatear_dinero(arqueo.egresos)
+        i_ing = formatear_dinero(arqueo.ingresos)
+        t_esp = formatear_dinero(arqueo.esperado_por_medio.efectivo)
+
         self.ui.lblEsperado.setText(
-            f"Ventas efectivo: {formatear_dinero(arqueo.ventas_efectivo)} + "
-            f"Cobros fiado: {formatear_dinero(arqueo.cobros_fiado_efectivo)} − "
-            f"Egresos: {formatear_dinero(arqueo.egresos)} + "
-            f"Ingresos: {formatear_dinero(arqueo.ingresos)} = "
-            f"Esperado en el cajón: {formatear_dinero(arqueo.esperado_por_medio.efectivo)}"
+            f"<b>Esperado en el cajón: <span style='color: {color('exito')}; font-size: 15px;'>{t_esp}</span></b>"
+            f"<br>"
+            f"<span style='color: {color('gris_medio')}; font-size: 12px;'>"
+            f"Ventas efectivo: {v_efec} &nbsp;·&nbsp; "
+            f"Cobros fiado: {c_fiad} &nbsp;·&nbsp; "
+            f"Ingresos: +{i_ing} &nbsp;·&nbsp; "
+            f"Egresos: −{e_egr}"
+            f"</span>"
         )
 
     def _cargar_movimientos(self) -> None:

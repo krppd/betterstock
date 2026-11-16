@@ -22,10 +22,14 @@ from services.excepciones import ErrorNegocio
 from services.gestor_stock import GestorStock
 from services.importador.servicio import ServicioImportacion
 from services.plan_motor import CONTACTO, excedido, limite, plan_actual, reposicion_permitida
-from ui.estilos import ROJO_TEXTO
+from ui.estilos import ROJO_TEXTO, escala
 from ui.generated.productos_ui import Ui_Form as Ui_ProductosForm
 from ui.widgets.notificacion import Notificacion
 from utils.formato import formatear_cantidad, formatear_dinero
+
+
+def _px(valor: int) -> int:
+    return round(valor * escala())
 from views.dialogo_categoria import DialogoCategoria
 from views.dialogo_cantidad import pedir_cantidad
 from views.dialogo_producto import DialogoProducto
@@ -151,7 +155,16 @@ class VentanaProductos(QWidget, VentanaBase):
         self.ui.horizontalLayout_2.addWidget(self.btnRecuento)
         self.ui.horizontalLayout_2.addStretch(1)
 
-        self.estirar_columnas(self.ui.tblProductos)
+        self.ui.tblProductos.setAlternatingRowColors(True)
+        encabezado = self.ui.tblProductos.horizontalHeader()
+        encabezado.setStretchLastSection(False)
+        encabezado.setSectionResizeMode(QtWidgets.QHeaderView.ResizeMode.Interactive)
+        encabezado.setSectionResizeMode(1, QtWidgets.QHeaderView.ResizeMode.Stretch)
+        self.ui.tblProductos.setColumnWidth(0, _px(155))
+        self.ui.tblProductos.setColumnWidth(2, _px(150))
+        self.ui.tblProductos.setColumnWidth(3, _px(110))
+        self.ui.tblProductos.setColumnWidth(4, _px(115))
+        self.ui.tblProductos.setColumnWidth(5, _px(130))
         self.ui.tblProductos.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.ui.tblProductos.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         self.setMinimumSize(820, 360)
@@ -169,6 +182,8 @@ class VentanaProductos(QWidget, VentanaBase):
         color_critico = self._color_critico()
         colores = [color_critico if p.esta_en_stock_critico() else None for p in productos]
         self.llenar_tabla(self.ui.tblProductos, filas, colores)
+        ancho_precio = max(_px(130), self.ui.tblProductos.sizeHintForColumn(5) + _px(16))
+        self.ui.tblProductos.setColumnWidth(5, ancho_precio)
 
     def _repintar_colores(self) -> None:
         """Repinta la tabla con los colores del tema, sin volver a consultar la base."""
