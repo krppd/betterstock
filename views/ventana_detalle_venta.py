@@ -42,7 +42,7 @@ class _UiCompat:
 
 
 YA_ANULADA = "Esta venta ya está anulada."
-LARGO_MEDIOS = 48
+LARGO_MEDIOS = 160
 
 
 def _acotar(texto: str, largo: int = LARGO_MEDIOS) -> str:
@@ -76,7 +76,8 @@ class VentanaDetalleVenta(QDialog, VentanaBase):
 
         self.setObjectName("Form")
         self.setWindowTitle("detalle de la venta")
-        self.setMinimumSize(720, 550)
+        self.setMinimumSize(880, 640)
+        self.resize(880, 680)
 
         layout = QVBoxLayout(self)
         layout.setObjectName("verticalLayout")
@@ -167,23 +168,33 @@ class VentanaDetalleVenta(QDialog, VentanaBase):
         self.ui = _UiCompat(self)
 
     def _acomodar_escala(self) -> None:
-        encabezado = self.ui.tblDetalle.horizontalHeader()
-        encabezado.setStretchLastSection(False)
-        encabezado.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         valor = escala()
         self._escala = valor
         self._alto_fila = round(34 * valor)
         for tabla in (self.ui.tblDetalle, self.ui.tblDatos):
             tabla.verticalHeader().setDefaultSectionSize(self._alto_fila)
-        if valor == 1.0:
-            return
+
         disponible = self.screen().availableGeometry().height() if self.screen() else 0
-        alto = round(550 * valor)
+        alto = round(640 * valor)
         if disponible:
             alto = min(alto, disponible - 40)
-        self.setMinimumSize(round(720 * valor), alto)
-        self.ui.tblDetalle.horizontalHeader().setDefaultSectionSize(round(90 * valor))
-        self.ui.tblDatos.horizontalHeader().setDefaultSectionSize(round(130 * valor))
+        ancho = round(880 * valor)
+        self.setMinimumSize(ancho, alto)
+        self.resize(ancho, alto)
+
+        enc_det = self.ui.tblDetalle.horizontalHeader()
+        enc_det.setStretchLastSection(False)
+        enc_det.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        enc_det.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        enc_det.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        enc_det.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        enc_det.setSectionResizeMode(4, QHeaderView.ResizeMode.ResizeToContents)
+        enc_det.setSectionResizeMode(5, QHeaderView.ResizeMode.ResizeToContents)
+
+        enc_dat = self.ui.tblDatos.horizontalHeader()
+        enc_dat.setStretchLastSection(False)
+        enc_dat.setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        enc_dat.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
         self.ui.tblDatos.setFixedHeight(round(160 * valor))
 
     def llenar(self) -> None:

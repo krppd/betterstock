@@ -99,3 +99,18 @@ def test_dashboard_recargar_datos_asincrono(aplicacion, base_datos):
     assert "1" in vista.kpi_pedidos.lbl_valor.text()
     assert len(vista.tablaVentas._filas) == 1
     assert len(vista.tablaTop._filas) == 1
+
+
+def test_dashboard_senales_ver_mas(aplicacion, base_datos):
+    stock, estadisticas, fiado, _ = base_datos
+    vista = DashboardPrincipalWidget(stock, estadisticas, fiado)
+
+    recibidas = []
+    vista.solicitar_ver_ventas.connect(lambda: recibidas.append("ventas"))
+    vista.solicitar_ver_ranking.connect(lambda: recibidas.append("ranking"))
+
+    vista.solicitar_ver_ventas.emit()
+    vista.solicitar_ver_ranking.emit()
+
+    assert recibidas == ["ventas", "ranking"]
+

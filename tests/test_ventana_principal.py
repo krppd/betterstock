@@ -111,3 +111,11 @@ def test_alternar_tema_ejecuta_transicion(principal) -> None:
     # Restaurar
     principal._alternar_tema()
     QApplication.processEvents()
+
+
+def test_aviso_producto_completo(principal, monkeypatch) -> None:
+    abierto = []
+    monkeypatch.setattr(principal, "_mostrar_aviso_completo", lambda: abierto.append(True))
+    principal.abrir_estadisticas()
+    assert len(abierto) == 1
+

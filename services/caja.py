@@ -54,6 +54,8 @@ class ServicioCaja:
             ahora = datetime.now()
             fin = (ahora.date(), ahora.strftime("%H:%M:%S"))
             incluir_fin = True
+            if fin < inicio or ahora.date() <= turno.fecha_apertura:
+                fin = (turno.fecha_apertura, "23:59:59")
 
         def dentro(fecha: date, hora: str) -> bool:
             if not hora:

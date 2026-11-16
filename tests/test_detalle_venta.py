@@ -278,3 +278,45 @@ def test_el_comodin_sigue_rechazando_los_separadores():
     with pytest.raises(ValueError):
         validar_descripcion_comodin("   ")
     assert validar_descripcion_comodin("Pila AA") == "Pila AA"
+
+
+def test_movimientos_integra_categoria_ventas_y_detalle(tmp_path, monkeypatch, aplicacion_global):
+    from views.ventana_movimientos import VentanaMovimientos
+    from views.ventana_detalle_venta import VentanaDetalleVenta
+
+    base, stock, ventas, estadisticas = _armar_ventas(tmp_path, "Arroz Lucchetti")
+    ventas.agregar_producto("1001", cantidad=3)
+    venta = ventas.cobrar(date.today(), monto_recibido=PRECIO * 3, medio_pago=METODO_EFECTIVO)
+
+    ventana = VentanaMovimientos(stock, estadisticas=estadisticas)
+
+    assert ventana.cmbMotivo.currentIndex() == 0
+    assert not ventana.btnDetalle.isEnabled()
+
+    idx_ventas = ventana.cmbMotivo.findData("Ventas")
+    assert idx_ventas != -1
+
+    ventana.cmbMotivo.setCurrentIndex(idx_ventas)
+    assert ventana.btnDetalle.isEnabled()
+    assert ventana.tblHistorial.rowCount() == 1
+    assert ventana.tblHistorial.horizontalHeaderItem(2).text() == "Detalle productos"
+    assert "Arroz Lucchetti x3" in ventana.tblHistorial.item(0, 2).text()
+
+    ventana.cmbMotivo.setCurrentIndex(0)
+    assert not ventana.btnDetalle.isEnabled()
+    assert ventana.tblHistorial.horizontalHeaderItem(2).text() == "Producto"
+
+    ventana.cmbMotivo.setCurrentIndex(idx_ventas)
+    ventana.tblHistorial.selectRow(0)
+
+    abierto = False
+    def mock_exec(self):
+        nonlocal abierto
+        abierto = True
+        assert self._venta.identificador == venta.identificador
+        return 1
+
+    monkeypatch.setattr(VentanaDetalleVenta, "exec", mock_exec)
+    ventana.btnDetalle.click()
+    assert abierto
+
