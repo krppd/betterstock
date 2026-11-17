@@ -11,7 +11,7 @@ This is the free, MIT-licensed edition. Fixes and improvements are developed her
 
 ## Demo
 
-![BetterStock demo](https://cdn.jumpshare.com/preview/m1NC-cK1iaVqDVDwrOLJjfllXbMFcL4M_r6p0jAZn8smomELErOtoFpHf7xe2H6N_rsBog7ZdSOE3KOncGE1l_scKrj83Vqba_Al2SlSiCg-4h3unfsVFOq8J)
+![BetterStock demo](https://files.catbox.moe/m0eekg.gif)
 
 ## Features
 
