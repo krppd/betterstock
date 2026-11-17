@@ -3,228 +3,125 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/krppd/betterstock)](https://api.reuse.software/info/github.com/krppd/betterstock)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=krppd_betterstock&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=krppd_betterstock)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=krppd_betterstock&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=krppd_betterstock)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/16724/badge)](https://www.bestpractices.dev/es/projects/16724/passing)
 
-A desktop application for stock control in a convenience store, built with Python 3 + PyQt6.
-Data is stored in a SQLite database and passwords are hashed with bcrypt.
+BetterStock is a point-of-sale and stock control app for small shops. It runs on the shop's own computer: no server, no online account, no license activation, and no internet needed to sell. Products, sales, customers, the cash register and backups live in a local SQLite database, and passwords are stored as bcrypt hashes.
 
-Everything runs on the computer of the shop: there is no server, no account and no
-activation. The whole application is MIT licensed and this repository is where it
-is developed.
+This is the free, MIT-licensed edition. Fixes and improvements are developed here first and then shared with the paid edition, which adds extra tools and is available at [betterstock.tech](https://betterstock.tech). It works on Windows 10 and 11.
 
-<!-- Demo video goes here -->
+## Demo
 
-## What it does
+![BetterStock demo](https://cdn.jumpshare.com/preview/m1NC-cK1iaVqDVDwrOLJjfllXbMFcL4M_r6p0jAZn8smomELErOtoFpHf7xe2H6N_rsBog7ZdSOE3KOncGE1l_scKrj83Vqba_Al2SlSiCg-4h3unfsVFOq8J)
 
-- **Stock**: products with cost price, sale price, minimum stock, categories and
-  stock counts. Search by code or name.
-- **Sales**: barcode reader or keyboard, split payments, discounts, store credit
-  (fiados) for customers, cash, card and transfer.
-- **Cash register**: shifts with opening and closing, cash in and cash out, and the
-  difference between what should be there and what is counted.
-- **Customers**: name, phone, credit limit, tax condition and a balance history.
-- **Statistics**: sales by day, ticket average, units sold and the best sellers,
-  for the last 12 months.
-- **Reports**: stock valuation, sales by period and the movement history.
-- **Import**: CSV import of the product list.
-- **Backup**: a copy of the database on demand, stored on the same computer.
-- **Ticket printing** with the system printer or as a PDF.
+## Features
+
+- **Inventory**: Manage products with cost price, sale price, minimum stock alerts, categories, and stock counts. Search by barcode or name.
+- **Point of Sale**: Barcode scanner or keyboard input, split payments (cash, card, transfer, and store credit), discounts, and sale cancellations authorized via supervisor code.
+- **Cash Register**: Shift opening and closing, cash inflows/outflows, reconciliation between expected and counted balances, and automatic local backup upon closing.
+- **Customers & Store Credit (Fiados)**: Customer profiles with name, phone, credit limit, tax condition, and running balance history.
+- **Statistics & Reports**: Daily sales, average ticket, units sold, and best-selling products over the last 12 months, plus stock valuation and a movement history you can filter.
+- **CSV Import & Local Backups**: Bulk product import via CSV and on-demand database backups stored on the local machine.
+- **Ticket Printing**: Print receipts with the default system printer. If printing fails, the sale is still recorded and the receipt can be reprinted later (direct ESC/POS thermal printer drivers are not included in this repository).
+- **Single Administrator**: Includes one administrator account created on first run, with password management.
+
+> A commercial edition with advanced features (extended store credit tools, advanced analytics, cloud backups, and more) is available at [betterstock.tech](https://betterstock.tech).
 
 ## Download
 
-The Windows build is published on the [releases page](https://github.com/krppd/betterstock/releases).
-It is a portable build: unzip it and run `BetterStock.exe`, there is no installer
-and nothing is written to the registry. The SHA-256 of every published archive is
-next to it, in `SHA256.txt`.
+The portable Windows build is available on the [Releases page](https://github.com/krppd/betterstock/releases). Simply unzip the archive and run `BetterStock.exe`—there is no installer and nothing is written to the Windows registry. The SHA-256 checksum for every release archive is published alongside it in `SHA256.txt`.
 
-The executable is not code signed yet, so Windows SmartScreen shows a warning the
-first time you run it. See [Code signing policy](#code-signing-policy).
+The executable is not code-signed yet, so Windows SmartScreen will display a warning the first time you run it. See [Code signing policy](#code-signing-policy) for details.
 
-## Installation (Windows, PowerShell)
+## Running from Source (Windows, PowerShell)
 
-To run it from the source instead:
+BetterStock requires Python 3.14:
 
 ```powershell
 py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
 pip install -r requirements.txt
-```
-
-## Documentation
-
-See [docs/overview.md](docs/overview.md) and [docs/interface.md](docs/interface.md).
-
-## Running
-
-With the virtual environment activated:
-
-```powershell
 python app.py
 ```
 
-## First run
+## First Run & Uninstalling
 
-The first time the program is opened, it asks for the shop details: name, address,
-CUIT and phone. They are stored in `betterstock.db`, inside the per-user data
-folder: `%APPDATA%\BetterStock` on Windows, `$XDG_DATA_HOME/BetterStock` (or
-`~/.local/share/BetterStock`) elsewhere.
+On the first launch, the program prompts for the shop details (name, address, CUIT/CUIL, and phone) and creates the administrator account—there are no default credentials. The CUIT can belong to a company (`30-...`) or a *monotributo* taxpayer CUIL (`20-...`, `23-...`, `24-...`, `27-...`), with or without hyphens; the check digit is validated offline as you type.
 
-The CUIT can be that of a company (`30-...`) or the CUIL of a monotributo taxpayer
-(`20-...`, `23-...`, `24-...`, `27-...`); it is accepted with or without hyphens. The
-check digit is validated while you type, without querying the internet.
+All data is stored in `betterstock.db` inside the per-user data directory (`%APPDATA%\BetterStock` on Windows, or `$XDG_DATA_HOME/BetterStock` / `~/.local/share/BetterStock` on Linux).
 
-There are no default users: the administrator is created on the first run.
+Because the build is portable, deleting the unzipped application folder removes the program. To remove your data as well, delete the data directory mentioned above.
 
-## Ticket printing
+## Documentation
 
-At checkout, the ticket is printed with **the system printer** (the one configured
-on the computer) or saved as a PDF. No setup is required: after the sale, a dialog
-appears with the sale result and the buttons "Print ticket" and "Close".
+For architectural details and edition scope, see [docs/overview.md](docs/overview.md) and [docs/interface.md](docs/interface.md).
 
-If printing fails, the sale is still recorded and the ticket can be reprinted later.
+## Code Signing Policy
 
-The thermal printer (ESC/POS) code is not in this repository: the app prints with
-the system printer or saves a PDF.
+The Windows executable is built and published from this repository and, once approved by the [SignPath Foundation](https://about.signpath.io/), will be signed with their certificate:
 
-## Free edition
+- **Committers and reviewers**: [@krppd](https://github.com/krppd) (repository owner)
+- **Approvers**: [@krppd](https://github.com/krppd) (repository owner)
 
-**BetterStock is open source and free.**
-
-This repository is the free edition, and it is where it is developed: fixes and
-improvements land here. It works fully offline and does not require a license, a
-server or any external service.
-
-What the free edition includes:
-
-- Inventory control with products, movements and sales
-- Customer and store credit (fiados) management
-- CSV import
-- Statistics for the last 12 months
-- Cash register closing with automatic backup on your computer
-- Split payments on sales
-- Cancellations with a supervisor code
-- A single administrator user, who can change their own password
-
-
-A paid edition with advanced features (advanced store credit, advanced
-statistics, cloud backup and more) is available on
-[betterstock.tech](https://betterstock.tech).
-
-## Code signing policy
-
-The Windows executable is published from this repository and, once the project is
-accepted by SignPath Foundation, it is signed with their certificate:
-
-- Committers and reviewers: [@krppd](https://github.com/krppd) (repository owner)
-- Approvers: [@krppd](https://github.com/krppd) (repository owner)
-
-The build that produces the executable is `.github/workflows/build-free.yml`. It
-compiles the program with PyInstaller, uploads the unsigned executable as a
-workflow artifact and asks SignPath to sign it. The signature is applied **before**
-the archive is packed, so the published ZIP contains the signed executable and the
-published SHA-256 is the one of the signed archive. The release is only published
-after the signing request is approved.
-
-Everything about the build is open: the spec (`BetterStock.spec`), the workflow
-(`.github/workflows/build-free.yml`) and the SHA-256 of every published archive.
+The release workflow (`.github/workflows/build-free.yml`) compiles the application with PyInstaller (`BetterStock.spec`), uploads the unsigned binary as a workflow artifact, and submits it to SignPath for signing. The signature is applied **before** packaging the final ZIP archive, ensuring both the executable and the published SHA-256 checksum correspond to the signed build. Releases are only published after the signing request is approved.
 
 ## Privacy
 
-BetterStock does not transfer any information to other networked systems unless
-specifically requested by the user or the person installing or operating it. All
-data stays local on the user's computer.
+BetterStock does not transfer any information to other networked systems unless specifically requested by the user or the person installing or operating it. All data stays local on the user's computer.
 
-There is exactly one exception, and it is off by default: the product photo
-search sends the name or the code of the product to Open Food Facts. It is turned
-on in **Settings > Privacy > Search for product photos on the internet**, and while
-it is off the application does not contact any external service. Loading a photo
-from a URL that the user pastes is always done only on that request.
+There is only one optional exception, which is disabled by default: the product photo search sends the product name or barcode to Open Food Facts when enabled under **Settings > Privacy > Search for product photos on the internet**. Loading a photo from a pasted URL only occurs upon explicit user request. See [SECURITY.md](SECURITY.md) for full details.
 
-## Uninstalling
+## Project Structure
 
-The build is portable: delete the unzipped folder and the application is gone.
-To delete the data as well, remove the data folder (`%APPDATA%\BetterStock` on
-Windows, `$XDG_DATA_HOME/BetterStock` elsewhere). Nothing else is written outside
-that folder.
-
-## Structure
-
-```
+```text
 betterstock/
-├── app.py              Entry point
+├── app.py              Application entry point
 ├── config.py           Project paths
-├── requirements.txt    Dependencies
-├── models/             Entities: Producto, Movimiento (Entrada/Salida/Ajuste), Usuario,
-│                       Venta, Comercio, and CUIT/CUIL validation
-├── repositories/       SQLite read and write
-├── services/           Business logic, CSV import, report export and printing
-├── views/              UI windows (use the ui/ interfaces)
-├── utils/              Shared helpers (number and text formatting)
+├── requirements.txt    Runtime dependencies
+├── models/             Domain entities (Producto, Movimiento, Usuario, Venta, Comercio) and CUIT/CUIL validation
+├── repositories/       SQLite persistence and schema migrations
+├── services/           Business logic, CSV import, statistics, and ticket printing
+├── views/              UI windows and dialogs
+├── utils/              Shared formatting helpers
 ├── ui/
 │   ├── designer/       Qt Designer .ui files
-│   ├── generated/      Classes generated with pyuic6
-│   ├── manual/         Hand-written controls
-│   ├── widgets/        Own widgets (scrolling button and label, notifications)
-│   ├── qml/            Statistics cards in QML
+│   ├── generated/      Classes compiled with pyuic6
+│   ├── manual/         Hand-written UI controls
+│   ├── widgets/        Custom widgets (scrolling labels/buttons, notifications)
+│   ├── qml/            QML statistics cards
 │   ├── tema.py         Color and typography tokens (ui/tokens.json)
-│   └── estilos.py      Light/dark theme and typography
-├── scripts/            UI regeneration script and the visual verifiers
-├── tests/              pytest suite
+│   └── estilos.py      Light/dark theme and typography rules
+├── scripts/            UI regeneration script and visual verifiers
+├── tests/              Automated pytest suite
 ├── docs/               Architecture overview and edition scope
-├── Recursos/           Images, fonts and the Qt resource file (Recursos.qrc / Recursos_rc.py)
-└── output/             Exports and backups, inside the per-user data folder
+├── Recursos/           Images, fonts, and Qt resource files (Recursos.qrc / Recursos_rc.py)
+└── output/             Exports and backups (stored inside the per-user data directory)
 ```
 
-## Regenerating an interface
+## Regenerating the UI
 
-If a `.ui` file is changed in Qt Designer:
+After modifying a `.ui` file in Qt Designer, run:
 
 ```powershell
 python scripts\regenerar_ui.py
 ```
 
-The script compiles each `.ui` with `pyuic6` and puts back what `pyuic6` cannot
-generate: the imports of own widgets and the hand-written blocks, marked in the
-file with `# --- INICIO CODIGO MANUAL ---`.
+The script compiles `.ui` files with `pyuic6` and restores custom widget imports and manual code blocks delimited by `# --- INICIO CODIGO MANUAL ---`.
 
-The conversion of the Qt widgets to the Fluent ones (`BodyLabel`, `TableWidget`,
-`PrimaryPushButton`, the icons) is hand-written in the generated files and
-`pyuic6` does not reproduce it, so the script **does not touch** the files that
-already have it: it reports them and moves on. Those have to be updated by hand.
+Files in `ui/generated/` that already contain hand-written conversions from standard Qt widgets to Fluent widgets (`BodyLabel`, `TableWidget`, `PrimaryPushButton`, icons) are skipped by the script and reported in the console, as `pyuic6` cannot reproduce those conversions. Any updates to those specific files must be made carefully by hand.
 
-`pyuic6` must be the version from `requirements.txt` (`PyQt6==6.11.0`): with another
-version the generated file differs (e.g. `setFixedSize` instead of `resize`, plus
-an extra resources import) and you have to re-add the custom widgets import by hand.
+Always use the `pyuic6` version pinned in `requirements.txt` (`PyQt6==6.12.0`) to prevent output diffs, and keep `Recursos/` at the repository root so `ui/generated/__init__.py` can load image resources properly.
 
-PyQt6's pyuic6 does not add the resources import; `ui/generated/__init__.py` does,
-so the images keep working. The `Recursos/` folder must stay at the root.
+## Tests & Contributing
 
-## Tests
+To run the test suite and the WCAG/layout visual verifiers:
 
 ```powershell
 python -m pip install -r requirements-dev.txt
 python -m pytest tests/ -q -p no:randomly
+python scripts\verificar_todo.py
 ```
 
-The visual verifiers check that no text gets cut off, that the colour pairs meet
-WCAG AA and that the amounts do not jump around when they update:
-
-```powershell
-python scripts\verificar_texto.py
-python scripts\verificar_contraste.py
-python scripts\verificar_cifras_tabulares.py
-```
+Pull requests are welcome. Please keep each pull request to a single commit (squash merge), document the reason for any behavioral change in the commit body, and ensure all unit and visual tests pass without relying on skipped tests. See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/overview.md](docs/overview.md) for full contribution guidelines.
 
 The interface uses the [Inter](https://github.com/rsms/inter) typeface by Rasmus Andersson, licensed under the [SIL Open Font License 1.1](Recursos/fuentes/OFL.txt).
-
-## Contributing
-
-Pull requests are welcome. The rules that keep the history readable:
-
-- **One commit per pull request.** Squash merge is the only option on this repository, and a single commit keeps the history of `main` to one line per pull request.
-- **No behaviour change without a reason in the commit message.** If a fix changes what the app does, say what it did before and what it does now.
-- **The test suite has to pass.** `python -m pytest tests/ -q -p no:randomly`, and the visual verifiers too.
-- **A test that cannot run says nothing.** If a test only passes because it skips, the code it covers is broken and the fix goes there, not in the skip.
-- **Do not edit `ui/generated/` by hand.** Those files carry a hand written conversion to the Fluent widgets that `pyuic6` does not reproduce; `scripts/regenerar_ui.py` knows how to leave them alone.
-
-The architecture and the conventions are in [`docs/overview.md`](docs/overview.md).
