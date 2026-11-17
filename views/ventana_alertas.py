@@ -21,8 +21,6 @@ class VentanaAlertas(QWidget, VentanaBase):
         self._acomodar(self.ui.tblAlertas, (0, 2, 3))
         self.ui.verticalLayout.setStretch(1, 1)
         self.setMinimumSize(480, 420)
-        self.ui.btnExportar.setVisible(False)
-        self.ui.btnExportarVencimientos.setVisible(False)
         self.ui.lblVencimientos.setVisible(False)
         self.ui.tblVencimientos.setVisible(False)
 

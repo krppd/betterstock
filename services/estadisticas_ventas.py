@@ -123,11 +123,10 @@ class EstadisticasVentas:
 
     def _acumular(self, desde: date, hasta: date) -> _Acumulador:
         acumulado = _Acumulador()
-        for venta in self._ventas.listar():
+        for venta in self._ventas.listar_rango(desde, hasta):
             if venta.anulada:
                 continue
-            if desde <= venta.fecha <= hasta:
-                acumulado.sumar(venta)
+            acumulado.sumar(venta)
         try:
             conexion = conectar(ruta_db(self._ventas.ruta_archivo))
             try:
@@ -189,13 +188,13 @@ class EstadisticasVentas:
         return sorted(self._ventas.listar(), key=lambda v: (v.fecha, v.hora), reverse=True)
 
     def ventas_del_periodo(self, desde: date, hasta: date) -> list[VentaRegistrada]:
-        ventas = [v for v in self._ventas.listar() if desde <= v.fecha <= hasta]
+        ventas = self._ventas.listar_rango(desde, hasta)
         return sorted(ventas, key=lambda v: (v.fecha, v.hora), reverse=True)
 
     def total_por_dia(self, desde: date, hasta: date) -> list[tuple[date, float]]:
         por_dia: dict[date, float] = {desde + timedelta(days=i): 0.0 for i in range((hasta - desde).days + 1)}
-        for venta in self._ventas.listar():
-            if not venta.anulada and desde <= venta.fecha <= hasta:
+        for venta in self._ventas.listar_rango(desde, hasta):
+            if not venta.anulada:
                 por_dia[venta.fecha] = por_dia.get(venta.fecha, 0.0) + venta.total
         try:
             conexion = conectar(ruta_db(self._ventas.ruta_archivo))

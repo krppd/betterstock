@@ -46,10 +46,6 @@ def texto_limites() -> str:
     return _texto_limites_planes(None)
 
 
-def reposicion_permitida(stock_actual: float, cantidad: float) -> bool:
-    return not excedido("productos", (stock_actual or 0.0) + (cantidad or 0.0))
-
-
 def machine_id_hash() -> str:
     return ""
 
@@ -64,7 +60,6 @@ __all__ = (
     "plan_actual",
     "limite",
     "excedido",
-    "reposicion_permitida",
     "admite",
     "texto_limites",
 )

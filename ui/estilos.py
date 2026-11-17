@@ -136,6 +136,7 @@ PUNTO_MINIMO = 8
 
 _escala_activa = ESCALA_NORMAL
 _fuentes_cache: tuple[str, list[str], list[int]] | None = None
+_cache_qss_escalado: dict[tuple[str, float], str] = {}
 _PATRON_PUNTO = re.compile(r"(font-size:\s*)(\d+(?:\.\d+)?)(\s*pt)")
 _PATRON_PX = re.compile(r"((?:min-height|min-width):\s*)(\d+(?:\.\d+)?)(\s*px)")
 
@@ -262,6 +263,11 @@ def _escalar_qss(hoja: str, valor: float) -> str:
     if valor == ESCALA_NORMAL:
         return hoja
 
+    clave = (hoja, valor)
+    en_cache = _cache_qss_escalado.get(clave)
+    if en_cache is not None:
+        return en_cache
+
     def _punto(coincidencia: re.Match) -> str:
         punto = round(float(coincidencia.group(2)) * valor)
         return f"{coincidencia.group(1)}{max(1, punto)}{coincidencia.group(3)}"
@@ -270,7 +276,9 @@ def _escalar_qss(hoja: str, valor: float) -> str:
         pixeles = round(float(coincidencia.group(2)) * valor)
         return f"{coincidencia.group(1)}{max(1, pixeles)}{coincidencia.group(3)}"
 
-    return _PATRON_PX.sub(_px, _PATRON_PUNTO.sub(_punto, hoja))
+    resultado = _PATRON_PX.sub(_px, _PATRON_PUNTO.sub(_punto, hoja))
+    _cache_qss_escalado[clave] = resultado
+    return resultado
 
 
 def _paleta_oscura() -> QPalette:
@@ -333,6 +341,14 @@ def _estilo_base() -> str:
     return "windowsvista" if sys.platform == "win32" else "Fusion"
 
 
+def _asegurar_estilo(qt: QApplication) -> None:
+    """Fija el estilo base una sola vez; repetirlo recrea el QStyle."""
+    nombre = _estilo_base()
+    estilo = qt.style()
+    if estilo is None or estilo.objectName().lower() != nombre.lower():
+        qt.setStyle(nombre)
+
+
 def aplicar_tema(qt: QApplication, escala: float | None = None) -> None:
     """Aplica la paleta y la hoja de estilos global, adaptadas al tema Fluent activo.
 
@@ -344,7 +360,7 @@ def aplicar_tema(qt: QApplication, escala: float | None = None) -> None:
     """
     if escala is not None:
         aplicar_escala(escala)
-    qt.setStyle(_estilo_base())
+    _asegurar_estilo(qt)
     familia = _cargar_fuentes()
     oscuro = _tema_oscuro()
     aplicar_color_fluent(qt, oscuro)

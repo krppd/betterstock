@@ -24,7 +24,71 @@ CREATE TABLE IF NOT EXISTS compra_items(id INTEGER PRIMARY KEY AUTOINCREMENT, co
 CREATE TABLE IF NOT EXISTS caja_movimientos(id INTEGER PRIMARY KEY AUTOINCREMENT, fecha TEXT NOT NULL, hora TEXT NOT NULL, tipo TEXT NOT NULL, concepto TEXT NOT NULL, categoria TEXT DEFAULT '', importe REAL NOT NULL, usuario TEXT DEFAULT '', anulado INTEGER DEFAULT 0, anulado_por TEXT DEFAULT '', motivo_anulacion TEXT DEFAULT '');
 CREATE TRIGGER IF NOT EXISTS impedir_borrado_caja_movimientos BEFORE DELETE ON caja_movimientos BEGIN SELECT RAISE(ABORT, 'No se pueden borrar movimientos de caja'); END;
 CREATE TABLE IF NOT EXISTS devoluciones(id INTEGER PRIMARY KEY AUTOINCREMENT, venta_id INTEGER NOT NULL, fecha TEXT NOT NULL, hora TEXT NOT NULL, usuario TEXT DEFAULT '', total REAL DEFAULT 0, anulada INTEGER DEFAULT 0, motivo TEXT DEFAULT '');
-CREATE TABLE IF NOT EXISTS devolucion_items(id INTEGER PRIMARY KEY AUTOINCREMENT, devolucion_id INTEGER NOT NULL, codigo_producto TEXT NOT NULL, cantidad REAL NOT NULL, precio_unitario REAL NOT NULL, subtotal REAL NOT NULL);"""
+CREATE TABLE IF NOT EXISTS devolucion_items(id INTEGER PRIMARY KEY AUTOINCREMENT, devolucion_id INTEGER NOT NULL, codigo_producto TEXT NOT NULL, cantidad REAL NOT NULL, precio_unitario REAL NOT NULL, subtotal REAL NOT NULL);
+CREATE TABLE IF NOT EXISTS presupuestos(id INTEGER PRIMARY KEY AUTOINCREMENT, numero INTEGER, fecha TEXT NOT NULL, hora TEXT NOT NULL, cliente_codigo TEXT DEFAULT '', total REAL DEFAULT 0, detalle TEXT DEFAULT '', estado TEXT DEFAULT 'pendiente', notas TEXT DEFAULT '', validez_dias INTEGER DEFAULT 2);
+CREATE TABLE IF NOT EXISTS facturacion_config(
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    cuit TEXT NOT NULL DEFAULT '',
+    pto_vta INTEGER NOT NULL DEFAULT 1,
+    modo TEXT NOT NULL DEFAULT 'homologacion',
+    condicion_iva TEXT NOT NULL DEFAULT 'monotributo',
+    habilitado INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS comprobantes(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_venta INTEGER,
+    tipo_cbte INTEGER NOT NULL,
+    pto_vta INTEGER NOT NULL,
+    nro_cbte INTEGER NOT NULL,
+    fecha_emision TEXT NOT NULL,
+    cuit_emisor TEXT NOT NULL,
+    doc_tipo INTEGER NOT NULL,
+    doc_nro TEXT NOT NULL,
+    total REAL NOT NULL,
+    neto REAL NOT NULL,
+    iva REAL DEFAULT 0.0,
+    condicion_iva_receptor INTEGER DEFAULT 5,
+    cae TEXT DEFAULT '',
+    vto_cae TEXT DEFAULT '',
+    resultado TEXT DEFAULT '',
+    estado TEXT NOT NULL DEFAULT 'pendiente',
+    observaciones TEXT DEFAULT '',
+    error_mensaje TEXT DEFAULT '',
+    receptor_nombre TEXT DEFAULT '',
+    id_cbte_asociado INTEGER,
+    archivo_pdf TEXT DEFAULT '',
+    creado_en TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+);
+CREATE TABLE IF NOT EXISTS facturacion_cola(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id_venta INTEGER NOT NULL UNIQUE,
+    cliente_codigo TEXT DEFAULT '',
+    estado TEXT NOT NULL DEFAULT 'pendiente',
+    intentos INTEGER NOT NULL DEFAULT 0,
+    proximo_intento TEXT DEFAULT '',
+    ultimo_error TEXT DEFAULT '',
+    creado_en TEXT NOT NULL DEFAULT (datetime('now','localtime'))
+);"""
+
+# Los índices se crean después de las migraciones: algunas columnas indexadas
+# (p. ej. productos.codigo_barras) se agregan en bases viejas recién en la migración.
+INDICES = """CREATE INDEX IF NOT EXISTS idx_movimientos_fecha ON movimientos(fecha);
+CREATE INDEX IF NOT EXISTS idx_movimientos_producto ON movimientos(codigo_producto);
+CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha);
+CREATE INDEX IF NOT EXISTS idx_cuenta_cliente ON cuenta_movimientos(cliente);
+CREATE INDEX IF NOT EXISTS idx_cuenta_fecha ON cuenta_movimientos(fecha);
+CREATE INDEX IF NOT EXISTS idx_compras_fecha ON compras(fecha);
+CREATE INDEX IF NOT EXISTS idx_compra_items_compra ON compra_items(compra_id);
+CREATE INDEX IF NOT EXISTS idx_devoluciones_venta ON devoluciones(venta_id);
+CREATE INDEX IF NOT EXISTS idx_devoluciones_fecha ON devoluciones(fecha);
+CREATE INDEX IF NOT EXISTS idx_devolucion_items_devolucion ON devolucion_items(devolucion_id);
+CREATE INDEX IF NOT EXISTS idx_caja_fecha ON caja_movimientos(fecha);
+CREATE INDEX IF NOT EXISTS idx_productos_barras ON productos(codigo_barras);
+CREATE INDEX IF NOT EXISTS idx_comprobantes_venta ON comprobantes(id_venta);
+CREATE INDEX IF NOT EXISTS idx_comprobantes_numero ON comprobantes(pto_vta, tipo_cbte, nro_cbte);
+CREATE INDEX IF NOT EXISTS idx_facturacion_cola_estado ON facturacion_cola(estado);"""
+
+VERSION_ESQUEMA = 1
 
 
 def a_iso(fecha_ddmmaaaa: str) -> str:
@@ -50,14 +114,27 @@ def conectar(origen: str | Path) -> sqlite3.Connection:
     ruta.parent.mkdir(parents=True, exist_ok=True)
     conexion = sqlite3.connect(str(ruta))
     conexion.row_factory = sqlite3.Row
+    conexion.execute("PRAGMA busy_timeout=5000")
     conexion.execute("PRAGMA journal_mode=WAL")
-    conexion.executescript(ESQUEMA)
+    version = conexion.execute("PRAGMA user_version").fetchone()[0]
+    inicializar = version < VERSION_ESQUEMA
+    if inicializar:
+        conexion.executescript(ESQUEMA)
+
+    # Las migraciones son baratas (~0,15 ms) y autocurativas: se ejecutan en
+    # cada conexión para reparar esquemas antiguos que hayan perdido columnas,
+    # aunque la base ya esté versionada.
     _migrar_usuarios(conexion)
     _migrar_cierres(conexion)
     _migrar_productos(conexion)
     _migrar_ventas(conexion)
     _migrar_clientes(conexion)
     _migrar_cuenta(conexion)
+
+    if inicializar:
+        conexion.executescript(INDICES)
+        conexion.execute(f"PRAGMA user_version = {VERSION_ESQUEMA}")
+        conexion.commit()
     return conexion
 
 

@@ -366,7 +366,7 @@ def test_sidebar_boton_dice_caja(tmp_path):
     estadisticas.inicializar()
     vp = VentanaPrincipal(stock, None, estadisticas, None, "admin")
     try:
-        assert vp.ui.btnCierre.text() == "Caja (F6)"
+        assert vp.ui.btnCierre.text() == "Caja (F5)"
     finally:
         vp.permitir_cierre()
         vp.close()

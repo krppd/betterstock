@@ -1,11 +1,8 @@
-# Interfaz gráfica (incluye QtPrintSupport, que se usa para generar los PDF)
+# Interfaz gráfica (incluye QtPrintSupport, que se usa para imprimir tickets)
 PyQt6==6.12.0
-PyQt6-Fluent-Widgets[full]==1.11.3
-scipy<2
-
-# Gráfico de ventas por día (el dibujo lo hace matplotlib; QtCharts sólo lo usa un test)
-PyQt6-Charts==6.12.0
-matplotlib==3.11.2
+# Sin el extra "completo": scipy/colorthief/numpy sólo habilitan el efecto
+# acrílico, que la app degrada sola, y agregan ~0.4s al arranque.
+PyQt6-Fluent-Widgets==1.11.3
 
 # Fotos y miniaturas de productos (services/fotos.py importa PIL al cargar)
 Pillow==13.0.0

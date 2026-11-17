@@ -246,7 +246,7 @@ def test_el_filtro_no_consume_el_teclado(aplicacion: QApplication, filtro: Espia
     tabla = QTableWidget(50, 3)
     tabla.show()
     aplicacion.processEvents()
-    for tecla in (Qt.Key.Key_F1, Qt.Key.Key_F4, Qt.Key.Key_Escape, Qt.Key.Key_Down,
+    for tecla in (Qt.Key.Key_F1, Qt.Key.Key_F3, Qt.Key.Key_Escape, Qt.Key.Key_Down,
                   Qt.Key.Key_PageUp, Qt.Key.Key_PageDown, Qt.Key.Key_Home, Qt.Key.Key_End):
         QCoreApplication.sendEvent(tabla, QKeyEvent(QEvent.Type.KeyPress, tecla, Qt.KeyboardModifier.NoModifier))
     assert vistos

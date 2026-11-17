@@ -109,13 +109,12 @@ class _UiCompat:
         self.lblSeccionAnalisis = QLabel("REPORTES")
         self.btnProductos = _BotonCompat("productos", "Productos (F1)", "productos.png", ventana.abrir_productos)
         self.btnMovimientos = _BotonCompat("movimientos", "Movimientos (F2)", "movimientos.png", ventana.abrir_movimientos)
-        self.btnAlertas = _BotonCompat("alertas", "Alertas (F4)", "alertas.png", ventana.abrir_alertas)
+        self.btnAlertas = _BotonCompat("alertas", "Alertas (F3)", "alertas.png", ventana.abrir_alertas)
         self.btnReportes = _BotonCompat("reportes", "Reportes", "estadisticas.png", ventana.abrir_reportes)
-        self.btnEstadisticas = _BotonCompat("estadisticas", "Estadísticas (F8)", "estadisticas.png", ventana.abrir_estadisticas)
-        self.btnVentas = _BotonCompat("ventas", "Ventas (F5)", "ventas.png", ventana.abrir_ventas)
-        self.btnCierre = _BotonCompat("cierre", "Caja (F6)", "cierre.png", ventana.abrir_cierre)
+        self.btnVentas = _BotonCompat("ventas", "Ventas (F4)", "ventas.png", ventana.abrir_ventas)
+        self.btnCierre = _BotonCompat("cierre", "Caja (F5)", "cierre.png", ventana.abrir_cierre)
         self.btnClientes = _BotonCompat("clientes", "Clientes (F7)", "user.png", ventana.abrir_clientes)
-        self.btnConsulta = _BotonCompat("consulta", "Consulta precio (F7)", "consulta.png", ventana.abrir_consulta)
+        self.btnConsulta = _BotonCompat("consulta", "Consulta precio (F6)", "consulta.png", ventana.abrir_consulta)
         self.btnAjustes = _BotonCompat("ajustes", "Ajustes", "ajustes.png", ventana.abrir_ajustes)
         self.btnUsuario = QPushButton(ventana)
         self.btnUsuario.setFixedSize(0, 0)
@@ -281,7 +280,6 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
     def _preparar_navegacion(self) -> None:
         self.navigationInterface.setReturnButtonVisible(False)
-        self.navigationInterface.panel.setAcrylicEnabled(True)
 
         nombre_tienda = "BetterStock"
         if self._gestor_comercio:
@@ -310,8 +308,8 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
             parent=self,
         )
         self._dashboard.setObjectName("inicio")
-        self._dashboard.solicitar_ver_ventas.connect(self._mostrar_aviso_completo)
-        self._dashboard.solicitar_ver_ranking.connect(self._mostrar_aviso_completo)
+        self._dashboard.solicitar_ver_ventas.connect(self.abrir_ventas)
+        self._dashboard.solicitar_ver_ranking.connect(self.abrir_productos)
         self.addSubInterface(self._dashboard, FIF.HOME, "Inicio")
         self._indices["inicio"] = 0
         self._paginas_instanciadas["inicio"] = self._dashboard
@@ -325,19 +323,22 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
             "movimientos", FIF.HISTORY, "Movimientos (F2)", self.abrir_movimientos, position=NavigationItemPosition.SCROLL
         )
         self.navigationInterface.addItem(
-            "alertas", FIF.RINGER, "Alertas (F4)", self.abrir_alertas, position=NavigationItemPosition.SCROLL
+            "alertas", FIF.RINGER, "Alertas (F3)", self.abrir_alertas, position=NavigationItemPosition.SCROLL
         )
 
         self.navigationInterface.addSeparator(NavigationItemPosition.SCROLL)
         self.navigationInterface.addItemHeader("VENTAS Y CAJA", NavigationItemPosition.SCROLL)
         self.navigationInterface.addItem(
-            "ventas", FIF.SHOPPING_CART, "Ventas (F5)", self.abrir_ventas, position=NavigationItemPosition.SCROLL
+            "ventas", FIF.SHOPPING_CART, "Ventas (F4)", self.abrir_ventas, position=NavigationItemPosition.SCROLL
         )
         self.navigationInterface.addItem(
-            "cierre", FIF.ACCEPT_MEDIUM, "Caja (F6)", self.abrir_cierre, position=NavigationItemPosition.SCROLL
+            "cierre", FIF.ACCEPT_MEDIUM, "Caja (F5)", self.abrir_cierre, position=NavigationItemPosition.SCROLL
         )
         self.navigationInterface.addItem(
-            "consulta", FIF.SEARCH, "Consulta precio (F7)", self.abrir_consulta, position=NavigationItemPosition.SCROLL
+            "consulta", FIF.SEARCH, "Consulta precio (F6)", self.abrir_consulta, position=NavigationItemPosition.SCROLL
+        )
+        self.navigationInterface.addItem(
+            "clientes", FIF.PEOPLE, "Clientes (F7)", self.abrir_clientes, position=NavigationItemPosition.SCROLL
         )
 
         self.navigationInterface.addItem(
@@ -385,11 +386,11 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         atajos = (
             (Qt.Key.Key_F1, self.abrir_productos),
             (Qt.Key.Key_F2, self.abrir_movimientos),
-            (Qt.Key.Key_F4, self.abrir_alertas),
-            (Qt.Key.Key_F5, self.abrir_ventas),
-            (Qt.Key.Key_F6, self.abrir_cierre),
-            (Qt.Key.Key_F7, self.abrir_consulta),
-            (Qt.Key.Key_F8, self.abrir_estadisticas),
+            (Qt.Key.Key_F3, self.abrir_alertas),
+            (Qt.Key.Key_F4, self.abrir_ventas),
+            (Qt.Key.Key_F5, self.abrir_cierre),
+            (Qt.Key.Key_F6, self.abrir_consulta),
+            (Qt.Key.Key_F7, self.abrir_clientes),
             (Qt.Key.Key_Escape, self.mostrar_inicio),
         )
         for tecla, destino in atajos:
@@ -474,14 +475,39 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
             self._overlay_tema.setGeometry(self.rect())
 
     def _marcar_activa(self, nombre: str) -> None:
-        if nombre and self.navigationInterface.widget(nombre) is not None:
+        if not nombre:
+            return
+        try:
             self.navigationInterface.setCurrentItem(nombre)
+        except Exception:
+            # Rutas que no son ítems de navegación (p. ej. "clientes") lanzan
+            # RouteKeyError; no deben interrumpir el cambio de página.
+            pass
 
     def showEvent(self, evento: QEvent) -> None:
         super().showEvent(evento)
         self._aplicar_estilo_ventana()
+        QtCore.QTimer.singleShot(120, self._reforzar_estilo_ventana)
+
+    def changeEvent(self, evento: QEvent) -> None:
+        super().changeEvent(evento)
+        if evento.type() == QEvent.Type.WindowStateChange:
+            QtCore.QTimer.singleShot(80, self._reforzar_estilo_ventana)
+
+    def _reforzar_estilo_ventana(self) -> None:
+        try:
+            visible = self.isVisible()
+            maximizada = self.isMaximized()
+            minimizada = self.isMinimized()
+        except RuntimeError:
+            # El QTimer puede dispararse después de deleteLater() al cerrar sesión.
+            return
+        if visible and not maximizada and not minimizada:
+            self._aplicar_estilo_ventana()
 
     def _aplicar_estilo_ventana(self) -> None:
+        if self.isMaximized():
+            return
         try:
             aplicar_estilo_ventana(self)
         except Exception:
@@ -491,8 +517,10 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         super().closeEvent(evento)
         if self._cierre_controlado:
             return
-        import os
-        os._exit(0)
+        aplicacion = QApplication.instance()
+        if aplicacion is not None:
+            aplicacion.quit()
+        evento.accept()
 
     def permitir_cierre(self) -> None:
         self._cierre_controlado = True
@@ -585,20 +613,6 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
         self._mostrar("reportes", fabricar)
 
-    def abrir_estadisticas(self, *args, **kwargs) -> None:
-        self._mostrar_aviso_completo()
-
-    def _mostrar_aviso_completo(self) -> None:
-        from qfluentwidgets import MessageBox
-        box = MessageBox(
-            "BetterStock",
-            "Consulta en la web sobre el producto completo.",
-            self,
-        )
-        box.yesButton.setText("Aceptar")
-        box.cancelButton.hide()
-        box.exec()
-
     def abrir_productos(self) -> None:
         self._mostrar(
             "productos",
@@ -683,8 +697,7 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         self.switchTo(pagina)
         self._paginas.setUpdatesEnabled(True)
 
-        if self.navigationInterface.widget(nombre) is not None:
-            self.navigationInterface.setCurrentItem(nombre)
+        self._marcar_activa(nombre)
 
         self._enfocar(nombre, pagina)
 

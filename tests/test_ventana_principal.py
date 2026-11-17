@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from PyQt6.QtGui import QShortcut
 from PyQt6.QtWidgets import QApplication
 
 from repositories.caja_movimiento_repositorio import CajaMovimientoRepositorio
@@ -113,9 +114,36 @@ def test_alternar_tema_ejecuta_transicion(principal) -> None:
     QApplication.processEvents()
 
 
-def test_aviso_producto_completo(principal, monkeypatch) -> None:
-    abierto = []
-    monkeypatch.setattr(principal, "_mostrar_aviso_completo", lambda: abierto.append(True))
-    principal.abrir_estadisticas()
-    assert len(abierto) == 1
+def test_marcar_activa_ignora_rutas_invalidas_y_marca_las_validas(
+        principal, monkeypatch) -> None:
+    seleccionados: list[str] = []
+
+    def marcar(nombre: str) -> None:
+        if nombre == "clientes":
+            # "clientes" no es una clave de navegación: setCurrentItem lanza RouteKeyError.
+            raise RuntimeError(f"{nombre!r} is illegal.")
+        seleccionados.append(nombre)
+
+    monkeypatch.setattr(principal.navigationInterface, "setCurrentItem", marcar)
+
+    principal._marcar_activa("clientes")
+    assert seleccionados == []
+
+    principal._marcar_activa("inicio")
+    assert seleccionados == ["inicio"]
+
+
+def test_atajos_de_funciones_terminan_en_f7(principal) -> None:
+    teclas = {atajo.key().toString() for atajo in principal.findChildren(QShortcut)}
+    assert {f"F{numero}" for numero in range(1, 8)} <= teclas
+    assert "F8" not in teclas  # Estadísticas es premium: vive solo en el release
+    assert principal.navigationInterface.widget("clientes") is not None
+
+
+def test_ver_mas_del_dashboard_abre_secciones_reales(principal) -> None:
+    principal._dashboard.solicitar_ver_ventas.emit()
+    assert "ventas" in principal._paginas_instanciadas
+
+    principal._dashboard.solicitar_ver_ranking.emit()
+    assert "productos" in principal._paginas_instanciadas
 
