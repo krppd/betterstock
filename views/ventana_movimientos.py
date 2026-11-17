@@ -65,7 +65,6 @@ class VentanaMovimientos(QWidget, VentanaBase):
     CATEGORIA_VENTAS = "Ventas"
 
     ir_a_reportes = pyqtSignal()
-    ir_a_clientes = pyqtSignal()
 
     def __init__(
         self,
@@ -96,13 +95,10 @@ class VentanaMovimientos(QWidget, VentanaBase):
         barra_superior.addStretch(1)
 
         self.btn_reportes = PushButton(FIF.PIE_SINGLE, "Ver reportes", self)
-        self.btn_clientes = PushButton(FIF.PEOPLE, "Cuentas de clientes", self)
 
         self.btn_reportes.clicked.connect(self.ir_a_reportes.emit)
-        self.btn_clientes.clicked.connect(self.ir_a_clientes.emit)
 
         barra_superior.addWidget(self.btn_reportes)
-        barra_superior.addWidget(self.btn_clientes)
         layout_principal.addLayout(barra_superior)
 
         tarjeta = CardWidget(self)

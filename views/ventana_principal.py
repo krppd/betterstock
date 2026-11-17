@@ -627,7 +627,6 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
                 anulaciones=self._anulaciones,
             )
             pagina.ir_a_reportes.connect(self.abrir_reportes)
-            pagina.ir_a_clientes.connect(self.abrir_clientes)
             return pagina
 
         self._mostrar("movimientos", fabricar)
