@@ -76,6 +76,8 @@ class VentanaBase:
     def llenar_tabla(
         tabla: QTableWidget, filas: Sequence[Sequence[str]], colores: Sequence[str | None] | None = None
     ) -> None:
+        fuente_normal = fuente(TAMANO_SMALL)
+        fuente_tabular = fuente(TAMANO_SMALL, tabular=True)
         tabla.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         tabla.setUpdatesEnabled(False)
         tabla.blockSignals(True)
@@ -85,7 +87,7 @@ class VentanaBase:
                 color = colores[indice_fila] if colores else None
                 for indice_columna, valor in enumerate(valores):
                     item = QTableWidgetItem(valor)
-                    item.setFont(fuente(TAMANO_SMALL, tabular=es_numerico(valor)))
+                    item.setFont(fuente_tabular if es_numerico(valor) else fuente_normal)
                     if color:
                         item.setForeground(QBrush(QColor(color)))
                     tabla.setItem(indice_fila, indice_columna, item)

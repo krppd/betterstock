@@ -21,7 +21,7 @@ from repositories.importacion_repositorio import ImportacionRepositorio
 from services.excepciones import ErrorNegocio
 from services.gestor_stock import GestorStock
 from services.importador.servicio import ServicioImportacion
-from services.plan_motor import CONTACTO, excedido, limite, plan_actual, reposicion_permitida
+from services.plan_motor import CONTACTO, excedido, limite, plan_actual
 from ui.estilos import ROJO_TEXTO, escala
 from ui.generated.productos_ui import Ui_Form as Ui_ProductosForm
 from ui.widgets.notificacion import Notificacion
@@ -247,21 +247,6 @@ class VentanaProductos(QWidget, VentanaBase):
             "Reponer stock", "Cantidad que ingresa:", unidad, parent=self)
         if not aceptado:
             return
-        tope = limite("productos")
-        nota_tope = None
-        if tope is not None and producto is not None:
-            cupo = tope - (producto.stock_actual or 0.0)
-            if not reposicion_permitida(producto.stock_actual or 0.0, cantidad):
-                if cupo <= 0:
-                    texto_unidad = unidad or "unidades"
-                    Notificacion(self).mostrar(
-                        "Tope del plan",
-                        f"{producto.nombre} ya alcanzó el tope de "
-                        f"{formatear_cantidad(tope)} {texto_unidad} del plan.")
-                    return
-                nota_tope = (f"El plan admite hasta {formatear_cantidad(tope)} "
-                             "unidades por producto.")
-                cantidad = cupo
         try:
             self._gestor_stock.registrar_movimiento(
                 MovimientoEntrada.TIPO, codigo, cantidad, date.today(), "Reposición")
@@ -272,8 +257,6 @@ class VentanaProductos(QWidget, VentanaBase):
         nombre = producto.nombre if producto is not None else codigo
         texto_unidad = unidad or "unidades"
         aviso = (f"Se repuso {formatear_cantidad(cantidad)} {texto_unidad} de {nombre}.")
-        if nota_tope:
-            aviso += f" {nota_tope}"
         Notificacion(self).mostrar("Stock repuesto", aviso)
 
     def editar_producto(self) -> None:

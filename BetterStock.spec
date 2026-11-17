@@ -82,15 +82,9 @@ datas = [
 # Collect submodules that PyInstaller may miss (Qt backends, crypto, etc.).
 hiddenimports = [
     "bcrypt",
-    "matplotlib.backends.backend_qtagg",
     "PyQt6.QtSvg",
     "PyQt6.QtPrintSupport",
     "sqlite3",
-    "numpy",
-    "scipy",
-    "scipy.ndimage",
-    "scipy.ndimage.filters",
-    "colorthief",
 ] + collect_submodules("qfluentwidgets")
 
 a = Analysis(

@@ -110,7 +110,6 @@ class Aplicacion:
         return self._qt.exec()
 
     def _iniciar_sesion(self) -> tuple[str, str] | None:
-        aplicar_tema(self._qt, ESCALA_NORMAL)
         sesion = self._primer_usuario()
         if sesion is None:
             login = VentanaLogin(self._autenticacion)
@@ -120,7 +119,9 @@ class Aplicacion:
             if usuario is None:
                 return "", ""
             sesion = (usuario.nombre, usuario.permiso)
-        aplicar_tema(self._qt, escala_modo_tactil())
+        escala = escala_modo_tactil()
+        if escala != ESCALA_NORMAL:
+            aplicar_tema(self._qt, escala)
         return sesion
 
     def _primer_usuario(self) -> tuple[str, str] | None:
@@ -140,10 +141,32 @@ class Aplicacion:
             permiso=permiso, autenticacion=self._autenticacion,
             turnos=self._turnos, caja=self._caja)
         self._ventana_principal.sesion_cerrada.connect(self._cerrar_sesion)
-        if escala_modo_tactil() > ESCALA_NORMAL:
-            self._ventana_principal.showMaximized()
-        else:
-            self._ventana_principal.show()
+        self._mostrar_ventana_principal()
+
+    def _mostrar_ventana_principal(self) -> None:
+        """Muestra la ventana principal sin maximizar en pantallas grandes.
+
+        Maximizada no hay sombra DWM; en modo táctil con pantalla chica sí se
+        maximiza para aprovechar el espacio.
+        """
+        ventana = self._ventana_principal
+        pantalla = QApplication.primaryScreen()
+        disponible = pantalla.availableGeometry() if pantalla else None
+        tactil = escala_modo_tactil() > ESCALA_NORMAL
+
+        if tactil and disponible is not None and disponible.width() < 1600:
+            ventana.showMaximized()
+            return
+
+        if disponible is not None:
+            ancho = min(1440, max(980, round(disponible.width() * 0.92)))
+            alto = min(900, max(650, round(disponible.height() * 0.92)))
+            ventana.resize(ancho, alto)
+            ventana.move(
+                disponible.x() + (disponible.width() - ancho) // 2,
+                disponible.y() + (disponible.height() - alto) // 2,
+            )
+        ventana.show()
 
     def _cerrar_sesion(self) -> None:
         ventana = self._ventana_principal

@@ -13,7 +13,6 @@ from models.venta import validar_texto_sin_separadores
 from services.excepciones import ErrorNegocio
 from services.fotos import ruta_foto
 from services.gestor_stock import GestorStock
-from services.plan_motor import limite
 from ui.fluent import color
 from ui.generated.formulario_Producto_ui import Ui_Dialog as Ui_FormularioProducto
 from utils.formato import formatear_cantidad, formatear_dinero
@@ -61,7 +60,6 @@ class FormularioProducto(QDialog, VentanaBase):
         self.ui.btnCancelar.clicked.connect(self.reject)
         self.ui.btnFoto.clicked.connect(self.buscar_foto)
         self._ventana_fotos = None
-        self._stock_original = 0.0
 
         if producto is not None:
             self._mostrar_producto(producto)
@@ -149,7 +147,6 @@ class FormularioProducto(QDialog, VentanaBase):
         except ValueError:
             self.ui.cmbIva.setCurrentIndex(ALICUOTAS_IVA.index(Producto.ALICUOTA_POR_DEFECTO))
         self.ui.spnStock.setValue(producto.stock_actual)
-        self._stock_original = producto.stock_actual
         self.ui.spnStockMinimo.setValue(producto.stock_minimo)
         self._refrescar_foto()
 
@@ -225,11 +222,6 @@ class FormularioProducto(QDialog, VentanaBase):
                 stock_minimo=self.ui.spnStockMinimo.value(),
                 alicuota_iva=ALICUOTAS_IVA[self.ui.cmbIva.currentIndex()],
             )
-            tope = limite("productos")
-            if (tope is not None and producto.stock_actual > tope
-                    and producto.stock_actual > self._stock_original):
-                raise ErrorNegocio(
-                    f"El plan admite hasta {formatear_cantidad(tope)} unidades por producto.")
             if self._al_antes_de_guardar is not None:
                 try:
                     self._al_antes_de_guardar(producto)

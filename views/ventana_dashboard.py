@@ -403,7 +403,7 @@ class GraficoTendenciaWidget(QWidget):
 
         elif self._modo == "barras" or n == 1:
             ancho_barra = min(float(_px(36)), max(float(_px(12)), (ancho_util / n) * 0.55))
-            for idx, pt in enumerate(puntos):
+            for pt in puntos:
                 x_b = pt.x() - (ancho_barra / 2.0)
                 y_b = pt.y()
                 h_b = (pad_arr + alto_util) - y_b
@@ -681,20 +681,28 @@ class WorkerCargaDashboard(QRunnable):
             try:
                 if self.periodo == "12m":
                     meses_abr = ["", "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-                    puntos_mes: list[tuple[str, float]] = []
                     anio_cur, mes_cur = hoy.year, hoy.month
+                    m_ini = mes_cur - 11
+                    a_ini = anio_cur
+                    while m_ini <= 0:
+                        m_ini += 12
+                        a_ini -= 1
+                    inicio = date(a_ini, m_ini, 1)
+
+                    por_mes: dict[tuple[int, int], float] = {}
+                    for dia, total in self._estadisticas.total_por_dia(inicio, hoy):
+                        clave = (dia.year, dia.month)
+                        por_mes[clave] = por_mes.get(clave, 0.0) + float(total)
+
+                    puntos_mes: list[tuple[str, float]] = []
                     for offset in range(11, -1, -1):
                         m = mes_cur - offset
                         a = anio_cur
                         while m <= 0:
                             m += 12
                             a -= 1
-                        m_desde, m_hasta = EstadisticasVentas.del_mes(a, m)
-                        if m_hasta > hoy:
-                            m_hasta = hoy
-                        tot_mes = self._estadisticas.resumen(m_desde, m_hasta).total
                         tag = f"{meses_abr[m]} '{str(a)[2:]}" if anio_cur != a else meses_abr[m]
-                        puntos_mes.append((tag, float(tot_mes)))
+                        puntos_mes.append((tag, float(por_mes.get((a, m), 0.0))))
                     puntos_grafico = puntos_mes
                 else:
                     totales_dia = self._estadisticas.total_por_dia(desde, hasta)

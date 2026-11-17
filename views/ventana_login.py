@@ -37,19 +37,8 @@ class VentanaLogin(QDialog, VentanaBase):
         self._autenticacion = autenticacion
         self.ui = Ui_LoginForm()
         self.ui.setupUi(self)
-        tira = QPixmap(str(RECURSOS_DIR / "anim_logo_tira.png"))
-        self._cuadros_logo = [
-            tira.copy(
-                (numero % self.COLUMNAS_TIRA) * self.ANCHO_CUADRO,
-                (numero // self.COLUMNAS_TIRA) * self.ALTO_CUADRO,
-                self.ANCHO_CUADRO, self.ALTO_CUADRO,
-            ).scaled(
-                self.ANCHO_LOGO, self.ALTO_LOGO,
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation,
-            )
-            for numero in range(self.CUADROS_TIRA)
-        ]
+        self._tira_logo: QPixmap | None = QPixmap(str(RECURSOS_DIR / "anim_logo_tira.png"))
+        self._cuadros_logo = [self._crear_cuadro_logo(0)]
         self._cuadro_logo = 0
         self.ui.lblLogo.setPixmap(self._cuadros_logo[0])
         self._temporizador_logo = QTimer(self)
@@ -92,12 +81,30 @@ class VentanaLogin(QDialog, VentanaBase):
     def _cambiar_modo_tactil(self, activo: bool) -> None:
         preferencias.guardar_modo_tactil(activo)
 
+    def _crear_cuadro_logo(self, numero: int) -> QPixmap:
+        tira = self._tira_logo
+        if tira is None:
+            return QPixmap()
+        return tira.copy(
+            (numero % self.COLUMNAS_TIRA) * self.ANCHO_CUADRO,
+            (numero // self.COLUMNAS_TIRA) * self.ALTO_CUADRO,
+            self.ANCHO_CUADRO, self.ALTO_CUADRO,
+        ).scaled(
+            self.ANCHO_LOGO, self.ALTO_LOGO,
+            Qt.AspectRatioMode.KeepAspectRatio,
+            Qt.TransformationMode.SmoothTransformation,
+        )
+
     def _avanzar_logo(self) -> None:
-        if self._cuadro_logo >= len(self._cuadros_logo) - 1:
+        if self._cuadro_logo >= self.CUADROS_TIRA - 1:
             self._temporizador_logo.stop()
+            self._tira_logo = None
             return
         self._cuadro_logo += 1
+        self._cuadros_logo.append(self._crear_cuadro_logo(self._cuadro_logo))
         self.ui.lblLogo.setPixmap(self._cuadros_logo[self._cuadro_logo])
+        if self._cuadro_logo == self.CUADROS_TIRA - 1:
+            self._tira_logo = None
 
     def validar_login(self) -> None:
         if self._ingresando:

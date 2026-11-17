@@ -86,6 +86,19 @@ class VentaRepositorio:
             conexion.close()
         return self._leer_filas(filas)
 
+    def listar_rango(self, desde: date, hasta: date) -> list[VentaRegistrada]:
+        """Lista solo las ventas cuyo fecha cae en [desde, hasta] (fechas ISO)."""
+        conexion = conectar(ruta_db(self._ruta_archivo))
+        try:
+            filas = conexion.execute(
+                f"SELECT {_SELECCION} FROM ventas"
+                " WHERE fecha BETWEEN ? AND ? ORDER BY id",
+                (desde.isoformat(), hasta.isoformat()),
+            ).fetchall()
+        finally:
+            conexion.close()
+        return self._leer_filas(filas)
+
     def agregar(self, venta: VentaRegistrada) -> None:
         conexion = conectar(ruta_db(self._ruta_archivo))
         try:

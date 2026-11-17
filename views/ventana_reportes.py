@@ -15,8 +15,6 @@ from views.ventana_base import VentanaBase
 class VentanaReportes(QWidget, VentanaBase):
     """Reportes de movimientos por rango de fechas."""
 
-    TITULO_PDF = "Reporte de Movimientos"
-
     def __init__(
         self, gestor_stock: GestorStock,
         estadisticas: EstadisticasVentas | None = None,
@@ -35,8 +33,6 @@ class VentanaReportes(QWidget, VentanaBase):
         self.ui.dateDesde.setDate(QtCore.QDate.currentDate().addDays(-30))
         self.ui.dateHasta.setDate(QtCore.QDate.currentDate())
         self.ui.btnFiltrar.clicked.connect(self.filtrar_reportes)
-        self.ui.btnExportarCSV.setVisible(False)
-        self.ui.btnExportarPDF.setVisible(False)
 
         self.ui.lblTotal.setFont(fuente(TAMANO_SMALL, negrita=True, tabular=True))
         self.ui.lblTotal.setVisible(self._admin)
