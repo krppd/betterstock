@@ -13,8 +13,7 @@ from ui.tema import puente_tema
 
 RAIZ = Path(__file__).resolve().parent.parent
 QML = RAIZ / "ui" / "qml" / "components" / "BarraAccionesVentas.qml"
-BOTONES = ("accionDescuento", "accionRecargo",
-           "accionComprobante", "accionCuentas")
+BOTONES = ("accionDescuento", "accionRecargo", "accionComprobante")
 ALTO_BARRA = 114
 
 
@@ -68,6 +67,10 @@ def _assert_sin_recorte(raiz: QObject) -> None:
         assert boton.property("width") + 0.5 >= _ancho_contenido(boton), nombre
 
 
+def test_barra_no_tiene_boton_cuentas() -> None:
+    assert "accionCuentas" not in QML.read_text(encoding="utf-8")
+
+
 def test_barra_normal_sin_recortes() -> None:
     rapido, raiz = _barra(ESCALA_NORMAL, 720, ALTO_BARRA)
     try:
@@ -78,7 +81,7 @@ def test_barra_normal_sin_recortes() -> None:
 
 
 def test_barra_tactil_ancho_maximizado_parejo_sin_scroll() -> None:
-    rapido, raiz = _barra(ESCALA_TACTIL, 1168, round(ALTO_BARRA * ESCALA_TACTIL))
+    rapido, raiz = _barra(ESCALA_TACTIL, 960, round(ALTO_BARRA * ESCALA_TACTIL))
     try:
         botones = _botones(raiz)
         anchos = [boton.property("width") for _, boton in botones]

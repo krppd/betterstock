@@ -18,7 +18,7 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import QMetaObject, QObject, Qt, QUrl, pyqtSignal
+from PyQt6.QtCore import QMetaObject, QObject, Qt, QUrl
 from PyQt6.QtQuickWidgets import QQuickWidget
 
 from models.medio_pago import METODO_MP, METODO_TRANSFERENCIA
@@ -69,7 +69,6 @@ class _UiCompat:
 
 
 class VentanaVentas(QWidget, VentanaBase):
-    ir_a_clientes = pyqtSignal()
 
     def __init__(
         self,
@@ -117,10 +116,11 @@ class VentanaVentas(QWidget, VentanaBase):
             ("Alt+D", self.descuento_global, "accionDescuento"),
             ("Alt+R", self.recargo, "accionRecargo"),
             ("Alt+E", self.ver_ultimo_comprobante, "accionComprobante"),
-            ("Alt+C", self.ir_a_clientes.emit, "accionCuentas"),
         ):
             atajo = QShortcut(QKeySequence(secuencia), self)
             atajo.activated.connect(lambda metodo=metodo, objeto=objeto: self._disparar_accion(metodo, objeto))
+        atajo_quitar = QShortcut(QKeySequence("Alt+C"), self)
+        atajo_quitar.activated.connect(self.quitar)
         for secuencia in ("Ctrl+Return", "Ctrl+Enter"):
             atajo = QShortcut(QKeySequence(secuencia), self)
             atajo.activated.connect(lambda: self._disparar_accion(self.cobrar_venta, "accionCobrar"))
@@ -219,10 +219,9 @@ class VentanaVentas(QWidget, VentanaBase):
         raiz.descuentoPedido.connect(self.descuento_global)
         raiz.recargoPedido.connect(self.recargo)
         raiz.comprobantePedido.connect(self.ver_ultimo_comprobante)
-        raiz.cuentasPedido.connect(self.ir_a_clientes.emit)
         raiz.cobrarPedido.connect(self.cobrar_venta)
         for objeto in ("accionDescuento", "accionRecargo",
-                       "accionComprobante", "accionCuentas", "accionCobrar"):
+                       "accionComprobante", "accionCobrar"):
             boton = raiz.findChild(QObject, objeto)
             if boton is not None:
                 self._botones_qml[objeto] = boton

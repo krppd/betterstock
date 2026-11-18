@@ -316,8 +316,8 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
             parent=self,
         )
         self._dashboard.setObjectName("inicio")
-        self._dashboard.solicitar_ver_ventas.connect(self.abrir_ventas)
-        self._dashboard.solicitar_ver_ranking.connect(self.abrir_productos)
+        self._dashboard.solicitar_ver_ventas.connect(self._mostrar_mas_funciones)
+        self._dashboard.solicitar_ver_ranking.connect(self._mostrar_mas_funciones)
         self.addSubInterface(self._dashboard, FIF.HOME, "Inicio")
         self._indices["inicio"] = 0
         self._paginas_instanciadas["inicio"] = self._dashboard
@@ -628,13 +628,17 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
     def abrir_ventas(self) -> None:
         def fabricar() -> VentanaVentas:
-            pagina = VentanaVentas(
+            return VentanaVentas(
                 self._gestor_ventas, self._gestor_comercio,
                 self._usuario_actual, self._fiado)
-            pagina.ir_a_clientes.connect(self.abrir_clientes)
-            return pagina
 
         self._mostrar("ventas", fabricar)
+
+    def _mostrar_mas_funciones(self) -> None:
+        self.mostrar_informacion(
+            "Más funciones",
+            "Para conocer más funciones, consulte el sitio web oficial de BetterStock.",
+        )
 
     def abrir_clientes(self) -> None:
         if self._fiado is None:

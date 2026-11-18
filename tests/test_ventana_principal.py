@@ -149,10 +149,16 @@ def test_atajos_de_funciones_terminan_en_f7(principal) -> None:
     assert principal.navigationInterface.widget("clientes") is not None
 
 
-def test_ver_mas_del_dashboard_abre_secciones_reales(principal) -> None:
-    principal._dashboard.solicitar_ver_ventas.emit()
-    assert "ventas" in principal._paginas_instanciadas
+def test_ver_mas_del_dashboard_muestra_mas_funciones(principal, monkeypatch) -> None:
+    avisos: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        principal, "mostrar_informacion",
+        lambda titulo, mensaje: avisos.append((titulo, mensaje)))
 
+    principal._dashboard.solicitar_ver_ventas.emit()
     principal._dashboard.solicitar_ver_ranking.emit()
-    assert "productos" in principal._paginas_instanciadas
+
+    assert len(avisos) == 2
+    assert all(titulo == "Más funciones" for titulo, _ in avisos)
+    assert "sitio web oficial" in avisos[0][1]
 
