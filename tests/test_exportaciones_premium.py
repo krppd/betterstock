@@ -69,3 +69,25 @@ def test_ui_form_no_expone_exportar(ruta: Path) -> None:
     clase = modulo.Ui_Form
     assert not hasattr(clase, "exportar_csv")
     assert not hasattr(clase, "exportar_pdf")
+
+
+ARCHIVOS_SIN_STUBS_PREMIUM = [
+    RAIZ / "services" / "estadisticas_ventas.py",
+    RAIZ / "views" / "ventana_dashboard.py",
+    RAIZ / "views" / "ventana_productos.py",
+]
+
+
+def test_estadisticas_no_expone_stubs_premium() -> None:
+    from services.estadisticas_ventas import EstadisticasVentas
+
+    assert not hasattr(EstadisticasVentas, "comparar")
+    assert not hasattr(EstadisticasVentas, "total_por_mes")
+
+
+@pytest.mark.parametrize(
+    "ruta", ARCHIVOS_SIN_STUBS_PREMIUM, ids=lambda p: p.name)
+def test_sin_rastros_de_premium(ruta: Path) -> None:
+    fuente = ruta.read_text(encoding="utf-8")
+    assert "PermissionError" not in fuente
+    assert "BetterStock Pro" not in fuente

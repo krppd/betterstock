@@ -184,7 +184,15 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         self._armar_menu_hamburguesa()
 
         self._conectar_atajos()
-        QtCore.QTimer.singleShot(500, self.verificar_alertas)
+
+        self._timer_refuerzo = QtCore.QTimer(self)
+        self._timer_refuerzo.setSingleShot(True)
+        self._timer_refuerzo.timeout.connect(self._reforzar_estilo_ventana)
+
+        self._timer_alertas = QtCore.QTimer(self)
+        self._timer_alertas.setSingleShot(True)
+        self._timer_alertas.timeout.connect(self.verificar_alertas)
+        self._timer_alertas.start(500)
 
     def _armar_menu_hamburguesa(self) -> None:
         panel = self.navigationInterface.panel
@@ -477,43 +485,30 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
     def _marcar_activa(self, nombre: str) -> None:
         if not nombre:
             return
-        try:
+        if nombre in self.navigationInterface.panel.items:
             self.navigationInterface.setCurrentItem(nombre)
-        except Exception:
-            # Rutas que no son ítems de navegación (p. ej. "clientes") lanzan
-            # RouteKeyError; no deben interrumpir el cambio de página.
-            pass
 
     def showEvent(self, evento: QEvent) -> None:
         super().showEvent(evento)
         self._aplicar_estilo_ventana()
-        QtCore.QTimer.singleShot(120, self._reforzar_estilo_ventana)
+        self._timer_refuerzo.start(120)
 
     def changeEvent(self, evento: QEvent) -> None:
         super().changeEvent(evento)
         if evento.type() == QEvent.Type.WindowStateChange:
-            QtCore.QTimer.singleShot(80, self._reforzar_estilo_ventana)
+            self._timer_refuerzo.start(80)
 
     def _reforzar_estilo_ventana(self) -> None:
-        try:
-            visible = self.isVisible()
-            maximizada = self.isMaximized()
-            minimizada = self.isMinimized()
-        except RuntimeError:
-            # El QTimer puede dispararse después de deleteLater() al cerrar sesión.
-            return
-        if visible and not maximizada and not minimizada:
+        if self.isVisible() and not self.isMaximized() and not self.isMinimized():
             self._aplicar_estilo_ventana()
 
     def _aplicar_estilo_ventana(self) -> None:
         if self.isMaximized():
             return
-        try:
-            aplicar_estilo_ventana(self)
-        except Exception:
-            pass
+        aplicar_estilo_ventana(self)
 
     def closeEvent(self, evento: QCloseEvent) -> None:
+        self._timer_refuerzo.stop()
         super().closeEvent(evento)
         if self._cierre_controlado:
             return

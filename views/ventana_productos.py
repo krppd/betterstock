@@ -8,7 +8,6 @@ from PyQt6.QtGui import QDesktopServices
 from PyQt6.QtWidgets import QDialog, QVBoxLayout, QWidget
 from qfluentwidgets import (
     FluentIcon as FIF,
-    PrimaryPushButton,
     PushButton,
     isDarkTheme,
     qconfig,
@@ -34,7 +33,6 @@ from views.dialogo_categoria import DialogoCategoria
 from views.dialogo_cantidad import pedir_cantidad
 from views.dialogo_producto import DialogoProducto
 from views.formulario_producto import FormularioProducto
-from views.importador_productos import AvisoPlanGratis, ImportadorProductos
 from views.ventana_base import VentanaBase
 from views.ventana_recuento import VentanaRecuento
 
@@ -220,11 +218,6 @@ class VentanaProductos(QWidget, VentanaBase):
         dialogo.exec()
         dialogo.deleteLater()
         self.cargar_datos()
-
-    def importar_lista(self) -> None:
-        Notificacion(self).mostrar(
-            "BetterStock Pro",
-            "La importación masiva de productos está disponible en BetterStock Pro.")
 
     def _obtener_servicio_importacion(self) -> ServicioImportacion:
         if self._servicio_importacion is None:

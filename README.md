@@ -7,11 +7,7 @@
 
 BetterStock is a point-of-sale and stock control app for small shops. It runs on the shop's own computer: no server, no online account, no license activation, and no internet needed to sell. Products, sales, customers, the cash register and backups live in a local SQLite database, and passwords are stored as bcrypt hashes.
 
-This is the free, MIT-licensed edition. Fixes and improvements are developed here first and then shared with the paid edition, which adds extra tools and is available at [betterstock.tech](https://betterstock.tech). It works on Windows 10 and 11.
-
-## Demo
-
-![BetterStock demo](https://files.catbox.moe/m0eekg.gif)
+This is the free, MIT-licensed edition. Fixes and improvements are developed here first and then shared with the paid edition, which adds extra tools and is available at [betterstock.tech](https://betterstock.tech).
 
 ## Features
 
