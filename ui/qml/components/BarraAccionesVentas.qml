@@ -5,15 +5,14 @@ Rectangle {
     id: raiz
     color: Tema.color("transparente")
     property real escala: 1.0
-    property int columnas: 4
+    property int columnas: 3
     property real separacion: Tema.espaciado("basico")
     readonly property bool entranAtajos: desplazador.anchoBoton >= Math.max(
         btnDescuento.necesitaAncho, btnRecargo.necesitaAncho,
-        btnComprobante.necesitaAncho, btnCuentas.necesitaAncho)
+        btnComprobante.necesitaAncho)
     signal descuentoPedido
     signal recargoPedido
     signal comprobantePedido
-    signal cuentasPedido
     signal cobrarPedido
     function destellar() {
         btnCobrar.destellar()
@@ -67,17 +66,6 @@ Rectangle {
                     height: Math.round(Tema.medida("alto_boton") * raiz.escala)
                     width: Math.max(implicitWidth, desplazador.anchoBoton)
                     onClicado: raiz.comprobantePedido()
-                }
-                PosActionButton {
-                    id: btnCuentas
-                    objectName: "accionCuentas"
-                    texto: "Cuentas"
-                    atajo: "Alt+C"
-                    escala: raiz.escala
-                    mostrarAtajo: raiz.entranAtajos
-                    height: Math.round(Tema.medida("alto_boton") * raiz.escala)
-                    width: Math.max(implicitWidth, desplazador.anchoBoton)
-                    onClicado: raiz.cuentasPedido()
                 }
             }
         }
