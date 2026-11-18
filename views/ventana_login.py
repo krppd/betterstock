@@ -3,7 +3,7 @@ from __future__ import annotations
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QPixmap
 from PyQt6.QtWidgets import QDialog
-from qfluentwidgets import BodyLabel, CheckBox, qconfig
+from qfluentwidgets import CheckBox, qconfig
 
 from config import RECURSOS_DIR
 from services import preferencias
@@ -38,9 +38,9 @@ class VentanaLogin(QDialog, VentanaBase):
         self.ui = Ui_LoginForm()
         self.ui.setupUi(self)
         self._tira_logo: QPixmap | None = QPixmap(str(RECURSOS_DIR / "anim_logo_tira.png"))
-        self._cuadros_logo = [self._crear_cuadro_logo(0)]
-        self._cuadro_logo = 0
-        self.ui.lblLogo.setPixmap(self._cuadros_logo[0])
+        self._indice_cuadro = 0
+        self._cuadro_actual = self._crear_cuadro_logo(0)
+        self.ui.lblLogo.setPixmap(self._cuadro_actual)
         self._temporizador_logo = QTimer(self)
         self._temporizador_logo.setInterval(self.INTERVALO_LOGO_MS)
         self._temporizador_logo.timeout.connect(self._avanzar_logo)
@@ -96,14 +96,14 @@ class VentanaLogin(QDialog, VentanaBase):
         )
 
     def _avanzar_logo(self) -> None:
-        if self._cuadro_logo >= self.CUADROS_TIRA - 1:
+        if self._indice_cuadro >= self.CUADROS_TIRA - 1:
             self._temporizador_logo.stop()
-            self._tira_logo = None
             return
-        self._cuadro_logo += 1
-        self._cuadros_logo.append(self._crear_cuadro_logo(self._cuadro_logo))
-        self.ui.lblLogo.setPixmap(self._cuadros_logo[self._cuadro_logo])
-        if self._cuadro_logo == self.CUADROS_TIRA - 1:
+        self._indice_cuadro += 1
+        self._cuadro_actual = self._crear_cuadro_logo(self._indice_cuadro)
+        self.ui.lblLogo.setPixmap(self._cuadro_actual)
+        if self._indice_cuadro == self.CUADROS_TIRA - 1:
+            self._temporizador_logo.stop()
             self._tira_logo = None
 
     def validar_login(self) -> None:

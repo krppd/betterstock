@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from PyQt6.QtCore import QThreadPool
 from PyQt6.QtGui import QShortcut
 from PyQt6.QtWidgets import QApplication
 
@@ -63,6 +64,9 @@ def principal(aplicacion, tmp_path) -> VentanaPrincipal:
         gestor_ventas=gestor_ventas, anulaciones=anulaciones,
         permiso="administrador", autenticacion=autenticacion, turnos=turnos, caja=caja)
     yield ventana
+    QThreadPool.globalInstance().waitForDone(3000)
+    if getattr(ventana, "_animacion_tema", None) is not None:
+        ventana._animacion_tema.stop()
     ventana.permitir_cierre()
     ventana.close()
     ventana.deleteLater()
@@ -117,20 +121,25 @@ def test_alternar_tema_ejecuta_transicion(principal) -> None:
 def test_marcar_activa_ignora_rutas_invalidas_y_marca_las_validas(
         principal, monkeypatch) -> None:
     seleccionados: list[str] = []
+    monkeypatch.setattr(
+        principal.navigationInterface, "setCurrentItem", seleccionados.append)
 
-    def marcar(nombre: str) -> None:
-        if nombre == "clientes":
-            # "clientes" no es una clave de navegación: setCurrentItem lanza RouteKeyError.
-            raise RuntimeError(f"{nombre!r} is illegal.")
-        seleccionados.append(nombre)
-
-    monkeypatch.setattr(principal.navigationInterface, "setCurrentItem", marcar)
-
-    principal._marcar_activa("clientes")
+    principal._marcar_activa("ruta_inexistente")
     assert seleccionados == []
 
     principal._marcar_activa("inicio")
     assert seleccionados == ["inicio"]
+
+
+def test_el_timer_de_refuerzo_se_arma_al_mostrar_y_se_detiene_al_cerrar(
+        principal) -> None:
+    principal.show()
+    QApplication.processEvents()
+    assert principal._timer_refuerzo.isActive()
+
+    principal.permitir_cierre()
+    principal.close()
+    assert not principal._timer_refuerzo.isActive()
 
 
 def test_atajos_de_funciones_terminan_en_f7(principal) -> None:

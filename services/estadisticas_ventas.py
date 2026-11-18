@@ -172,11 +172,6 @@ class EstadisticasVentas:
     def resumen(self, desde: date, hasta: date) -> ResumenPeriodo:
         return self._acumular(desde, hasta).resumen(desde, hasta)
 
-    def comparar(self, desde: date, hasta: date) -> Comparacion:
-        raise PermissionError(
-            "La comparación con el período anterior es una función de BetterStock Pro."
-        )
-
     def mas_vendidos(self, desde: date, hasta: date, limite: int = 10) -> list[ProductoVendido]:
         productos = list(self._acumular(desde, hasta).productos.values())
         return sorted(productos, key=lambda p: p.unidades, reverse=True)[:limite]
@@ -223,11 +218,6 @@ class EstadisticasVentas:
                 sys.exc_info()[1],
             )
         return sorted(por_dia.items())
-
-    def total_por_mes(self, desde: date, hasta: date) -> list[tuple[date, float]]:
-        raise PermissionError(
-            "Las estadísticas por mes son una función de BetterStock Pro."
-        )
 
     def registrar(self, venta: VentaRegistrada) -> None:
         self._ventas.agregar(venta)

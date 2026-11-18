@@ -662,20 +662,6 @@ class WorkerCargaDashboard(QRunnable):
             except Exception:
                 pass
 
-            try:
-                comp = self._estadisticas.comparar(desde, hasta)
-                if comp.variacion_total is not None:
-                    var_ventas_pos = comp.variacion_total >= 0
-                    var_ventas_txt = f"{'+' if var_ventas_pos else ''}{comp.variacion_total:.1f}%"
-                if comp.variacion_unidades is not None:
-                    var_unidades_pos = comp.variacion_unidades >= 0
-                    var_unidades_txt = f"{'+' if var_unidades_pos else ''}{comp.variacion_unidades:.1f}%"
-                if comp.variacion_ticket_promedio is not None:
-                    var_ticket_pos = comp.variacion_ticket_promedio >= 0
-                    var_ticket_txt = f"{'+' if var_ticket_pos else ''}{comp.variacion_ticket_promedio:.1f}%"
-            except Exception:
-                pass
-
         puntos_grafico: list[tuple[str, float]] = []
         if self._estadisticas:
             try:
