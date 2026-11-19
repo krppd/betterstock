@@ -26,7 +26,6 @@ from qfluentwidgets import (
     SubtitleLabel,
     SwitchButton,
     TableWidget,
-    qconfig,
 )
 
 from models.usuario import Usuario
@@ -48,7 +47,7 @@ from services.preferencias import (
     guardar_posicion_menu,
     mostrar_reloj,
 )
-from ui.fluent import CLARO, OSCURO, color
+from ui.fluent import CLARO, OSCURO
 from ui.widgets.notificacion import Notificacion
 from ui.widgets.trabajo_impresion import TrabajoImpresion
 from views.dialogo_password import DialogoCambiarPassword
@@ -213,15 +212,6 @@ class VentanaConfiguracion(QDialog, VentanaBase):
         self._armar_seccion_cuenta()
         self._armar_seccion_plan()
         self._armar_seccion_codigos()
-
-        self._aplicar_tema()
-        if hasattr(qconfig, "themeChanged"):
-            qconfig.themeChanged.connect(self._aplicar_tema)
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema Fluent."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo_suave')}; }}")
 
     def _cargar_comercio(self) -> None:
         if self._comercio is None:

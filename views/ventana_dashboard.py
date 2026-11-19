@@ -1036,6 +1036,9 @@ class DashboardPrincipalWidget(QWidget):
         if sip.isdeleted(self):
             return
         try:
+            # El hover de filaActividad usa _px() (escala propia del dashboard)
+            # y tokens por tema; la hoja maestra no interpola píxeles escalados,
+            # así que este QSS chico sigue viviendo en el widget.
             self.setStyleSheet(estilo_dashboard())
             self.lbl_nota_plan.setStyleSheet(f"color: {color('alerta')};")
             for tarjeta, tipo in self._kpis:

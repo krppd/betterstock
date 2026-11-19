@@ -22,14 +22,8 @@ from ui.tema import (
     ESPACIO_SUBTITLE,
     ESPACIO_TITLE,
     FAMILIA_FUENTE,
-    FONDO_DESHABILITADO,
     FONDO_FILA,
-    GRILLA,
     GRIS_BOTON,
-    GRIS_DESHABILITADO,
-    GRIS_HOVER,
-    GRIS_PRESIONADO,
-    GRIS_TEXTO,
     LINEA_BODY,
     LINEA_DISPLAY,
     LINEA_HERO,
@@ -42,8 +36,6 @@ from ui.tema import (
     PULGAR_SCROLL_HOVER,
     PULGAR_SCROLL_PRESIONADO,
     ROJO,
-    ROJO_PRESIONADO,
-    ROJO_SUAVE,
     ROJO_TEXTO,
     ROLES,
     SELECCION,
@@ -56,9 +48,7 @@ from ui.tema import (
     TAMANO_SUBTITLE,
     TAMANO_TITLE,
     TEMA_APP,
-    TEMA_APP_OSCURO,
     TEXTO,
-    TEXTO_SUAVE,
     VERDE,
     VERDE_OSCURO,
     VERDE_PRESIONADO,
@@ -82,14 +72,8 @@ __all__ = [
     "ESPACIO_SUBTITLE",
     "ESPACIO_TITLE",
     "FAMILIA_FUENTE",
-    "FONDO_DESHABILITADO",
     "FONDO_FILA",
-    "GRILLA",
     "GRIS_BOTON",
-    "GRIS_DESHABILITADO",
-    "GRIS_HOVER",
-    "GRIS_PRESIONADO",
-    "GRIS_TEXTO",
     "LINEA_BODY",
     "LINEA_DISPLAY",
     "LINEA_HERO",
@@ -102,8 +86,6 @@ __all__ = [
     "PULGAR_SCROLL_HOVER",
     "PULGAR_SCROLL_PRESIONADO",
     "ROJO",
-    "ROJO_PRESIONADO",
-    "ROJO_SUAVE",
     "ROJO_TEXTO",
     "ROLES",
     "SELECCION",
@@ -117,7 +99,6 @@ __all__ = [
     "TAMANO_TITLE",
     "TEMA_APP",
     "TEXTO",
-    "TEXTO_SUAVE",
     "VERDE",
     "VERDE_OSCURO",
     "VERDE_PRESIONADO",
@@ -315,7 +296,7 @@ def aplicar_color_fluent(qt: QApplication | None = None, oscuro: bool | None = N
     vuelve a aplicar cada vez que cambia el tema.
     """
     try:
-        from qfluentwidgets import qconfig, setThemeColor
+        from qfluentwidgets import qconfig
     except Exception:
         return
     color = color_fluent(oscuro)
@@ -326,7 +307,7 @@ def aplicar_color_fluent(qt: QApplication | None = None, oscuro: bool | None = N
     except Exception:
         pass
     try:
-        setThemeColor(color)
+        qconfig.set(qconfig.themeColor, QColor(color), save=False)
     except Exception:
         pass
 
@@ -343,40 +324,32 @@ def _asegurar_estilo(qt: QApplication) -> None:
         qt.setStyle(nombre)
 
 
-def aplicar_tema(qt: QApplication, escala: float | None = None) -> None:
-    """Aplica la paleta y la hoja de estilos global, adaptadas al tema Fluent activo.
+def paleta(oscuro: bool) -> QPalette:
+    """Paleta del tema pedido; la usan tanto el gestor como los tests."""
+    if oscuro:
+        return _paleta_oscura()
+    paleta_actual = QPalette()
+    paleta_actual.setColor(QPalette.ColorRole.Window, QColor(BLANCO))
+    paleta_actual.setColor(QPalette.ColorRole.WindowText, QColor(TEXTO))
+    paleta_actual.setColor(QPalette.ColorRole.Base, QColor(BLANCO))
+    paleta_actual.setColor(QPalette.ColorRole.AlternateBase, QColor(FONDO_FILA))
+    paleta_actual.setColor(QPalette.ColorRole.Text, QColor(TEXTO))
+    paleta_actual.setColor(QPalette.ColorRole.Button, QColor(GRIS_BOTON))
+    paleta_actual.setColor(QPalette.ColorRole.ButtonText, QColor(TEXTO))
+    paleta_actual.setColor(QPalette.ColorRole.Highlight, QColor(VERDE))
+    paleta_actual.setColor(QPalette.ColorRole.HighlightedText, QColor(BLANCO))
+    return paleta_actual
 
-    Tras la migración a Fluent, casi ningún widget usa ya la hoja global: cada
-    componente Fluent trae su propio estilo. Por eso la hoja se mantiene
-    reducida a lo que todavía la necesita (etiquetas, tablas y scrollbars
-    heredados) y se regenera en modo "vacío" cuando no aporta nada, para no
-    pagar el costo de reparsear el QSS en cada cambio de tema.
-    """
+
+def aplicar_tema(qt: QApplication, escala: float | None = None) -> None:
+    """Aplica el tema delegando en el único dueño: GestorTema."""
     if escala is not None:
         aplicar_escala(escala)
-    _asegurar_estilo(qt)
-    familia = _cargar_fuentes()
-    oscuro = _tema_oscuro()
-    aplicar_color_fluent(qt, oscuro)
-    if oscuro:
-        qt.setPalette(_paleta_oscura())
-        hoja = _escalar_qss(TEMA_APP_OSCURO, _escala_activa)
-    else:
-        paleta = QPalette()
-        paleta.setColor(QPalette.ColorRole.Window, QColor(BLANCO))
-        paleta.setColor(QPalette.ColorRole.WindowText, QColor(TEXTO))
-        paleta.setColor(QPalette.ColorRole.Base, QColor(BLANCO))
-        paleta.setColor(QPalette.ColorRole.AlternateBase, QColor(FONDO_FILA))
-        paleta.setColor(QPalette.ColorRole.Text, QColor(TEXTO))
-        paleta.setColor(QPalette.ColorRole.Button, QColor(GRIS_BOTON))
-        paleta.setColor(QPalette.ColorRole.ButtonText, QColor(TEXTO))
-        paleta.setColor(QPalette.ColorRole.Highlight, QColor(VERDE))
-        paleta.setColor(QPalette.ColorRole.HighlightedText, QColor(BLANCO))
-        qt.setPalette(paleta)
-        hoja = _escalar_qss(TEMA_APP, _escala_activa)
-    qt.setStyleSheet(hoja + _qss_escala_tactil())
-    qt.setFont(fuente(TAMANO_BODY, familia=familia or FAMILIA_FUENTE))
-    _conectar_reaplicacion(qt)
+    from ui.gestor_tema import obtener_gestor
+
+    gestor = obtener_gestor(qt)
+    if gestor is not None:
+        gestor.aplicar(_tema_oscuro())
 
 
 def _qss_escala_tactil() -> str:
@@ -405,44 +378,6 @@ CheckBox, RadioButton {
 """
 
 
-def _conectar_reaplicacion(qt: QApplication) -> None:
-    """Vuelve a aplicar la hoja global cada vez que Fluent cambia de tema."""
-    if getattr(qt, "_betterstock_tema_conectado", False):
-        return
-    try:
-        from qfluentwidgets import qconfig
-
-        qconfig.themeChanged.connect(lambda *_: aplicar_paleta(qt))
-        qt._betterstock_tema_conectado = True
-    except Exception:
-        pass
-
-
-def _hoja_actual(qt: QApplication) -> str:
-    """Devuelve la hoja global que corresponde al tema Fluent activo."""
-    if _tema_oscuro():
-        return _escalar_qss(TEMA_APP_OSCURO, _escala_activa)
-    return _escalar_qss(TEMA_APP, _escala_activa)
-
-
 def aplicar_paleta(qt: QApplication) -> None:
-    """Repinta la app con la paleta y la hoja de estilos del tema activo."""
-    oscuro = _tema_oscuro()
-    aplicar_color_fluent(qt, oscuro)
-    if oscuro:
-        qt.setPalette(_paleta_oscura())
-        hoja = _escalar_qss(TEMA_APP_OSCURO, _escala_activa)
-    else:
-        paleta = QPalette()
-        paleta.setColor(QPalette.ColorRole.Window, QColor(BLANCO))
-        paleta.setColor(QPalette.ColorRole.WindowText, QColor(TEXTO))
-        paleta.setColor(QPalette.ColorRole.Base, QColor(BLANCO))
-        paleta.setColor(QPalette.ColorRole.AlternateBase, QColor(FONDO_FILA))
-        paleta.setColor(QPalette.ColorRole.Text, QColor(TEXTO))
-        paleta.setColor(QPalette.ColorRole.Button, QColor(GRIS_BOTON))
-        paleta.setColor(QPalette.ColorRole.ButtonText, QColor(TEXTO))
-        paleta.setColor(QPalette.ColorRole.Highlight, QColor(VERDE))
-        paleta.setColor(QPalette.ColorRole.HighlightedText, QColor(BLANCO))
-        qt.setPalette(paleta)
-        hoja = _escalar_qss(TEMA_APP, _escala_activa)
-    qt.setStyleSheet(hoja + _qss_escala_tactil())
+    """Repinta con el tema activo delegando en el dueño del tema."""
+    aplicar_tema(qt)

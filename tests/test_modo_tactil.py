@@ -101,8 +101,8 @@ def test_qss_escalado(aplicacion: QApplication) -> None:
     aplicar_tema(aplicacion, preferencias.ESCALA_TACTIL)
     hoja = aplicacion.styleSheet()
 
-    assert "font-size: 16pt;" in hoja
-    assert hoja.count("font-size: 16pt;") == TEMA_APP.count("font-size: 11pt;")
+    assert "font-size: 14pt;" in hoja
+    assert hoja.count("font-size: 14pt;") == TEMA_APP.count("font-size: 9pt;")
     assert hoja.count("min-height: 36px;") == TEMA_APP.count("min-height: 24px;")
     assert hoja != TEMA_APP
     assert escala() == preferencias.ESCALA_TACTIL
@@ -111,8 +111,24 @@ def test_qss_escalado(aplicacion: QApplication) -> None:
 def test_qss_normal_es_identico(aplicacion: QApplication) -> None:
     aplicar_tema(aplicacion, ESCALA_NORMAL)
 
-    assert aplicacion.styleSheet() == TEMA_APP
+    assert aplicacion.styleSheet().endswith(TEMA_APP)
     assert escala() == ESCALA_NORMAL
+
+
+def test_destildar_modo_tactil_reaplica_la_escala(tmp_path, aplicacion, monkeypatch) -> None:
+    ruta = tmp_path / "preferencias.json"
+    monkeypatch.setattr(preferencias, "ARCHIVO_PREFERENCIAS", ruta)
+
+    ventana = _abrir_login()
+    try:
+        assert escala() == ESCALA_NORMAL
+        ventana.chkModoTactil.setChecked(True)
+        assert escala() == preferencias.ESCALA_TACTIL
+        ventana.chkModoTactil.setChecked(False)
+        assert escala() == ESCALA_NORMAL
+    finally:
+        ventana.deleteLater()
+        aplicar_escala(ESCALA_NORMAL)
 
 
 def test_checkbox_login_guarda_y_refleja(tmp_path, aplicacion, monkeypatch) -> None:

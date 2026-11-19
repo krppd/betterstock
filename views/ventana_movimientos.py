@@ -309,4 +309,5 @@ class VentanaMovimientos(QWidget, VentanaBase):
         venta = self._ventas_visibles[fila]
         dialogo = VentanaDetalleVenta(venta, self, self._anulaciones)
         dialogo.exec()
-        self.cargar_historial()
+        if dialogo.modificado:
+            self.cargar_historial()

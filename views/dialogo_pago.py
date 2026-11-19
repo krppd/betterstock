@@ -23,7 +23,6 @@ from models.medio_pago import MEDIOS, METODO_FIADO
 from services.excepciones import ErrorValidacion
 from services.gestor_fiado import GestorFiado
 from ui.estilos import TAMANO_BODY, fuente
-from ui.fluent import color
 from utils.formato import formatear_dinero
 from views.ventana_base import VentanaBase
 
@@ -42,7 +41,6 @@ class DialogoPago(QDialog, VentanaBase):
         self.setWindowTitle(f"Pago de {nombre}")
         self.setObjectName("dlgPago")
         self.setMinimumWidth(320)
-        self._aplicar_tema()
 
         self.lblDeuda = BodyLabel(f"Debe: {formatear_dinero(self._deuda)}", self)
         self.lblDeuda.setObjectName("lblDeuda")
@@ -101,12 +99,6 @@ class DialogoPago(QDialog, VentanaBase):
         self.btnCancelar.clicked.connect(self.reject)
         self._actualizar_recargo()
         self.spnImporte.setValue(max(self._total, 0.01))
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema claro/oscuro."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}"
-        )
 
     def _actualizar_recargo(self) -> None:
         """El checkbox decide si el recargo entra en el total y hasta cuánto se puede cobrar."""

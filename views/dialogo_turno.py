@@ -15,10 +15,9 @@ from qfluentwidgets import (
     LineEdit,
     PrimaryPushButton,
     PushButton,
-    qconfig,
 )
 
-from ui.fluent import CLARO, OSCURO, color
+from ui.fluent import CLARO, OSCURO
 from utils.formato import diferencia as diferencia_montos
 from utils.formato import formatear_dinero
 from views.ventana_base import VentanaBase
@@ -31,19 +30,7 @@ def _tinta(nombre: str) -> tuple[QColor, QColor]:
     return QColor(CLARO[nombre]), QColor(OSCURO[nombre])
 
 
-class _FondoDeTema:
-    """Mixin: el fondo del diálogo sigue al tema activo.
-
-    Los labels Fluent usan texto claro en modo oscuro, así que el fondo del
-    diálogo tiene que acompañarlo para que el texto se lea.
-    """
-
-    def _aplicar_tema(self) -> None:
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
-
-
-class DialogoAbrirTurno(_FondoDeTema, QDialog, VentanaBase):
+class DialogoAbrirTurno(QDialog, VentanaBase):
     """Alta de un turno de caja con el fondo inicial y notas opcionales."""
 
     def __init__(self, fondo_sugerido: float = 0.0,
@@ -52,8 +39,6 @@ class DialogoAbrirTurno(_FondoDeTema, QDialog, VentanaBase):
         self._datos: tuple[float, str] = (0.0, "")
         self.setWindowTitle("Abrir turno")
         self.setObjectName("dlgAbrirTurno")
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
@@ -101,7 +86,7 @@ class DialogoAbrirTurno(_FondoDeTema, QDialog, VentanaBase):
         self.accept()
 
 
-class DialogoCerrarTurno(_FondoDeTema, QDialog, VentanaBase):
+class DialogoCerrarTurno(QDialog, VentanaBase):
     """Cierre de un turno de caja, con el resumen del efectivo esperado."""
 
     def __init__(self, efectivo_esperado: float, fondo_inicial: float,
@@ -114,8 +99,6 @@ class DialogoCerrarTurno(_FondoDeTema, QDialog, VentanaBase):
         self._datos: tuple[float, str] = (0.0, "")
         self.setWindowTitle("Cerrar turno")
         self.setObjectName("dlgCerrarTurno")
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)

@@ -14,10 +14,9 @@ from qfluentwidgets import (
     PrimaryPushButton,
     PushButton,
     StrongBodyLabel,
-    qconfig,
 )
 
-from ui.fluent import CLARO, OSCURO, color
+from ui.fluent import CLARO, OSCURO
 from utils.formato import diferencia as diferencia_montos
 from utils.formato import formatear_dinero
 
@@ -39,8 +38,6 @@ class DialogoCerrarCaja(QDialog):
         self.setMinimumWidth(400)
         self._datos: str = ""
         self._devoluciones_total = devoluciones_total
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(12)
@@ -107,11 +104,6 @@ class DialogoCerrarCaja(QDialog):
     @property
     def notas(self) -> str:
         return self._datos
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema: los labels Fluent son claros en oscuro."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
 
     def _confirmar(self) -> None:
         self._datos = self.txtNotas.text().strip()

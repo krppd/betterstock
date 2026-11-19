@@ -29,9 +29,10 @@ from services.gestor_comercio import GestorComercio
 from services.gestor_fiado import GestorFiado
 from services.gestor_stock import GestorStock
 from services.gestor_ventas import GestorVentas
-from services.preferencias import escala_modo_tactil
+from services.preferencias import ESCALA_NORMAL, escala_modo_tactil
 from ui.compat_fluent import aplicar_parches
-from ui.estilos import ESCALA_NORMAL, aplicar_color_fluent, aplicar_tema
+from ui.estilos import aplicar_escala
+from ui.gestor_tema import GestorTema
 from ui.scroll_suave import instalar_scroll_suave
 from views.ventana_configuracion import VentanaConfiguracion
 from views.ventana_login import VentanaLogin
@@ -45,8 +46,11 @@ class Aplicacion:
         self._qt = QApplication(argumentos)
         self._qt.setWindowIcon(QIcon(str(RECURSOS_DIR / "logo_u.png")))
         aplicar_parches()
-        aplicar_color_fluent(self._qt)
-        aplicar_tema(self._qt, ESCALA_NORMAL)
+        # La escala debe quedar fija antes de crear ventanas: cambiar el QSS
+        # global con widgets vivos (login) hacía segfault en xcb.
+        aplicar_escala(escala_modo_tactil())
+        self._gestor_tema = GestorTema(self._qt)
+        self._gestor_tema.instalar()
         instalar_scroll_suave(self._qt)
         self._gestor_stock = GestorStock(
             ProductoRepositorio(carpeta_datos / "betterstock.db"),
@@ -119,9 +123,6 @@ class Aplicacion:
             if usuario is None:
                 return "", ""
             sesion = (usuario.nombre, usuario.permiso)
-        escala = escala_modo_tactil()
-        if escala != ESCALA_NORMAL:
-            aplicar_tema(self._qt, escala)
         return sesion
 
     def _primer_usuario(self) -> tuple[str, str] | None:
@@ -144,17 +145,16 @@ class Aplicacion:
         self._mostrar_ventana_principal()
 
     def _mostrar_ventana_principal(self) -> None:
-        """Muestra la ventana principal sin maximizar en pantallas grandes.
+        """Muestra la ventana principal; en modo táctil siempre maximizada.
 
-        Maximizada no hay sombra DWM; en modo táctil con pantalla chica sí se
-        maximiza para aprovechar el espacio.
+        Maximizada no hay sombra DWM, por eso en modo normal se centra.
         """
         ventana = self._ventana_principal
         pantalla = QApplication.primaryScreen()
         disponible = pantalla.availableGeometry() if pantalla else None
         tactil = escala_modo_tactil() > ESCALA_NORMAL
 
-        if tactil and disponible is not None and disponible.width() < 1600:
+        if tactil:
             ventana.showMaximized()
             return
 

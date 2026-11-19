@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-from PyQt6.QtCore import QThreadPool
 from PyQt6.QtGui import QShortcut
 from PyQt6.QtWidgets import QApplication
 
@@ -64,9 +63,6 @@ def principal(aplicacion, tmp_path) -> VentanaPrincipal:
         gestor_ventas=gestor_ventas, anulaciones=anulaciones,
         permiso="administrador", autenticacion=autenticacion, turnos=turnos, caja=caja)
     yield ventana
-    QThreadPool.globalInstance().waitForDone(3000)
-    if getattr(ventana, "_animacion_tema", None) is not None:
-        ventana._animacion_tema.stop()
     ventana.permitir_cierre()
     ventana.close()
     ventana.deleteLater()
@@ -105,7 +101,11 @@ def test_avatar_comercio_configurado(principal) -> None:
     assert pix.width() == 64
 
 
-def test_alternar_tema_ejecuta_transicion(principal) -> None:
+def test_el_cambio_de_pagina_no_usa_animacion_pop(principal) -> None:
+    assert principal._paginas.isAnimationEnabled() is False
+
+
+def test_alternar_tema_aplica_modo(principal) -> None:
     from qfluentwidgets import isDarkTheme
     principal.show()
     QApplication.processEvents()
