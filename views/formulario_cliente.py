@@ -18,14 +18,12 @@ from qfluentwidgets import (
     LineEdit,
     PrimaryPushButton,
     PushButton,
-    qconfig,
 )
 
 from models.cliente import Cliente
 from models.validacion_identificador import es_cuit_valido
 from services.excepciones import ErrorValidacion
 from services.gestor_fiado import GestorFiado
-from ui.fluent import color
 from utils.formato import formatear_dinero
 from views.ventana_base import VentanaBase
 
@@ -180,14 +178,6 @@ class FormularioCliente(QDialog, VentanaBase):
         self.txtNombre.setFocus()
 
         self.ui = _UiCliente(self)
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema Fluent."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
-
     def _actualizar_documento(self) -> None:
         tipo = int(self.cmbDocTipo.currentData())
         self.txtDocNro.setEnabled(tipo != 99)

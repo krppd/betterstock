@@ -15,11 +15,9 @@ from qfluentwidgets import (
     LineEdit,
     PrimaryPushButton,
     PushButton,
-    qconfig,
 )
 
 from models.caja_movimiento import CajaMovimiento
-from ui.fluent import color
 from views.ventana_base import VentanaBase
 
 IMPORTE_MAXIMO = 99_999_999.99
@@ -33,8 +31,6 @@ class DialogoMovimientoCaja(QDialog, VentanaBase):
         self.setWindowTitle("Movimiento de caja")
         self.setObjectName("dlgMovimientoCaja")
         self._datos: tuple[str, str, str, float] | None = None
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 18, 20, 18)
@@ -90,11 +86,6 @@ class DialogoMovimientoCaja(QDialog, VentanaBase):
     @property
     def datos(self) -> tuple[str, str, str, float] | None:
         return self._datos
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema: los labels Fluent son claros en oscuro."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
 
     def guardar(self) -> None:
         concepto = self.txtConcepto.text().strip()

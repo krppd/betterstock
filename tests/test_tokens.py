@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
 
 from ui import tema
 from ui.estilos import (
@@ -20,7 +19,6 @@ from ui.estilos import (
     VERDE_TEXTO,
 )
 
-RAIZ = Path(__file__).resolve().parent.parent
 COLORES = tema.tokens["colores"]
 
 
@@ -38,6 +36,13 @@ def test_el_qss_no_tiene_colores_fuera_de_la_paleta() -> None:
 def test_el_qss_se_genera_desde_los_tokens() -> None:
     assert TEMA_APP == tema.qss()
     assert len(TEMA_APP) > 0
+
+
+def test_las_tablas_no_redefinen_el_estilo_de_fluent() -> None:
+    """El encabezado verde heredado tapaba el estilo neutro de Fluent."""
+    assert "QTableWidget {" not in TEMA_APP
+    assert "QHeaderView::section:horizontal" not in TEMA_APP
+    assert "QHeaderView::section:vertical" not in TEMA_APP
 
 
 def test_los_constantes_de_estilos_vienen_de_los_tokens() -> None:
@@ -69,12 +74,3 @@ def test_el_verde_de_la_paleta_es_el_de_la_aplicacion() -> None:
     assert COLORES["verde"] == "#2DBC66"
     assert COLORES["verde_oscuro"] == "#1F9D55"
     assert COLORES["verde_texto"] == "#1A7F37"
-
-
-def test_el_qml_usa_el_puente_de_tema() -> None:
-    archivos = list((RAIZ / "ui" / "qml").rglob("*.qml"))
-    assert archivos
-    for archivo in archivos:
-        texto = archivo.read_text(encoding="utf-8")
-        assert "Tema." in texto or "import QtQuick" in texto
-        assert not re.search(r"#[0-9A-Fa-f]{6}\b", texto), archivo

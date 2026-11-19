@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 import copy
-import sys
 from collections.abc import Callable
 from datetime import date
-from pathlib import Path
 
-from PyQt6.QtGui import QColor, QKeySequence, QShortcut
+from PyQt6.QtCore import QEasingCurve, QPropertyAnimation, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QShortcut
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QApplication,
+    QFrame,
+    QGraphicsOpacityEffect,
     QHBoxLayout,
     QInputDialog,
+    QScrollArea,
     QSizePolicy,
     QSpacerItem,
     QTableWidgetItem,
     QVBoxLayout,
     QWidget,
 )
-from PyQt6.QtCore import QMetaObject, QObject, Qt, QUrl
-from PyQt6.QtQuickWidgets import QQuickWidget
 
 from models.medio_pago import METODO_MP, METODO_TRANSFERENCIA
 from models.venta_registrada import PagoVenta
@@ -34,10 +34,17 @@ from services.gestor_comercio import GestorComercio
 from services.gestor_fiado import GestorFiado
 from services.gestor_ventas import GestorVentas
 from services.impresion import imprimir_ticket
-from qfluentwidgets import BodyLabel, LineEdit, PushButton, TableWidget
-from ui.estilos import AMBAR_TEXTO, TAMANO_DISPLAY, VERDE_TEXTO, escala, fuente
-from ui.fluent import color
-from ui.tema import puente_tema
+from qfluentwidgets import BodyLabel, LineEdit, PrimaryPushButton, PushButton, TableWidget
+from ui.estilos import (
+    AMBAR_TEXTO,
+    TAMANO_BODY,
+    TAMANO_DISPLAY,
+    TAMANO_SMALL,
+    VERDE_TEXTO,
+    escala,
+    fuente,
+)
+from ui.tema import medida
 from ui.widgets.etiqueta_rodante import EtiquetaRodante
 from ui.widgets.notificacion import Notificacion
 from ui.widgets.trabajo_impresion import TrabajoImpresion
@@ -51,11 +58,142 @@ from views.ventana_detalle_venta import VentanaDetalleVenta
 COLOR_COMODIN = AMBAR_TEXTO
 
 
-def _ruta_qml(nombre: str) -> Path:
-    raiz = getattr(sys, "_MEIPASS", None)
-    if raiz is not None:
-        return Path(raiz) / "ui" / "qml" / nombre
-    return Path(__file__).resolve().parent.parent / "ui" / "qml" / nombre
+class _BarraAcciones(QWidget):
+    """Barra nativa de acciones de venta (reemplaza el QQuickWidget QML)."""
+
+    descuentoPedido = pyqtSignal()
+    recargoPedido = pyqtSignal()
+    comprobantePedido = pyqtSignal()
+    cobrarPedido = pyqtSignal()
+
+    SEPARACION = 8
+    ACCIONES = (
+        ("accionDescuento", "Desc. total", "Alt+D", "descuentoPedido"),
+        ("accionRecargo", "Recargo", "Alt+R", "recargoPedido"),
+        ("accionComprobante", "Último comprobante", "Alt+E", "comprobantePedido"),
+    )
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._alto_accion = round(medida("alto_boton") * escala())
+        self._alto_cobrar = round(medida("alto_cobrar") * escala())
+        self._animaciones: dict[str, QPropertyAnimation] = {}
+        self._textos: dict[str, tuple[str, str]] = {}
+        self._botones: dict[str, PushButton] = {}
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(self.SEPARACION)
+
+        self._scroll = QScrollArea(self)
+        self._scroll.setObjectName("accionesScroll")
+        self._scroll.setWidgetResizable(True)
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self._scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        self._contenedor = QWidget()
+        self._fila = QHBoxLayout(self._contenedor)
+        self._fila.setContentsMargins(0, 0, 0, 0)
+        self._fila.setSpacing(self.SEPARACION)
+        for nombre, texto, atajo, senal in self.ACCIONES:
+            boton = PushButton(texto, self._contenedor)
+            boton.setObjectName(nombre)
+            boton.setFont(fuente(TAMANO_SMALL))
+            boton.setFixedHeight(self._alto_accion)
+            boton.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+            boton.setToolTip(f"{texto} ({atajo})")
+            boton.clicked.connect(
+                lambda _=False, n=nombre, s=senal: self._al_clicar(n, s))
+            self._fila.addWidget(boton, 1)
+            self._botones[nombre] = boton
+            self._textos[nombre] = (texto, atajo)
+        minimo = max(boton.sizeHint().width() for boton in self._botones.values())
+        for boton in self._botones.values():
+            boton.setMinimumWidth(minimo)
+        self._contenedor.setMinimumWidth(
+            minimo * len(self._botones) + self.SEPARACION * (len(self._botones) - 1))
+        self._scroll.setWidget(self._contenedor)
+        self._alto_scroll = self._alto_accion + max(
+            12, self._scroll.horizontalScrollBar().sizeHint().height()) + 2
+        self._scroll.setFixedHeight(self._alto_scroll)
+        layout.addWidget(self._scroll)
+
+        self.cobrar = PrimaryPushButton("Cobrar Venta   ↵ Enter", self)
+        self.cobrar.setObjectName("accionCobrar")
+        self.cobrar.setFont(fuente(TAMANO_BODY, negrita=True))
+        self.cobrar.setFixedHeight(self._alto_cobrar)
+        self.cobrar.setToolTip("Cobrar venta (Ctrl+Enter)")
+        self.cobrar.clicked.connect(self._al_cobrar)
+        layout.addWidget(self.cobrar)
+        self._ajustar_atajos()
+
+    def _al_clicar(self, nombre: str, senal: str) -> None:
+        self.pulsar(nombre)
+        getattr(self, senal).emit()
+
+    def _al_cobrar(self) -> None:
+        self.pulsar("accionCobrar")
+        self.cobrarPedido.emit()
+
+    def _ajustar_atajos(self) -> None:
+        contenido = max(self._scroll.viewport().width(),
+                        self._contenedor.minimumWidth())
+        ancho = (contenido - self.SEPARACION * (len(self._botones) - 1)) / len(self._botones)
+        if ancho <= 0:
+            return
+        necesitan = [
+            boton.fontMetrics().horizontalAdvance(f"{texto}   {atajo}") + 28
+            for boton, (texto, atajo) in (
+                (self._botones[n], self._textos[n]) for n in self._textos)
+        ]
+        mostrar = ancho >= max(necesitan)
+        for nombre, boton in self._botones.items():
+            texto, atajo = self._textos[nombre]
+            boton.setText(f"{texto}   {atajo}" if mostrar else texto)
+
+    def sizeHint(self) -> QSize:
+        alto = self._alto_scroll + self.SEPARACION + self._alto_cobrar
+        return QSize(super().sizeHint().width(), alto)
+
+    def minimumSizeHint(self) -> QSize:
+        return self.sizeHint()
+
+    def resizeEvent(self, evento) -> None:
+        super().resizeEvent(evento)
+        self._ajustar_atajos()
+
+    def showEvent(self, evento) -> None:
+        super().showEvent(evento)
+        self._ajustar_atajos()
+
+    def pulsar(self, nombre: str, destello: bool = False) -> None:
+        boton = self._botones.get(nombre)
+        if boton is None and nombre == "accionCobrar":
+            boton = self.cobrar
+        if boton is None:
+            return
+        anterior = self._animaciones.pop(nombre, None)
+        if anterior is not None:
+            anterior.stop()
+            anterior.deleteLater()
+        efecto = QGraphicsOpacityEffect(boton)
+        boton.setGraphicsEffect(efecto)
+        animacion = QPropertyAnimation(efecto, b"opacity")
+        animacion.setDuration(260 if destello else 140)
+        animacion.setEasingCurve(QEasingCurve.Type.OutQuad)
+        animacion.setKeyValueAt(0.0, 1.0)
+        animacion.setKeyValueAt(0.5, 0.4 if destello else 0.65)
+        animacion.setKeyValueAt(1.0, 1.0)
+        animacion.finished.connect(lambda: _quitar_efecto(boton))
+        self._animaciones[nombre] = animacion
+        animacion.start()
+
+
+def _quitar_efecto(boton: QWidget) -> None:
+    try:
+        boton.setGraphicsEffect(None)
+    except RuntimeError:
+        pass
 
 
 class _UiCompat:
@@ -97,28 +235,19 @@ class VentanaVentas(QWidget, VentanaBase):
         self.ui.btnQuitar.clicked.connect(self.quitar)
         self.ui.btnComodin.clicked.connect(self.agregar_comodin)
         self._total_anterior = 0.0
-        self._raiz_qml = None
-        self._botones_qml = {}
-        self._qml_conectado = False
-        self._quick_acciones = QQuickWidget(self)
-        self._quick_acciones.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self._quick_acciones.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
-        self._quick_acciones.setClearColor(QColor(color("fondo")))
-        self._quick_acciones.setFixedHeight(round(114 * escala()))
-        self._quick_acciones.statusChanged.connect(self._conectar_barra_qml)
-        self._tema = puente_tema(self._quick_acciones)
-        self._quick_acciones.rootContext().setContextProperty("Tema", self._tema)
-        self._quick_acciones.setSource(QUrl.fromLocalFile(str(_ruta_qml("components/BarraAccionesVentas.qml"))))
-        self.ui.lyBarraAcciones.addWidget(self._quick_acciones)
-        self._conectar_barra_qml()
-        self._tema.temaCambiado.connect(self._aplicar_tema_barra)
-        for secuencia, metodo, objeto in (
+        self._barra = _BarraAcciones(self)
+        self._barra.descuentoPedido.connect(self.descuento_global)
+        self._barra.recargoPedido.connect(self.recargo)
+        self._barra.comprobantePedido.connect(self.ver_ultimo_comprobante)
+        self._barra.cobrarPedido.connect(self.cobrar_venta)
+        self.ui.lyBarraAcciones.addWidget(self._barra)
+        for secuencia, metodo, nombre in (
             ("Alt+D", self.descuento_global, "accionDescuento"),
             ("Alt+R", self.recargo, "accionRecargo"),
             ("Alt+E", self.ver_ultimo_comprobante, "accionComprobante"),
         ):
             atajo = QShortcut(QKeySequence(secuencia), self)
-            atajo.activated.connect(lambda metodo=metodo, objeto=objeto: self._disparar_accion(metodo, objeto))
+            atajo.activated.connect(lambda m=metodo, n=nombre: self._disparar_accion(m, n))
         atajo_quitar = QShortcut(QKeySequence("Alt+C"), self)
         atajo_quitar.activated.connect(self.quitar)
         for secuencia in ("Ctrl+Return", "Ctrl+Enter"):
@@ -195,46 +324,12 @@ class VentanaVentas(QWidget, VentanaBase):
     def _usuario_actual(self) -> str:
         return self._usuario_actual_nombre
 
-    def _aplicar_tema_barra(self) -> None:
-        """Recarga la barra QML para que tome la paleta del tema activo."""
-        self._quick_acciones.setClearColor(QColor(color("fondo")))
-        self._qml_conectado = False
-        self._raiz_qml = None
-        self._botones_qml.clear()
-        self._quick_acciones.setSource(
-            QUrl.fromLocalFile(str(_ruta_qml("components/BarraAccionesVentas.qml"))))
-        self._conectar_barra_qml()
-
-    def _conectar_barra_qml(self) -> None:
-        if self._qml_conectado:
-            return
-        if self._quick_acciones.status() != QQuickWidget.Status.Ready:
-            return
-        raiz = self._quick_acciones.rootObject()
-        if raiz is None:
-            return
-        self._qml_conectado = True
-        self._raiz_qml = raiz
-        raiz.setProperty("escala", escala())
-        raiz.descuentoPedido.connect(self.descuento_global)
-        raiz.recargoPedido.connect(self.recargo)
-        raiz.comprobantePedido.connect(self.ver_ultimo_comprobante)
-        raiz.cobrarPedido.connect(self.cobrar_venta)
-        for objeto in ("accionDescuento", "accionRecargo",
-                       "accionComprobante", "accionCobrar"):
-            boton = raiz.findChild(QObject, objeto)
-            if boton is not None:
-                self._botones_qml[objeto] = boton
-
-    def _disparar_accion(self, metodo: Callable[[], None], objeto: str) -> None:
+    def _disparar_accion(self, metodo: Callable[[], None], nombre: str) -> None:
         metodo()
-        boton = self._botones_qml.get(objeto)
-        if boton is not None:
-            QMetaObject.invokeMethod(boton, "triggerVisualPulse")
+        self._barra.pulsar(nombre)
 
     def _destellar_cobrar(self) -> None:
-        if self._raiz_qml is not None:
-            QMetaObject.invokeMethod(self._raiz_qml, "destellar")
+        self._barra.pulsar("accionCobrar", destello=True)
 
     def ver_ultimo_comprobante(self) -> None:
         if self._ultimo_comprobante is None:

@@ -9,12 +9,11 @@ from qfluentwidgets import (
     PasswordLineEdit,
     PrimaryPushButton,
     PushButton,
-    qconfig,
 )
 
 from models.usuario import Usuario
 from services.autenticacion import Autenticacion
-from ui.fluent import CLARO, OSCURO, color
+from ui.fluent import CLARO, OSCURO
 from views.ventana_base import VentanaBase
 
 LARGO_MINIMO_USUARIO = 3
@@ -94,18 +93,10 @@ class VentanaPrimerUsuario(QDialog, VentanaBase):
 
         layout.addLayout(botones)
 
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
-
         self.txtUsuario.returnPressed.connect(self.txtPassword.setFocus)
         self.txtPassword.returnPressed.connect(self.txtRepetir.setFocus)
         self.txtRepetir.returnPressed.connect(self.crear)
         self.txtUsuario.setFocus()
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema Fluent."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
 
     def crear(self) -> None:
         nombre = self.txtUsuario.text().strip().lower()

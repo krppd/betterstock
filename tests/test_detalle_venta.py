@@ -320,3 +320,51 @@ def test_movimientos_integra_categoria_ventas_y_detalle(tmp_path, monkeypatch, a
     ventana.btnDetalle.click()
     assert abierto
 
+
+def _ventana_movimientos_con_venta(tmp_path):
+    from views.ventana_detalle_venta import VentanaDetalleVenta
+    from views.ventana_movimientos import VentanaMovimientos
+
+    _, stock, ventas, estadisticas = _armar_ventas(tmp_path, "Arroz Lucchetti")
+    ventas.agregar_producto("1001", cantidad=3)
+    ventas.cobrar(
+        date.today(), monto_recibido=PRECIO * 3, medio_pago=METODO_EFECTIVO)
+
+    ventana = VentanaMovimientos(stock, estadisticas=estadisticas)
+    indice = ventana.cmbMotivo.findData("Ventas")
+    ventana.cmbMotivo.setCurrentIndex(indice)
+    ventana.tblHistorial.selectRow(0)
+    return ventana, VentanaDetalleVenta
+
+
+def test_cerrar_detalle_sin_cambios_no_recarga_el_historial(
+        tmp_path, monkeypatch, aplicacion_global):
+    ventana, detalle = _ventana_movimientos_con_venta(tmp_path)
+    recargas: list[int] = []
+    monkeypatch.setattr(
+        type(ventana), "cargar_historial",
+        lambda _self, *_args: recargas.append(1))
+    monkeypatch.setattr(detalle, "exec", lambda _self: 1)
+
+    ventana.btnDetalle.click()
+
+    assert recargas == []
+
+
+def test_cerrar_detalle_con_cambios_recarga_el_historial(
+        tmp_path, monkeypatch, aplicacion_global):
+    ventana, detalle = _ventana_movimientos_con_venta(tmp_path)
+    recargas: list[int] = []
+    monkeypatch.setattr(
+        type(ventana), "cargar_historial",
+        lambda _self, *_args: recargas.append(1))
+
+    def exec_con_cambio(self):
+        self.modificado = True
+        return 1
+
+    monkeypatch.setattr(detalle, "exec", exec_con_cambio)
+
+    ventana.btnDetalle.click()
+
+    assert len(recargas) == 1

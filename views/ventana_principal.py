@@ -4,9 +4,7 @@ from typing import Callable
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import (
-    QEasingCurve,
     QEvent,
-    QPropertyAnimation,
     QRect,
     QRectF,
     Qt,
@@ -26,7 +24,6 @@ from PyQt6.QtGui import (
 from PyQt6.QtSvg import QSvgRenderer
 from PyQt6.QtWidgets import (
     QApplication,
-    QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -40,7 +37,6 @@ from qfluentwidgets import (
     NavigationItemPosition,
     Theme,
     isDarkTheme,
-    setTheme,
 )
 
 from config import ALERTAS_EN_AVISO_STOCK, RECURSOS_DIR
@@ -59,10 +55,10 @@ from services.turnos import ServicioTurnos
 from ui.estilo_ventana import aplicar_estilo_ventana
 from ui.estilos import (
     TAMANO_SMALL,
-    aplicar_color_fluent,
     escala,
     fuente,
 )
+from ui.gestor_tema import obtener_gestor
 from ui.widgets.notificacion import Notificacion
 from utils.formato import formatear_cantidad
 from views.ventana_alertas import VentanaAlertas
@@ -146,6 +142,9 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         turnos: ServicioTurnos | None = None,
         caja=None,
     ) -> None:
+        gestor = obtener_gestor()
+        if gestor is not None:
+            gestor.instalar()  # antes de que FluentWindow cree sus widgets
         super().__init__()
         self._gestor_stock = gestor_stock
         self._gestor_comercio = gestor_comercio
@@ -163,6 +162,7 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
         self._turnos = turnos
 
         self._paginas = self.stackedWidget
+        self._paginas.setAnimationEnabled(False)
         self._paginas_instanciadas: dict[str, QWidget] = {}
         self._indices: dict[str, int] = {}
         self._aviso_stock: Notificacion | None = None
@@ -415,8 +415,9 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
                 panel._onExpandAniFinished()
 
     def _aplicar_tema(self, oscuro: bool) -> None:
-        setTheme(Theme.DARK if oscuro else Theme.LIGHT, lazy=True)
-        aplicar_color_fluent(oscuro=oscuro)
+        gestor = obtener_gestor()
+        if gestor is not None:
+            gestor.aplicar(oscuro)
         self._actualizar_texto_tema()
 
     def _actualizar_texto_tema(self) -> None:
@@ -431,56 +432,11 @@ class VentanaPrincipal(FluentWindow, VentanaBase):
 
     def _alternar_tema(self) -> None:
         oscuro = not isDarkTheme()
-        if self.isVisible() and not self.rect().isEmpty():
-            self._transicionar_tema(oscuro)
-        else:
-            self._aplicar_tema(oscuro)
-            preferencias.guardar_modo_oscuro(oscuro)
-
-    def _transicionar_tema(self, oscuro: bool) -> None:
-        """Transición suave con cross-fade optimizado para cambio de tema."""
-        if getattr(self, "_animacion_tema", None) is not None:
-            self._animacion_tema.stop()
-        if getattr(self, "_overlay_tema", None) is not None:
-            self._overlay_tema.deleteLater()
-            self._overlay_tema = None
-
-        overlay = QLabel(self)
-        overlay.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
-        overlay.setGeometry(self.rect())
-        overlay.setPixmap(self.grab())
-        overlay.show()
-        overlay.raise_()
-
-        self.setUpdatesEnabled(False)
         self._aplicar_tema(oscuro)
         preferencias.guardar_modo_oscuro(oscuro)
-        self.setUpdatesEnabled(True)
-        self.update()
-        QApplication.processEvents()
-
-        efecto = QGraphicsOpacityEffect(overlay)
-        overlay.setGraphicsEffect(efecto)
-        anim = QPropertyAnimation(efecto, b"opacity", self)
-        anim.setDuration(240)
-        anim.setStartValue(1.0)
-        anim.setEndValue(0.0)
-        anim.setEasingCurve(QEasingCurve.Type.OutCubic)
-
-        def al_terminar() -> None:
-            overlay.deleteLater()
-            self._overlay_tema = None
-            self._animacion_tema = None
-
-        anim.finished.connect(al_terminar)
-        self._overlay_tema = overlay
-        self._animacion_tema = anim
-        anim.start()
 
     def resizeEvent(self, evento: QtCore.QResizeEvent) -> None:
         super().resizeEvent(evento)
-        if getattr(self, "_overlay_tema", None) is not None:
-            self._overlay_tema.setGeometry(self.rect())
 
     def _marcar_activa(self, nombre: str) -> None:
         if not nombre:

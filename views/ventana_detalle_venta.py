@@ -62,6 +62,7 @@ class VentanaDetalleVenta(QDialog, VentanaBase):
         super().__init__(parent)
         self._venta = venta
         self._gestor_anulaciones = gestor_anulaciones or servicio_actual()
+        self.modificado = False
         self._iniciar_interfaz()
         self._acomodar_escala()
         self.ui.btnCerrar.clicked.connect(self.accept)
@@ -321,6 +322,7 @@ class VentanaDetalleVenta(QDialog, VentanaBase):
                 "Anulada con faltantes",
                 "La venta quedó anulada, pero estos productos ya no existen "
                 f"y su stock no volvió: {', '.join(faltantes)}.")
+        self.modificado = True
         supervisor = f" (supervisor: {etiqueta})" if etiqueta else ""
         Notificacion(self).mostrar(
             "Venta anulada",
@@ -364,6 +366,7 @@ class VentanaDetalleVenta(QDialog, VentanaBase):
         except ErrorNegocio as error:
             self.mostrar_advertencia("Devolución parcial", str(error))
             return
+        self.modificado = True
         Notificacion(self).mostrar(
             "Devolución parcial registrada",
             f"Se devolvieron {formatear_dinero(dev.total)} en mercadería.",

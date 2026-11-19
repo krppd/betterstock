@@ -25,7 +25,7 @@ class VentanaAlertas(QWidget, VentanaBase):
         self.ui.tblVencimientos.setVisible(False)
 
         if hasattr(qconfig, "themeChanged"):
-            qconfig.themeChanged.connect(self.cargar_alertas)
+            qconfig.themeChanged.connect(self._repintar)
 
         self.cargar_alertas()
 
@@ -44,6 +44,10 @@ class VentanaAlertas(QWidget, VentanaBase):
 
     def al_mostrar(self) -> None:
         self.cargar_alertas()
+
+    def _repintar(self) -> None:
+        """El tema lo resuelve la hoja global; no hace falta volver a consultar la BD."""
+        self.ui.tblAlertas.viewport().update()
 
     def cargar_alertas(self) -> None:
         self._cargar_stock()

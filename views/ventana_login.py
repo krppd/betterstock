@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QColor, QPixmap
-from PyQt6.QtWidgets import QDialog
-from qfluentwidgets import CheckBox, qconfig
+from PyQt6.QtWidgets import QApplication, QDialog
+from qfluentwidgets import CheckBox
 
 from config import RECURSOS_DIR
 from services import preferencias
 from services.autenticacion import Autenticacion
-from ui.fluent import CLARO, OSCURO, color
+from ui.estilos import aplicar_tema
+from ui.fluent import CLARO, OSCURO
 from ui.generated.login_ui import Ui_Dialog as Ui_LoginForm
 from views.ventana_base import VentanaBase
 
@@ -56,13 +57,6 @@ class VentanaLogin(QDialog, VentanaBase):
         self.ui.lblError.setText("")
         self._armar_modo_tactil()
         self._ingresando = False
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema Fluent."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
 
     def _armar_modo_tactil(self) -> None:
         self.chkModoTactil = CheckBox(self.TEXTO_MODO_TACTIL, self.ui.layoutWidget)
@@ -71,15 +65,21 @@ class VentanaLogin(QDialog, VentanaBase):
         self.chkModoTactil.toggled.connect(self._cambiar_modo_tactil)
         self.ui.gridLayout.addWidget(self.chkModoTactil, 7, 0, 1, 1)
         self.ui.gridLayout.activate()
+        self.setTabOrder(self.ui.btnIngresar, self.chkModoTactil)
+        self._actualizar_tamano()
+
+    def _actualizar_tamano(self) -> None:
+        """Recalcula el tamaño fijo con la escala vigente."""
         alto = self.ui.gridLayout.sizeHint().height()
         self.ui.layoutWidget.setGeometry(26, self.MARGEN_VERTICAL, 361, alto)
         alto_ventana = self.MARGEN_VERTICAL + alto + self.MARGEN_VERTICAL
         self.setFixedSize(
             self.ANCHO_FIJO, max(alto_ventana, self.ALTO_MINIMO))
-        self.setTabOrder(self.ui.btnIngresar, self.chkModoTactil)
 
     def _cambiar_modo_tactil(self, activo: bool) -> None:
         preferencias.guardar_modo_tactil(activo)
+        aplicar_tema(QApplication.instance(), preferencias.escala_modo_tactil())
+        self._actualizar_tamano()
 
     def _crear_cuadro_logo(self, numero: int) -> QPixmap:
         tira = self._tira_logo

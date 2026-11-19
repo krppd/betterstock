@@ -29,7 +29,6 @@ from qfluentwidgets import (
     SimpleCardWidget,
     SubtitleLabel,
     TableWidget,
-    qconfig,
 )
 
 from config import OUTPUT_DIR
@@ -135,14 +134,6 @@ class ImportadorProductos(QDialog):
         self._paginas.addWidget(self._pagina_resultado())
         layout.addLayout(self._armar_botones())
         self._actualizar_botones()
-
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del asistente sigue al tema Fluent."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo_suave')}; }}")
 
     def exec(self) -> int:
         if self._servicio.limite_alcanzado():
@@ -707,14 +698,6 @@ class AvisoPlanGratis(QDialog):
         botones.addStretch(1)
         botones.addWidget(self.btnCerrar)
         layout.addLayout(botones)
-
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema Fluent."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo_suave')}; }}")
 
     def _escribir(self) -> None:
         QDesktopServices.openUrl(QUrl(

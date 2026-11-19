@@ -20,7 +20,6 @@ from qfluentwidgets import (
     FluentIconBase,
     LineEdit,
     PushButton,
-    qconfig,
 )
 
 from models import medio_pago
@@ -38,7 +37,6 @@ from models.venta_registrada import PagoVenta
 from services.excepciones import ErrorValidacion
 from services.gestor_fiado import GestorFiado
 from ui.estilos import ROJO_TEXTO, VERDE_TEXTO, TAMANO_BODY, TAMANO_DISPLAY, TAMANO_MICRO, fuente
-from ui.fluent import color as color_fluent
 from ui.tema import color as color_tema
 from ui.widgets.etiqueta_rodante import EtiquetaRodante
 from utils.formato import diferencia as diferencia_montos
@@ -98,14 +96,6 @@ class VentanaCobro(QDialog, VentanaBase):
         self.ui.btnCobrar.setDefault(True)
         self.ui.btnCancelar.setAutoDefault(False)
         self.actualizar()
-        self._aplicar_tema()
-        if hasattr(qconfig, "themeChanged"):
-            qconfig.themeChanged.connect(self._aplicar_tema)
-
-    def _aplicar_tema(self) -> None:
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color_fluent('fondo')}; }}"
-        )
 
     def _iniciar_interfaz(self) -> None:
         self.setObjectName("Form")

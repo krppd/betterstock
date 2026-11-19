@@ -1,20 +1,13 @@
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
-from PyQt6.QtCore import QObject, QUrl
 from PyQt6.QtWidgets import QApplication
-from PyQt6.QtQuickWidgets import QQuickWidget
 
 from services.preferencias import ESCALA_TACTIL
 from ui.estilos import ESCALA_NORMAL, aplicar_escala, aplicar_tema
-from ui.tema import puente_tema
+from views.ventana_ventas import _BarraAcciones
 
-RAIZ = Path(__file__).resolve().parent.parent
-QML = RAIZ / "ui" / "qml" / "components" / "BarraAccionesVentas.qml"
 BOTONES = ("accionDescuento", "accionRecargo", "accionComprobante")
-ALTO_BARRA = 114
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -32,146 +25,123 @@ def escala_normal():
     aplicar_escala(ESCALA_NORMAL)
 
 
-def _barra(escala: float, ancho: int, alto: int):
+def _barra(escala: float, ancho: int) -> _BarraAcciones:
     aplicar_tema(QApplication.instance(), escala)
-    rapido = QQuickWidget()
-    rapido.rootContext().setContextProperty("Tema", puente_tema(rapido))
-    rapido.setResizeMode(QQuickWidget.ResizeMode.SizeRootObjectToView)
-    rapido.setSource(QUrl.fromLocalFile(str(QML)))
-    raiz = rapido.rootObject()
-    assert raiz is not None, "la barra no cargó"
-    raiz.setProperty("escala", escala)
-    rapido.resize(ancho, alto)
-    rapido.show()
+    barra = _BarraAcciones()
+    barra.resize(ancho, barra.sizeHint().height())
+    barra.show()
     QApplication.processEvents()
-    return rapido, raiz
+    barra._ajustar_atajos()
+    QApplication.processEvents()
+    return barra
 
 
-def _botones(raiz: QObject) -> list[tuple[str, QObject]]:
-    encontrados = []
-    for nombre in BOTONES:
-        boton = raiz.findChild(QObject, nombre)
-        assert boton is not None, nombre
-        encontrados.append((nombre, boton))
-    return encontrados
+def _cerrar(barra: _BarraAcciones) -> None:
+    barra.close()
+    barra.deleteLater()
 
 
-def _ancho_contenido(boton: QObject) -> float:
-    return (boton.property("anchoTexto")
-            + boton.property("anchoInsignia") + 32)
+def _sin_recorte(barra: _BarraAcciones) -> None:
+    for nombre, boton in barra._botones.items():
+        assert boton.fontMetrics().horizontalAdvance(boton.text()) + 24 <= boton.width(), nombre
 
 
-def _assert_sin_recorte(raiz: QObject) -> None:
-    for nombre, boton in _botones(raiz):
-        assert boton.property("anchoEtiqueta") + 0.5 >= boton.property("anchoTexto"), nombre
-        assert boton.property("width") + 0.5 >= _ancho_contenido(boton), nombre
-
-
-def test_barra_no_tiene_boton_cuentas() -> None:
-    assert "accionCuentas" not in QML.read_text(encoding="utf-8")
+def test_barra_sin_boton_cuentas() -> None:
+    barra = _barra(ESCALA_NORMAL, 800)
+    try:
+        assert set(barra._botones) == set(BOTONES)
+    finally:
+        _cerrar(barra)
 
 
 def test_barra_normal_sin_recortes() -> None:
-    rapido, raiz = _barra(ESCALA_NORMAL, 720, ALTO_BARRA)
+    barra = _barra(ESCALA_NORMAL, 720)
     try:
-        _assert_sin_recorte(raiz)
+        _sin_recorte(barra)
     finally:
-        rapido.close()
-        rapido.deleteLater()
+        _cerrar(barra)
 
 
-def test_barra_tactil_ancho_maximizado_parejo_sin_scroll() -> None:
-    rapido, raiz = _barra(ESCALA_TACTIL, 960, round(ALTO_BARRA * ESCALA_TACTIL))
+def test_barra_tactil_anchos_parejos() -> None:
+    barra = _barra(ESCALA_TACTIL, 960)
     try:
-        botones = _botones(raiz)
-        anchos = [boton.property("width") for _, boton in botones]
-        assert max(anchos) - min(anchos) <= 2.0
-        scroll = raiz.findChild(QObject, "accionesScroll")
-        assert scroll is not None
-        assert scroll.property("contentWidth") <= scroll.property("width") + 1.0
-        for _, boton in botones:
-            assert boton.property("anchoInsignia") == 0
-        _assert_sin_recorte(raiz)
+        anchos = [boton.width() for boton in barra._botones.values()]
+        assert max(anchos) - min(anchos) <= 2
+        assert barra.cobrar.width() == barra.width()
+        _sin_recorte(barra)
     finally:
-        rapido.close()
-        rapido.deleteLater()
+        _cerrar(barra)
 
 
 def test_barra_normal_muestra_los_atajos() -> None:
-    rapido, raiz = _barra(ESCALA_NORMAL, 1000, ALTO_BARRA)
+    barra = _barra(ESCALA_NORMAL, 1000)
     try:
-        for _, boton in _botones(raiz):
-            assert boton.property("anchoInsignia") > 0
-        _assert_sin_recorte(raiz)
+        for nombre, boton in barra._botones.items():
+            assert barra._textos[nombre][1] in boton.text(), nombre
+        _sin_recorte(barra)
     finally:
-        rapido.close()
-        rapido.deleteLater()
-
-
-def test_barra_tactil_sin_recortes() -> None:
-    rapido, raiz = _barra(ESCALA_TACTIL, 890, round(ALTO_BARRA * ESCALA_TACTIL))
-    try:
-        _assert_sin_recorte(raiz)
-    finally:
-        rapido.close()
-        rapido.deleteLater()
-
-
-def test_barra_tactil_anchos_parejos_y_llena_el_ancho() -> None:
-    rapido, raiz = _barra(ESCALA_TACTIL, 1400, round(ALTO_BARRA * ESCALA_TACTIL))
-    try:
-        botones = _botones(raiz)
-        anchos = [boton.property("width") for _, boton in botones]
-        assert max(anchos) - min(anchos) <= 2.0
-        separacion = raiz.property("separacion")
-        total = sum(anchos) + separacion * (len(anchos) - 1)
-        assert abs(total - raiz.property("width")) <= 1.0
-        _assert_sin_recorte(raiz)
-    finally:
-        rapido.close()
-        rapido.deleteLater()
+        _cerrar(barra)
 
 
 def test_barra_tactil_ancha_muestra_los_atajos_parejo() -> None:
-    rapido, raiz = _barra(ESCALA_TACTIL, 1520, round(ALTO_BARRA * ESCALA_TACTIL))
+    barra = _barra(ESCALA_TACTIL, 1520)
     try:
-        botones = _botones(raiz)
-        for _, boton in botones:
-            assert boton.property("anchoInsignia") > 0
-        anchos = [boton.property("width") for _, boton in botones]
-        assert max(anchos) - min(anchos) <= 2.0
-        scroll = raiz.findChild(QObject, "accionesScroll")
-        assert scroll is not None
-        assert scroll.property("contentWidth") <= scroll.property("width") + 1.0
-        _assert_sin_recorte(raiz)
+        for nombre, boton in barra._botones.items():
+            assert barra._textos[nombre][1] in boton.text(), nombre
+        _sin_recorte(barra)
     finally:
-        rapido.close()
-        rapido.deleteLater()
+        _cerrar(barra)
 
 
-def test_barra_tactil_ventana_angosta_desplaza_sin_recortar() -> None:
-    rapido, raiz = _barra(ESCALA_TACTIL, 890, round(ALTO_BARRA * ESCALA_TACTIL))
+def test_barra_angosta_oculta_atajos_sin_recortar() -> None:
+    barra = _barra(ESCALA_TACTIL, 650)
     try:
-        scroll = raiz.findChild(QObject, "accionesScroll")
-        assert scroll is not None
-        assert scroll.property("contentWidth") + 0.5 >= scroll.property("width")
-        ultimo = raiz.findChild(QObject, BOTONES[-1])
-        assert ultimo is not None
-        assert (scroll.property("contentWidth") + 0.5
-                >= ultimo.property("x") + ultimo.property("width"))
-        _assert_sin_recorte(raiz)
+        for nombre, boton in barra._botones.items():
+            assert barra._textos[nombre][1] not in boton.text(), nombre
+        _sin_recorte(barra)
     finally:
-        rapido.close()
-        rapido.deleteLater()
+        _cerrar(barra)
+
+
+def test_barra_muy_angosta_desplaza_sin_recortar() -> None:
+    barra = _barra(ESCALA_TACTIL, 320)
+    try:
+        assert barra._scroll.horizontalScrollBar().maximum() > 0
+        _sin_recorte(barra)
+    finally:
+        _cerrar(barra)
 
 
 def test_la_barra_tactil_es_mas_alta() -> None:
-    rapido, raiz = _barra(ESCALA_TACTIL, 890, round(ALTO_BARRA * ESCALA_TACTIL))
+    barra = _barra(ESCALA_TACTIL, 890)
     try:
-        assert raiz.property("escala") == ESCALA_TACTIL
-        cobrar = raiz.findChild(QObject, "accionCobrar")
-        assert cobrar is not None
-        assert cobrar.property("height") > 54
+        assert barra.cobrar.height() > 54
+        assert barra._botones["accionDescuento"].height() > 52
     finally:
-        rapido.close()
-        rapido.deleteLater()
+        _cerrar(barra)
+
+
+def test_los_botones_emiten_sus_senales() -> None:
+    barra = _barra(ESCALA_NORMAL, 1000)
+    recibidas: list[str] = []
+    barra.descuentoPedido.connect(lambda: recibidas.append("descuento"))
+    barra.recargoPedido.connect(lambda: recibidas.append("recargo"))
+    barra.comprobantePedido.connect(lambda: recibidas.append("comprobante"))
+    barra.cobrarPedido.connect(lambda: recibidas.append("cobrar"))
+    try:
+        for nombre in BOTONES:
+            barra._botones[nombre].click()
+        barra.cobrar.click()
+        QApplication.processEvents()
+        assert recibidas == ["descuento", "recargo", "comprobante", "cobrar"]
+    finally:
+        _cerrar(barra)
+
+
+def test_el_destello_de_cobrar_no_rompe() -> None:
+    barra = _barra(ESCALA_NORMAL, 1000)
+    try:
+        barra.pulsar("accionCobrar", destello=True)
+        QApplication.processEvents()
+    finally:
+        _cerrar(barra)

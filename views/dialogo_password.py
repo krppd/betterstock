@@ -8,11 +8,10 @@ from qfluentwidgets import (
     PasswordLineEdit,
     PrimaryPushButton,
     PushButton,
-    qconfig,
 )
 
 from services.autenticacion import Autenticacion
-from ui.fluent import CLARO, OSCURO, color
+from ui.fluent import CLARO, OSCURO
 from views.ventana_base import VentanaBase
 
 
@@ -35,14 +34,6 @@ class DialogoCambiarPassword(QDialog, VentanaBase):
         layout.addStretch(1)
         layout.addLayout(self._armar_botones())
         layout.setSizeConstraint(QLayout.SizeConstraint.SetFixedSize)
-
-        self._aplicar_tema()
-        qconfig.themeChanged.connect(self._aplicar_tema)
-
-    def _aplicar_tema(self) -> None:
-        """El fondo del diálogo sigue al tema Fluent."""
-        self.setStyleSheet(
-            f"QDialog#{self.objectName()} {{ background-color: {color('fondo')}; }}")
 
     def _armar_formulario(self) -> QFormLayout:
         formulario = QFormLayout()
