@@ -4,7 +4,7 @@
 pytest==9.2.0
 
 # Sólo los usan tests: test_grafico_etiquetas.py (matplotlib) y test_scroll.py (QtCharts)
-PyQt6-Charts==6.12.0
+PyQt6-Charts==6.12.1
 matplotlib==3.11.2
 
 # Analisis estatico
