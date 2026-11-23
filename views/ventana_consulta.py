@@ -26,6 +26,8 @@ from utils.formato import formatear_cantidad, formatear_dinero
 from views.formulario_producto import FormularioProducto
 from views.ventana_base import VentanaBase
 
+LADO_FOTO = 400
+
 
 def _tintar(etiqueta, token: str) -> None:
     """Aplica a una etiqueta Fluent el color de un token de ui.fluent (claro y oscuro)."""
@@ -86,8 +88,8 @@ class _UiConsulta:
 
         self.lblImagen = QLabel(ventana)
         self.lblImagen.setObjectName("lblImagen")
-        self.lblImagen.setMinimumSize(260, 260)
-        self.lblImagen.setMaximumSize(340, 340)
+        self.lblImagen.setMinimumSize(LADO_FOTO, LADO_FOTO)
+        self.lblImagen.setMaximumSize(LADO_FOTO, LADO_FOTO)
         self.lblImagen.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.lblImagen.setScaledContents(False)
 
@@ -271,7 +273,7 @@ class VentanaConsulta(QWidget, VentanaBase):
         ruta = ruta_foto(producto.codigo)
         if ruta:
             retrato = QPixmap(ruta).scaled(
-                320, 320, Qt.AspectRatioMode.KeepAspectRatio,
+                LADO_FOTO, LADO_FOTO, Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation)
             self.ui.lblImagen.setPixmap(retrato)
             self.ui.lblImagen.setText("")
