@@ -1,5 +1,5 @@
 # Interfaz gráfica (incluye QtPrintSupport, que se usa para imprimir tickets)
-PyQt6==6.12.0
+PyQt6==6.12.1
 # Sin el extra "completo": scipy/colorthief/numpy sólo habilitan el efecto
 # acrílico, que la app degrada sola, y agregan ~0.4s al arranque.
 PyQt6-Fluent-Widgets==1.11.3
